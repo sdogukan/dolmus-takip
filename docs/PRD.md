@@ -92,7 +92,7 @@ Raporlar **yalnız ekranda**, **hafta, ay, yıl toplamları ve gün gün döküm
 
 - **Kişi raporu:** Çalışılan günler, toplam süre, toplam hasılat, ayrılan şoför payı ve günlük detaylar. Mal sahibi sürmüşse aynı listede saat/hasılatıyla görünür, payı sıfırdır. Önceki gereksinimdeki mazot, diğer masraf ve kalan kırılımları kişi detayında korunur.
 - **Araç raporu:** Gelir, mazot, diğer gider, şoför payı ve hesaplanan kalan; gün gün seçilen sürücüler. Bir giriş altında birden fazla araç karşılaştırmasının erişim kapsamı §10 kararı sonrasında belirlenecektir.
-- **İşletme özeti:** Yetkili olunan araç kapsamının toplamları (aynı sahibin diğer araçlarına erişim açık); hesaplanan kalan ile **teslim alındığı doğrulanan tutar** ayrı alanlardır. Henüz doğrulanmamış şoför kayıtları ve onay gerekmeyen sahip sürüşleri ayırt edilir.
+- **İşletme özeti:** Yetkili olunan araç kapsamının toplamları (ilk sürümde sahip yalnız giriş yapılan aracı görür; çok araçlı özet K2 kararıyla ertelendi); hesaplanan kalan ile **teslim alındığı doğrulanan tutar** ayrı alanlardır. Henüz doğrulanmamış şoför kayıtları ve onay gerekmeyen sahip sürüşleri ayırt edilir.
 - Tarih, plaka/araç, kişi, doğrulama durumu ve masraf türüyle ilgili kayıtlara ulaşılabilir.
 
 Kişi raporları isim metnine göre değil sabit kişi kaydına göre toplanır. İsim düzeltmesi aynı kişinin geçmişini bölmez; aynı isimli farklı şoför kayıtları birbirine karıştırılmaz. Pasif şoförlerin geçmiş kayıtları ve raporları korunur. Seçim, bireysel kimlik doğrulaması anlamına gelmez.
@@ -198,6 +198,8 @@ Tek AWS Lightsail ve günlük otomatik snapshot seçildi. Frankfurt/Linux IPv4 2
 Gece geçişi ve çevrimdışı kullanımın ek testleri ilgili kapsam kararı sonrası yazılacaktır; bunlar burada karara bağlanmış sayılmaz.
 
 ## 10. Açık kararlar ve kapsam sınırları
+
+**Karar durumu (2026-09-17):** K1–K8 için buradaki öneriler ürün sahibi tarafından aynen kabul edildi; K9 sürümleri kanıtla sabitlendi. Nihai kararlar ve gerekçeler [DECISIONS.md](DECISIONS.md) dosyasındadır; bu bölümdeki 'açık/onay bekliyor' ifadeleri tarihsel bağlamdır.
 
 Kesinleşmiş temel akış tekrar sorulmayacak. Aşağıdakiler teknik planın ilgili noktasında ele alınacak:
 

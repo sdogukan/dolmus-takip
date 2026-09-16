@@ -157,6 +157,8 @@ Bulgu kaydı: `QA/Story/AC · önem · alan · adımlar · beklenen · gerçek �
 
 ## 6. Açık kararlar ve kabul kapısı
 
+**Karar durumu (2026-09-17):** K1–K8 için buradaki öneriler ürün sahibi tarafından aynen kabul edildi; K9 sürümleri kanıtla sabitlendi. Nihai kararlar ve gerekçeler [DECISIONS.md](DECISIONS.md) dosyasındadır; bu bölümdeki 'açık/onay bekliyor' ifadeleri tarihsel bağlamdır.
+
 | Karar | QA'ya bağlanacağı yer / mevcut sınır |
 |---|---|
 | K1 | QA03, QA08–QA10: ortak şoförün görebileceği kayıt/teslim ve onaysız düzeltme süresi kararı gelmeden bu testlerin beklenen sonuçları kesinleştirilmez. |

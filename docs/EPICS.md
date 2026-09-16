@@ -308,6 +308,8 @@ Seçilen tek Lightsail makinesinde uygulama kontrollü çalıştırılır; çök
 
 ## Açık kararların etkileyeceği işler
 
+**Karar durumu (2026-09-17):** K1–K8 için buradaki öneriler ürün sahibi tarafından aynen kabul edildi; K9 sürümleri kanıtla sabitlendi. Nihai kararlar ve gerekçeler [DECISIONS.md](DECISIONS.md) dosyasındadır; bu bölümdeki 'açık/onay bekliyor' ifadeleri tarihsel bağlamdır.
+
 K kodları yalnız bu belgedeki takip referanslarıdır; yeni ürün gereksinimi değildir. Mevcut öneriler [PRD](PRD.md) §10, [Architecture](ARCHITECTURE.md) §10 ve [Design](DESIGN.md) §2.11’dedir. Etkilenmeyen işlerin planı hazırlanabilir; ilgili akışın son kabulü kararına göre yazılır.
 
 | Kod | Karar konusu | Etkilenen iş | Karara bağlanacağı nokta |

@@ -12,3 +12,5 @@ Doğukan onaylı kaydın “Düzelt ve onayla” ile tek işlemde güncellenmesi
 Para integer kuruş, oran sabit hesap kuralı sürümüyle tutulur. İşletme kapsamı sorgularda uygulanır; birleşik foreign key’ler işletmeler arasında yanlış ilişkiyi engeller. SQL erişim kontrolünün yerine geçmez.
 
 Bu yapı tam olay kaynaklı sistem veya genel muhasebe motoru değildir. Tarih/kişi düzeltmesi yeni sürümde rapora yansır; önceki dağılım geçmişte kalır. Driver/owner tür dönüşümü, farklı para anlamı taşıdığı için açık ürün kenar durumu olarak tutulur.
+
+**Karar durumu (2026-09-17):** K1–K8 için buradaki öneriler ürün sahibi tarafından aynen kabul edildi; K9 sürümleri kanıtla sabitlendi. Nihai kararlar ve gerekçeler [DECISIONS.md](../DECISIONS.md) dosyasındadır; bu bölümdeki 'açık/onay bekliyor' ifadeleri tarihsel bağlamdır.

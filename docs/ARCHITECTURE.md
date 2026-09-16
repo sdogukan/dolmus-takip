@@ -188,7 +188,7 @@ Onaylı kaydın genel PATCH işlemi, driver üzerinden onay ve sahibi olmayan ki
 1. Oturum, CSRF ve veri biçimi denetlenir; sunucu kapsamı çıkarılır.
 2. Her mutasyon istemciden rastgele request_id alır. Aynı form yeniden gönderilirken bu anahtar korunur. Sonucu bilinen bir işlemden sonra içerik değiştirilirse yeni anahtar üretilir. Oluşturmanın sonucu belirsizse gönderilen içerik/anahtar dondurulur; önce aynı istek tekrar gönderilerek sonuç çözümlenir. Başarılıysa bulunan kayıt ID/sürümü üzerinden düzenlemeye geçilir. Bu çözülmeden değiştirilmiş formdan yeni oluşturma gönderilmez.
 3. Kısa yazma transaction’ı içinde güncel yetki/aktiflik ve tekrar gönderim kaydı kontrol edilir. Aynı kapsam/anahtar/işlem/içerik eski sonuç kimliğini döndürür; içerik farklıysa 409 verir.
-4. Düzenleme, istemcinin gördüğü version ile koşullu UPDATE yapar. Eşleşme yoksa 409: “Kayıt değişmiş, güncel halini açın.” Sessiz son yazan kazanır davranışı yoktur.
+4. Düzenleme, istemcinin gördüğü version ile koşullu UPDATE yapar. Eşleşme yoksa 409: “Bu kayıt değişmiş. Güncel halini açıp tekrar kontrol et.” Sessiz son yazan kazanır davranışı yoktur.
 5. Güncel kayıt, revizyon, gerekiyorsa onay, destek izi ve makbuz birlikte yazılır. Commit sonrası başarı dönülür; commit olmuş ama yanıt kaybolmuşsa aynı anahtar ikinci kayıt oluşturmaz.
 
 Yetki kontrolü idempotency sonucunda da yapılır; oturumu iptal edilmiş kişi eski makbuz üzerinden veri okuyamaz. Scope, oturum tokenına değil kalıcı credential/ekip kimliğine ve işlem hedefi kapsamına bağlanır; tekrar giriş sonrası aynı request_id korunabilir. Mali makbuzların minimum sonucu kayıt saklama süresince korunur; tüm HTTP gövdesi veya gizli veri saklanmaz. İlk sürümde client request_id sessionStorage’da yalnız kayıt taslağı yaşarken tutulabilir; bu çevrimdışı başarılı kayıt anlamına gelmez.
@@ -374,6 +374,8 @@ Başlangıç performans hedefleri: normal karışık yükte kayıt p95 ≤2 sani
 RAM, event-loop gecikmesi, SQLite beklemesi, disk/WAL büyümesi ve CPU burst izlenir. Başlangıç disk uyarısı %80, kritik %90; loglara örneğin toplam 200 MB sınır konur. RAM baskısında 4 GB Lightsail; kısa sorgulara rağmen yazma darboğazında PostgreSQL değerlendirilir. CPU sorunu yalnız RAM artışıyla çözülmüş sayılmaz.
 
 ## 10. Ürün kararları ve açık varsayımlar
+
+**Karar durumu (2026-09-17):** K1–K8 için buradaki öneriler ürün sahibi tarafından aynen kabul edildi; K9 sürümleri kanıtla sabitlendi. Nihai kararlar ve gerekçeler [DECISIONS.md](DECISIONS.md) dosyasındadır; bu bölümdeki 'açık/onay bekliyor' ifadeleri tarihsel bağlamdır.
 
 “Mimari taslak” bu satırları kullanıcı onayı olmadan ürün gereksinimine dönüştürmez. Güvenlikte varsayılan izin verilmemesidir; açık kapsam için geniş erişim uygulanmaz.
 

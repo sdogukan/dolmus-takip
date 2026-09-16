@@ -335,6 +335,8 @@ Destek işlemi müşterinin kayıt detayında **“Sahip adına platform desteğ
 
 ### 2.11 Kesinleşmemiş tercihler için tasarım önerileri
 
+**Karar durumu (2026-09-17):** K1–K8 için buradaki öneriler ürün sahibi tarafından aynen kabul edildi; K9 sürümleri kanıtla sabitlendi. Nihai kararlar ve gerekçeler [DECISIONS.md](DECISIONS.md) dosyasındadır; bu bölümdeki 'açık/onay bekliyor' ifadeleri tarihsel bağlamdır.
+
 | Açık konu | Önerilen ekran davranışı | Kesinleşmesi gereken |
 |---|---|---|
 | Ortak şoförün geçmişi / düzeltmesi | Seçtiği kişinin aynı araçtaki kayıtları ve teslim durumu; onaysız kaydı yalnız çalışma gününde düzenleme. | Ortak şifre kullanan kişi başka adı da seçebilir. Gösterilecek kayıtlar ve düzeltme sınırı ürün kararıdır; karar olmadan geniş erişim verilmez. |

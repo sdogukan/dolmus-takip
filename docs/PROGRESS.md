@@ -10,7 +10,7 @@ Ajan betiği: scratchpad/task-uygula.js (args: task, story, milestone, steps?, e
 - [x] 0.2 38 aday bulgu 3'lü çürütmeden geçti → 20 birleşik bulgu, M1 engeli yok (docs/DECISIONS.md Faz 0 tablosu)
 - [x] 0.3 K1–K8 kullanıcı kabul etti (doküman önerileri), K9 sürümler kanıtla sabitlendi → docs/DECISIONS.md (2026-09-17)
 - [x] 0.4 Uygulama sırası aşağıya işlendi; mühendislik kararları DECISIONS.md'de
-- [ ] 0.5 Doküman senkronu (F1/F2/F7/F19: karar notları, PRD §5 parantezi, 409 metni) + ilk commit
+- [x] 0.5 Doküman senkronu yapıldı ve doğrulandı, commit atıldı (2026-09-17)
 
 ## M1 — Güvenli giriş ve geliştirme temeli (sıra: MILESTONES §M1)
 - [ ] T1.1 (S1.1) Uygulama, migration ve otomatik kontrol temeli

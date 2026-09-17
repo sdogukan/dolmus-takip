@@ -54,15 +54,14 @@
  *   belleğe okuma kaldırıldı.
  */
 import crypto from "node:crypto";
-import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
 import { getAppDb } from "../data/app-db";
 import {
   extractTransientSqliteLockError,
   MissingDatabaseFileError,
   PendingMigrationsError,
   UnsupportedSqliteVersionError,
+  type AppDatabase,
 } from "../data/db";
-import type { Schema } from "../data/schema";
 import { generateRequestId, jsonErrorResponse } from "../http/errors";
 import { SessionError } from "../usecases/session/errors";
 import { resolveSession } from "../usecases/session/resolve-session";
@@ -82,7 +81,20 @@ export interface GuardFailure {
 export interface RequireSessionSuccess {
   ok: true;
   context: SessionContext;
-  db: BetterSQLite3Database<Schema>;
+  /**
+   * DÜZELTME (T1.5 ADIM 2/2 — `../http/handler.ts` `withProtectedRoute`
+   * ile bütünleşme): önceki tip `BetterSQLite3Database<Schema>` (dar,
+   * `$client` OLMADAN) idi. `getAppDb()`'nin GERÇEK dönüş değeri zaten her
+   * zaman `AppDatabase` (`$client` alanını İÇEREN geniş tip, bkz. `../data/
+   * app-db.ts` üst notu) olduğundan bu bir DAVRANIŞ değişikliği DEĞİLDİR —
+   * yalnız TİPİ, ZATEN taşınan değere UYDURUR. `../http/handler.ts`'in
+   * `resolveStaffVehicleScopeFromHeader`/`resolveAdminScope`'u (`../auth/
+   * scope.ts`, `db: AppDatabase` ister) bu `db`'YE UYGULAMASI GEREKTİĞİNDE
+   * ortaya çıkan gerçek bir tip uyuşmazlığı düzeltilmiştir (kanıt: bu alan
+   * dar tutulduğunda `npm run typecheck` `$client alanı eksik` hatası
+   * verir — bkz. bu ADIM'ın open_issues'ı).
+   */
+  db: AppDatabase;
   /** Ham (özetlenmemiş) oturum tokenı. Route handler'lar bunu ASLA loglamaz
    * veya yanıt gövdesine yazmaz; yalnız `requireWrite`'ın kendi içindeki
    * CSRF karşılaştırması (`context.csrfToken`, zaten bu tokendan türetilmiş

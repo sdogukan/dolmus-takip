@@ -1,13 +1,14 @@
 /**
  * İstemci tarafı geçici veri (taslak/request_id) anahtarlama kuralı —
- * T1.4 ADIM 2/2, S1.4, görev tanımı (c).
+ * T1.4 ADIM 2/2, S1.4, görev tanımı (c); düzeltme turu 1 ile `scopeKey`
+ * tabanlı tek anahtara geçirildi.
  *
  * Kaynak — DECISIONS.md F6: "Taslak + request_id **localStorage**'da;
  * anahtar = credential/platform_user kimliği + araç; TTL 24 saat; çıkış/
- * oturum değişiminde temizlenir." ve görev tanımı: "anahtar öneki = kind +
- * credentialId/platformUserId + vehicleId, TTL 24 saat; süresi geçeni
- * okumama, clearClientStateForOtherScopes(currentScope) ve çıkışta tümünü
- * temizleme."
+ * oturum değişiminde temizlenir." ve DECISIONS.md T1.4 notu (satır 89):
+ * "GET /session istemciye sessionId/credentialId/platformUserId VERMEZ.
+ * client-state (F6) anahtarı için T1.5'te yanıta gizli olmayan opak
+ * `scopeKey` eklenir."
  *
  * DB/ağ YOK — bu SAF bir tarayıcı `Storage` sarmalayıcısıdır. `window`/
  * `localStorage` DOĞRUDAN KULLANILMAZ: `StorageLike` arayüzü enjekte edilir
@@ -15,14 +16,17 @@
  * in-memory Storage ile enjekte et)"); gerçek UI kodu (T1.6+) çağırırken
  * tarayıcının kendi `window.localStorage`'ını geçirir.
  *
- * DÜZELTME (düzeltme turu 1): DECISIONS F6'nın istediği anahtar
- * (`credentialId`/`platformUserId`) artık GET /api/v1/session yanıtında
- * VARDIR (bkz. `../app/api/v1/session/route.ts` üst notu) — bu modül F6/
- * görev tanımının BİREBİR yazdığı kuralı uygular (`ClientStateScope.
- * credentialId`/`platformUserId` alanları) ve gerçek UI kodu (T1.6/T3.4)
- * bu değerleri GÜNCEL `GET /session` yanıtından doğrudan üretebilir;
- * `tests/integration/session-routes.test.ts` bunu gerçek route yanıtından
- * kanıtlar.
+ * DÜZELTME (denetim bulgusu, düzeltme turu 1): önceki sürüm F6'nın "anahtar
+ * = credential/platform_user kimliği + araç" cümlesini HAM `credentialId`/
+ * `platformUserId` alanlarıyla uyguluyordu — ama bu iki alan GET /session
+ * yanıtında YOKTUR ve DECISIONS.md T1.4 kararı gereği asla EKLENMEYECEKTİR
+ * (bkz. `../app/api/v1/session/route.ts` üst notu). Gerçek UI kodunun
+ * KULLANABİLECEĞİ tek eşdeğer, sunucunun ZATEN aynı kimliklerden ürettiği
+ * opak `scopeKey`dir (`../server/auth/scope.ts` `computeScopeKey`:
+ * SHA-256(kind + credentialId/platformUserId + vehicleId) — F6'nın istediği
+ * "kimlik + araç" bileşimini birebir kapsar, yalnız hash'lenmiş/kısaltılmış
+ * biçimde). Bu yüzden `ClientStateScope` artık kendi ayrı kind/credentialId/
+ * platformUserId/vehicleId alanlarını TUTMAZ; doğrudan `scopeKey`'i sarar.
  */
 
 /** `window.localStorage`'ın (veya testteki in-memory taklidinin) uyması
@@ -35,21 +39,14 @@ export interface StorageLike {
   readonly length: number;
 }
 
-export type ClientStateActorKind = "vehicle" | "platform";
-
 /**
- * Bir oturumun "kapsamı" — anahtar önekini üreten kimlik kümesi. `kind`
- * "vehicle" ise `credentialId` VE `vehicleId` ZORUNLUDUR (araç oturumu
- * kimliği + hangi araçta olduğu — aynı credential farklı araca ASLA
- * bağlanmaz ama okunabilirlik ve gelecekteki olası çok-araçlı senaryolar
- * için ikisi de anahtara girer); "platform" ise `platformUserId`
- * ZORUNLUDUR.
+ * Bir oturumun "kapsamı" — anahtar önekini üreten kimlik. `scopeKey`,
+ * GET /api/v1/session yanıtındaki opak alanın AYNISIDIR (bkz. dosya üstü
+ * notu); bu modül onun İÇİNİ hiç açmaz, yalnız bir anahtar öneki olarak
+ * kullanır.
  */
 export interface ClientStateScope {
-  kind: ClientStateActorKind;
-  credentialId?: string;
-  platformUserId?: string;
-  vehicleId?: string;
+  scopeKey: string;
 }
 
 /** DECISIONS.md F6 — "TTL 24 saat." */
@@ -65,28 +62,21 @@ export class InvalidClientStateScopeError extends Error {
 }
 
 /**
- * Bir kapsamın anahtar ÖN EKİNİ üretir — "anahtar öneki = kind +
- * credentialId/platformUserId + vehicleId". Eksik zorunlu alan SESSİZCE
- * yok sayılmaz; programlama hatasını ERKEN yakalamak için fırlatılır
- * (CLAUDE.md — "varsayımda bulunma", geçersiz kapsamla sessizce yanlış bir
- * anahtar üretip başka bir kullanıcının verisini KARIŞTIRMAK çok daha
- * kötü bir sonuçtur).
+ * Bir kapsamın anahtar ÖN EKİNİ üretir — `scopeKey` (GET /session'ın opak
+ * alanı) DOĞRUDAN kullanılır; bu, F6'nın istediği "kind + credential/
+ * platform_user kimliği + araç" ayrımını zaten TAŞIR (bkz. `computeScopeKey`
+ * — kind farklıysa, aynı kind içinde kimlik veya araç farklıysa scopeKey de
+ * farklıdır). Boş/whitespace-only bir `scopeKey` SESSİZCE kabul edilmez;
+ * programlama hatasını ERKEN yakalamak için fırlatılır (CLAUDE.md —
+ * "varsayımda bulunma", geçersiz kapsamla sessizce yanlış bir anahtar
+ * üretip başka bir kullanıcının verisini KARIŞTIRMAK çok daha kötü bir
+ * sonuçtur).
  */
 export function clientStateScopePrefix(scope: ClientStateScope): string {
-  if (scope.kind === "vehicle") {
-    if (!scope.credentialId || !scope.vehicleId) {
-      throw new InvalidClientStateScopeError(
-        'kind "vehicle" için credentialId VE vehicleId zorunludur.',
-      );
-    }
-    return `${KEY_PREFIX}vehicle:${scope.credentialId}:${scope.vehicleId}:`;
+  if (!scope.scopeKey.trim()) {
+    throw new InvalidClientStateScopeError("scopeKey boş olamaz.");
   }
-  if (!scope.platformUserId) {
-    throw new InvalidClientStateScopeError(
-      'kind "platform" için platformUserId zorunludur.',
-    );
-  }
-  return `${KEY_PREFIX}platform:${scope.platformUserId}:`;
+  return `${KEY_PREFIX}${scope.scopeKey}:`;
 }
 
 /** Belirli bir kapsam + ad için TAM localStorage anahtarı. */

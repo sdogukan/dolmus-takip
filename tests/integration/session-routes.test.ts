@@ -175,7 +175,7 @@ describe("GET /api/v1/session ve POST /api/v1/auth/logout (T1.4 ADIM 1/2)", () =
       expect((await response.json()).error.code).toBe("SESSION_MISSING");
     });
 
-    it("geçerli araç sahibi oturumu için rol/kapsam/CSRF/credentialId döner; sessionId sızmaz", async () => {
+    it("geçerli araç sahibi oturumu için rol/kapsam/CSRF döner; sessionId/credentialId sızmaz", async () => {
       // Test setup'ının kendi bağlantısı `getAppDb()`'den ayrı olduğundan
       // gerçek DB dosyasını doğrudan açıp oturum kaydını oradan üretiyoruz.
       const setupSqlite = openDatabaseConnection(dbPath);
@@ -196,21 +196,19 @@ describe("GET /api/v1/session ve POST /api/v1/auth/logout (T1.4 ADIM 1/2)", () =
         role: "owner",
         businessId: SEED_IDS.businessA,
         vehicleId: SEED_IDS.vehicleA1,
-        // Düzeltme turu 1 — DECISIONS.md F6: client-state.ts anahtarlaması
-        // için gerekli, opak/gizli-olmayan hesap kimliği (bkz. route.ts
-        // üst notu).
-        credentialId: SEED_IDS.credA1Owner,
       });
       expect(typeof body.csrfToken).toBe("string");
       expect(body.csrfToken.length).toBeGreaterThan(0);
       expect(typeof body.request_id).toBe("string");
-      // sessionId hiçbir istemci özelliği tarafından kullanılmaz; yüzey
-      // küçük tutulur.
+      // DECISIONS.md T1.4 kararı (satır 89) — GET /session sessionId/
+      // credentialId/platformUserId VERMEZ; client-state anahtarı yalnız
+      // aşağıdaki `scopeKey`dir (bkz. session-scope-summary.test.ts).
       expect(body).not.toHaveProperty("sessionId");
+      expect(body).not.toHaveProperty("credentialId");
       expect(body).not.toHaveProperty("platformUserId");
     });
 
-    it("geçerli ekip (platform) oturumu için businessId/vehicleId alanları HİÇ yoktur; platformUserId döner", async () => {
+    it("geçerli ekip (platform) oturumu için businessId/vehicleId/platformUserId alanları HİÇ yoktur", async () => {
       const setupSqlite = openDatabaseConnection(dbPath);
       const setupDb = createDb(setupSqlite);
       const created = await createPlatformSession(setupDb, SEED_IDS.platformSupport1);
@@ -223,14 +221,15 @@ describe("GET /api/v1/session ve POST /api/v1/auth/logout (T1.4 ADIM 1/2)", () =
       const body = await response.json();
       expect(body.kind).toBe("platform");
       expect(body.role).toBe("support");
-      // Düzeltme turu 1 — DECISIONS.md F6: iki farklı ekip üyesi (ör. iki
-      // "support" hesabı) aynı cihazı paylaşırsa `role` TEK BAŞINA onları
-      // ayırt ETMEZ; client-state.ts anahtarlaması bu kimliğe muhtaçtır.
-      expect(body.platformUserId).toBe(SEED_IDS.platformSupport1);
+      // DECISIONS.md T1.4 kararı (satır 89): iki farklı ekip üyesi (ör. iki
+      // "support" hesabı) aynı cihazı paylaşsa bile `platformUserId`
+      // yanıtta YOKTUR; ayırt etme ihtiyacı `scopeKey` ile karşılanır (bkz.
+      // session-scope-summary.test.ts).
       expect(body).not.toHaveProperty("businessId");
       expect(body).not.toHaveProperty("vehicleId");
       expect(body).not.toHaveProperty("sessionId");
       expect(body).not.toHaveProperty("credentialId");
+      expect(body).not.toHaveProperty("platformUserId");
     });
 
     it("süresi dolmuş oturum için 401 SESSION_EXPIRED ve S1.4 AC6 metni birebir döner", async () => {

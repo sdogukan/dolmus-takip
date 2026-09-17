@@ -15,7 +15,7 @@ Ajan betiği: scratchpad/task-uygula.js (args: task, story, milestone, steps?, e
 ## M1 — Güvenli giriş ve geliştirme temeli (sıra: MILESTONES §M1)
 - [x] T1.1 (S1.1) Uygulama, migration ve otomatik kontrol temeli — 2026-09-17, wf_909a21f7-548, 19 birim + 63 entegrasyon testi, kapı temiz; son tur düzeltmeleri (admin_audit CHECK, x-nonce) T1.4 denetiminde yeniden doğrulanacak
 - [x] T1.4 (S1.4) Sunucu oturumu, çıkış ve erişim iptali — 2026-09-17, wf_f3c08220-fda, 93 birim + 143 entegrasyon, kapı temiz; UI'ya bağlı AC parçaları (giriş akışı, ortak telefon temizliği) T1.2/T1.6'da kapanacak
-- [ ] T1.5 (S1.5) İşletme/araç kapsamı ve işlem yetkileri
+- [x] T1.5 (S1.5) İşletme/araç kapsamı ve işlem yetkileri — 2026-09-17, wf_ba0bf56b-4e4, 185 birim + 247 entegrasyon, kapı temiz, S1.5 7/7 AC done
 - [ ] T1.2 (S1.2) Plaka ve şifreyle araç girişi
 - [ ] T1.3 (S1.3) Kişisel ekip girişi ve ilk yönetici kurulumu
 - [ ] T1.6 (S1.6) Telefon girişi hata/bekleme/erişilebilirlik

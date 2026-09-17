@@ -91,3 +91,15 @@ Faz 0: 14 doküman, 7 mercek, 38 aday bulgu, 3'lü çürütme; 20 birleşik bulg
 - Açılış: src/instrumentation.ts register → getAppDb → assertMigrationsApplied (migration bekliyorsa açık hata, otomatik migration yok); next.config outputFileTracingIncludes'a drizzle/** eklendi (standalone).
 - Route handler'lar düz Request/Response ile yazılır (next/headers kullanılmaz) → doğrudan test edilebilir.
 - src/lib/messages.ts: hata kodu → ekran metni; SESSION_EXPIRED ve SESSION_REVOKED aynı metne ('Oturumun sona erdi. Yeniden giriş yap.') eşlenir; sunucu error.message ekrana basılmaz.
+
+## T1.5 uygulama kararları (2026-09-17)
+- Yetki matrisi kod olarak: src/server/auth/permissions.ts, 16 izin × 4 aktör (driver ⊂ owner ⊂ support ⊂ admin); authorize(scope, permission) → 403. Kapsam dışı nesne → 404; oturum yok → 401.
+- Staff hedefi: müşteri uçlarında `X-Target-Vehicle` header'ı (sunucu business_id'yi türetir); /admin/* uçlarında path ID. Araç oturumundan gelen X-Target-Vehicle → 403 TARGET_HEADER_NOT_ALLOWED. Global admin işlemleri (/admin/users) Scope kurmadan permissionsForActor ile denetlenir.
+- Pasif hedefe yazma → **403 TARGET_INACTIVE_FOR_WRITE** (404 değil: nesne gerçek ve okunabilir, yalnız bu işlem yasak). Okuma için pasif hedef kabul. Yeniden aktifleştirme işlemleri için recheck istisnası tanımlı (staff business/vehicle.manage).
+- İstemci gövdesinde role/personId/businessId/ownerId alanları şema düzeyinde yasak (zod scopeSafeObject); fazladan alanlar düşürülür.
+- recheckScopeInTransaction: BEGIN IMMEDIATE içinde oturum iptali/süre/credential_version/aktiflik yeniden denetlenir; ihlalde throw → rollback.
+- Makbuz kapsamı (ARCH §3.4): scope_key = (credentialId|platformUserId) + ':' + businessId + ':' + vehicleId; aynı request_id + aynı hash → replay; farklı hash/operation → 409 REQUEST_ID_REUSED; makbuz okumada da yetki denetimi.
+- GET /session: `permissions` listesi ve opak `scopeKey` (SHA-256(kind:id:vehicleId)[:16]) eklendi; ayrı `actor` alanı yok (role yeterli). Staff oturumunda hedef bilinmediğinden scopeKey hedefsizdir; istemci F6 anahtarını scopeKey + ':' + hedef vehicleId ile kurar. Araç oturumu için T1.2'de `plate` (görüntü biçimi) eklenecek.
+- ARCH §4 dışı endpoint açılmaz: GET /vehicles/current denemesi kaldırıldı; plaka /session ile verilir.
+- withProtectedRoute({permission, write?, target}) deseni src/server/http/handler.ts; E2–E5 uçları bunu kullanır. target:'business' dalı T2.1'de gerçek uçla yeniden doğrulanacak.
+- API'de plaka normalize (boşluksuz) döner; boşluklu gösterim ekranın işidir (formatPlateForDisplay).

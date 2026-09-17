@@ -47,50 +47,28 @@ function fixedClock(iso: string): ClientStateClock {
   return () => new Date(iso);
 }
 
-const vehicleScope: ClientStateScope = {
-  kind: "vehicle",
-  credentialId: "cred-1",
-  vehicleId: "vehicle-1",
-};
-
-const otherVehicleScope: ClientStateScope = {
-  kind: "vehicle",
-  credentialId: "cred-2",
-  vehicleId: "vehicle-2",
-};
-
-const platformScope: ClientStateScope = {
-  kind: "platform",
-  platformUserId: "platform-user-1",
-};
+// `scopeKey` değerleri gerçek `computeScopeKey` çıktısıyla AYNI biçimde
+// (16 hex karakter) OLMAK ZORUNDA DEĞİLDİR — bu modül onun içini açmaz,
+// yalnız opak bir dize olarak kabul eder (bkz. dosya üstü notu).
+const vehicleScope: ClientStateScope = { scopeKey: "scope-vehicle-1" };
+const otherVehicleScope: ClientStateScope = { scopeKey: "scope-vehicle-2" };
+const platformScope: ClientStateScope = { scopeKey: "scope-platform-1" };
 
 describe("clientStateScopePrefix / clientStateKey", () => {
-  it("araç kapsamı için kind + credentialId + vehicleId'yi anahtar önekine koyar", () => {
+  it("scopeKey'i anahtar önekine koyar", () => {
     expect(clientStateScopePrefix(vehicleScope)).toBe(
-      "dolmus_takip:client_state:vehicle:cred-1:vehicle-1:",
+      "dolmus_takip:client_state:scope-vehicle-1:",
     );
     expect(clientStateKey(vehicleScope, "draft")).toBe(
-      "dolmus_takip:client_state:vehicle:cred-1:vehicle-1:draft",
+      "dolmus_takip:client_state:scope-vehicle-1:draft",
     );
   });
 
-  it("platform kapsamı için kind + platformUserId'yi anahtar önekine koyar", () => {
-    expect(clientStateScopePrefix(platformScope)).toBe(
-      "dolmus_takip:client_state:platform:platform-user-1:",
+  it("boş/whitespace-only scopeKey fırlatır (sessizce yanlış anahtar üretmez)", () => {
+    expect(() => clientStateScopePrefix({ scopeKey: "" })).toThrow(
+      InvalidClientStateScopeError,
     );
-  });
-
-  it("araç kapsamında credentialId veya vehicleId eksikse fırlatır (sessizce yanlış anahtar üretmez)", () => {
-    expect(() =>
-      clientStateScopePrefix({ kind: "vehicle", vehicleId: "vehicle-1" }),
-    ).toThrow(InvalidClientStateScopeError);
-    expect(() =>
-      clientStateScopePrefix({ kind: "vehicle", credentialId: "cred-1" }),
-    ).toThrow(InvalidClientStateScopeError);
-  });
-
-  it("platform kapsamında platformUserId eksikse fırlatır", () => {
-    expect(() => clientStateScopePrefix({ kind: "platform" })).toThrow(
+    expect(() => clientStateScopePrefix({ scopeKey: "   " })).toThrow(
       InvalidClientStateScopeError,
     );
   });

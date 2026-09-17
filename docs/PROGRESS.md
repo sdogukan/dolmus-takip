@@ -18,7 +18,7 @@ Ajan betiği: scratchpad/task-uygula.js (args: task, story, milestone, steps?, e
 - [x] T1.5 (S1.5) İşletme/araç kapsamı ve işlem yetkileri — 2026-09-17, wf_ba0bf56b-4e4, 185 birim + 247 entegrasyon, kapı temiz, S1.5 7/7 AC done
 - [x] T1.2 (S1.2) Plaka ve şifreyle araç girişi — 2026-09-17, wf_041bbc0f-e38 + ek wf_893f977e-7d3, 216 birim + 280 entegrasyon + 16 E2E (chromium+webkit, standalone), S1.2 7/7 AC done
 - [x] T1.3 (S1.3) Kişisel ekip girişi ve ilk yönetici kurulumu — 2026-09-17, wf_410882b0-3b2, 216 birim + 312 entegrasyon + 32 E2E, S1.3 6/6 AC done
-- [ ] T1.6 (S1.6) Telefon girişi hata/bekleme/erişilebilirlik
+- [x] T1.6 (S1.6) Telefon girişi hata/bekleme/erişilebilirlik — 2026-09-17, wf_68dcc8a1-613, 228 birim + 312 entegrasyon + 74 E2E; AC3/AC-manuel kısımları tests/e2e/MANUAL-CHECKS.md ile pilotta
 - [ ] T6.1 (S6.1) Hedefle uyumlu derleme, CI ve yayın çıktısı (GitHub'da gerçek koşu push sonrası; yerel eşdeğeri çalışır)
 - [ ] M1 KAPI: MILESTONES §M1 tamamlanma kutuları kontrol → kullanıcıya özet → DEVAM İZNİ BEKLE
 

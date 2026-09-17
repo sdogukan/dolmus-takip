@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { LoginForm } from "../_components/login-form";
-import { VEHICLE_LOGIN_RESULT_MESSAGES } from "../../lib/messages";
+import { LOGIN_HELP_TEXT, VEHICLE_LOGIN_RESULT_MESSAGES } from "../../lib/messages";
 
 /**
  * /giris — araç girişi (DESIGN.md §1 "Giriş gerektirmeyen sayfalar",
@@ -26,7 +26,7 @@ export default function GirisPage() {
       <LoginForm
         heading="Dolmuş Takip"
         subheading="Günlük hesabını kolayca kaydet"
-        helpText="Giriş yapamıyorsan hesabını açan ekipten yardım al."
+        helpText={LOGIN_HELP_TEXT}
         endpoint="/api/v1/auth/vehicle-login"
         identifierField={{
           id: "plate",

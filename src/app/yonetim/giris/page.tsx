@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { LoginForm } from "../../_components/login-form";
-import { PLATFORM_LOGIN_RESULT_MESSAGES } from "../../../lib/messages";
+import { LOGIN_HELP_TEXT, PLATFORM_LOGIN_RESULT_MESSAGES } from "../../../lib/messages";
 
 /**
  * /yonetim/giris — ekip girişi (DESIGN.md §1 "Giriş gerektirmeyen
@@ -15,12 +15,16 @@ import { PLATFORM_LOGIN_RESULT_MESSAGES } from "../../../lib/messages";
  *
  * "Araç şifreleri burada geçmez" EKRANDA AYRICA bir metinle
  * BELİRTİLMEZ (görev tanımı a, birebir: "metinle de belirtilmez, sadece
- * çalışmaz") — bu yüzden DESIGN §2.1'in araç varyantındaki "Giriş
- * yapamıyorsan..." yardım metni de KASITLI olarak buraya taşınmadı (o
- * metin müşterinin aracı açan ekibe başvurmasını anlatır; ekip hesabının
- * kendisi platform yöneticisi tarafından açılır, farklı bir yardım yolu
- * S2.6'da ayrıca ele alınacaktır — bu paketin open_issues'ında not
- * edilmiştir). Görev tanımı bu varyant için bir alt başlık İSTEMEZ; bu
+ * çalışmaz") — bu yalnız o TEK cümleyle (araç şifrelerinin burada
+ * GEÇMEDİĞİ) ilgilidir. S1.6 AC7 (birebir, düzeltme turu 1 denetim
+ * bulgusu) "Giriş yapamıyorsan hesabını açan ekipten yardım al." metninin
+ * görünür olmasını şart koşar; S1.6 AC1 hikâyenin kapsamını "Araç ve ekip
+ * girişleri" olarak tanımlar ve AC7 bunu araç ekranıyla SINIRLAMAZ (S1.2
+ * AC4'ün plakaya özgü kuralının AKSİNE). Önceki sürümün bu metni yalnız
+ * araç girişinde göstermesi docs/DECISIONS.md'de kayıtlı bir karara
+ * DAYANMIYORDU; bu yüzden metin de (tek kaynak `../../../lib/
+ * messages.ts` `LOGIN_HELP_TEXT`'ten, ikinci bir kopya YAZILMADAN) burada
+ * gösterilir. Görev tanımı bu varyant için bir alt başlık İSTEMEZ; bu
  * yüzden yalnız başlık ("Ekip girişi") gösterilir.
  *
  * Sunucu: `POST /api/v1/auth/platform-login` (T1.3 ADIM 1/2) —
@@ -37,12 +41,20 @@ export default function YonetimGirisPage() {
     <main className="mx-auto flex min-h-dvh w-full max-w-[30rem] flex-col justify-center px-4 py-10">
       <LoginForm
         heading="Ekip girişi"
+        helpText={LOGIN_HELP_TEXT}
         endpoint="/api/v1/auth/platform-login"
         identifierField={{
           id: "username",
           name: "username",
           label: "Kullanıcı adı",
           autoComplete: "username",
+          // T1.6, S1.6, görev tanımı (2, birebir) — "autocapitalize uygun
+          // (plaka: characters; kullanıcı adı: none)." Kullanıcı adları
+          // büyük/küçük harfe duyarlı olabilir; ekran klavyesi otomatik
+          // büyük harfe çevirmez.
+          autoCapitalize: "none",
+          autoCorrect: "off",
+          spellCheck: false,
         }}
         invalidCredentialsMessage={PLATFORM_LOGIN_RESULT_MESSAGES.invalidCredentials}
         rateLimitedMessage={PLATFORM_LOGIN_RESULT_MESSAGES.rateLimited}

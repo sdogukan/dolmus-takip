@@ -189,6 +189,22 @@ export const PLATFORM_ROLE_LABELS = {
 } as const;
 
 /**
+ * S1.6 AC7 (birebir): "Kayıt ol/uygulama indir zorunluluğu veya yeni
+ * kurtarma hizmeti yoktur. 'Giriş yapamıyorsan hesabını açan ekipten
+ * yardım al.' metni görünür." S1.6 AC1 bu hikâyenin kapsamını "Araç ve
+ * ekip girişleri" olarak tanımlar ve AC7 bu iki varyanttan yalnız birine
+ * ÖZGÜLENMEZ (S1.2'nin araca özgü AC4'ünün AKSİNE) — bu yüzden metin HER
+ * İKİ giriş ekranında (`../app/giris/page.tsx`, `../app/yonetim/giris/
+ * page.tsx`) da `LoginForm`'un `helpText` prop'una AYNI kaynaktan
+ * (tekrar YAZILMADAN) geçirilir. Düzeltme turu 1 denetim bulgusu: önceki
+ * sürüm bu metni yalnız araç girişinde gösteriyordu; docs/DECISIONS.md'de
+ * bu dışlamayı kaydeden bir karar YOKTUR, bu yüzden kapsam daraltması
+ * geri alındı.
+ */
+export const LOGIN_HELP_TEXT =
+  "Giriş yapamıyorsan hesabını açan ekipten yardım al.";
+
+/**
  * `code` bilinen bir hata koduysa Türkçe ekran metnini döner; bilinmeyen
  * kod için `undefined` döner (UYDURMA fallback metin YAZILMAZ — çağıran
  * ekran kendi genel hata metnini seçer).

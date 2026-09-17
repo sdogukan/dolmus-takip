@@ -49,7 +49,7 @@
  * usecase'in üst notu) bir araç şifresi burada YAPISAL OLARAK asla
  * eşleşmez; ekranda bunu açıklayan AYRICA bir metin YOKTUR.
  */
-import { useState, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import {
   clearClientStateForOtherScopes,
   type ClientStateScope,
@@ -68,6 +68,10 @@ export interface LoginFormIdentifierField {
   autoCorrect?: "off";
   spellCheck?: boolean;
   inputMode?: "text";
+  /** T1.6, S1.6, görev tanımı (2) — "enterkeyhint ... uygun." Ekran
+   * klavyesinin gönder tuşu etiketini kimlik alanı için "sonraki alana
+   * geç" (şifre) anlamına gelecek şekilde ayarlar; varsayılan "next". */
+  enterKeyHint?: "next" | "go" | "done" | "search" | "send";
 }
 
 export interface LoginFormProps {
@@ -109,6 +113,35 @@ interface LoginErrorBody {
   };
 }
 
+/**
+ * T1.6, S1.6, görev tanımı (3) — "yalnız renkle anlatılmaz (metin +
+ * simge/önek)." Basit, özgün (dış kütüphaneden KOPYALANMAMIŞ) bir uyarı
+ * simgesi; metnin YANINDA (yerine değil) gösterilir, `aria-hidden`
+ * taşır (durum zaten METİNLE + `role="alert"`/`role="status"` ile
+ * bildirilir — simge yalnız GÖRSEL bir ek işarettir). Şekil düğümleri
+ * (`circle`/`line`) DOM metin içeriği (`textContent`) ÜRETMEZ; bu yüzden
+ * Playwright'ın `toHaveText()` gibi metin tabanlı doğrulamalarını
+ * ETKİLEMEZ (bkz. `../../../tests/e2e/vehicle-login.spec.ts` "yanlış
+ * şifre" testi — hâlâ TAM metin eşleşir).
+ */
+function AlertIcon() {
+  return (
+    <svg
+      aria-hidden="true"
+      viewBox="0 0 20 20"
+      className="mt-0.5 h-5 w-5 shrink-0"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth={2}
+      strokeLinecap="round"
+    >
+      <circle cx="10" cy="10" r="8" />
+      <line x1="10" y1="6.5" x2="10" y2="11" />
+      <circle cx="10" cy="13.75" r="0.75" fill="currentColor" stroke="none" />
+    </svg>
+  );
+}
+
 export function LoginForm({
   heading,
   subheading,
@@ -127,6 +160,29 @@ export function LoginForm({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
+  // T1.6, S1.6, görev tanımı (3) — "boş/geçersiz alan hatası ... ilk
+  // hatalı alana odak taşınır." Gerçek DOM düğümüne (React state'e değil)
+  // ihtiyaç var; bu yüzden `useRef` — kimlik alanı ÖNCE (form/Tab
+  // sırasında ilk), şifre SONRA.
+  const identifierInputRef = useRef<HTMLInputElement>(null);
+  const passwordInputRef = useRef<HTMLInputElement>(null);
+
+  /**
+   * T1.6, S1.6, görev tanımı (4) — "ekran klavyesi önemli alanı kalıcı
+   * kapatmaz (odaklanan alan scrollIntoView)." Ekran klavyesi açıldığında
+   * bazı tarayıcılarda odaklanan alan sabit başlık/klavyenin ARKASINDA
+   * kalabilir; `scrollIntoView` odaklanan alanı görünür ortaya taşır.
+   * `try/catch`: `scrollIntoView`'ın `behavior`/`block` seçenekleri eski
+   * bir tarayıcıda (veya test ortamında) desteklenmeyebilir — bu, giriş
+   * akışını ENGELLEMEZ (en iyi çaba, DESIGN §2.10 ilkesiyle aynı).
+   */
+  function scrollFieldIntoView(element: HTMLElement): void {
+    try {
+      element.scrollIntoView({ block: "center", behavior: "smooth" });
+    } catch {
+      // En iyi çaba — bkz. yukarıdaki fonksiyon notu.
+    }
+  }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
@@ -192,11 +248,40 @@ export function LoginForm({
       const identifierError = fields[identifierField.name];
       if (identifierError || fields.password) {
         setFieldErrors({ identifier: identifierError, password: fields.password });
+        // Görev tanımı (3) — "ilk hatalı alana odak taşınır." Form/Tab
+        // sırasında ÖNCE gelen (kimlik alanı) hatalıysa önce ona, yoksa
+        // şifreye odaklanılır.
+        if (identifierError) {
+          identifierInputRef.current?.focus();
+          if (identifierInputRef.current) {
+            scrollFieldIntoView(identifierInputRef.current);
+          }
+        } else {
+          passwordInputRef.current?.focus();
+          if (passwordInputRef.current) {
+            scrollFieldIntoView(passwordInputRef.current);
+          }
+        }
       } else {
         // Savunma amaçlı — sunucu 422 için HER ZAMAN en az bir alan hatası
         // döner; bu dal normalde tetiklenmez.
         setFormError(body.error?.message ?? VEHICLE_LOGIN_RESULT_MESSAGES.networkError);
       }
+      setIsSubmitting(false);
+      return;
+    }
+
+    // T1.6, S1.6, görev tanımı (5) — "fetch reddi veya 5xx → 'Bağlantı
+    // kurulamadı. Tekrar dene.' benzeri metin ... yığın izi/teknik ayrıntı
+    // gösterilmez." 5xx durum kodları (ör. 503 SERVICE_UNAVAILABLE — bkz.
+    // `../api/v1/auth/vehicle-login/route.ts`
+    // `vehicleLoginTransientLockResponse`) sunucunun KENDİ hata mesajını
+    // TAŞIYABİLİR; bu dal o mesajı KASITLI olarak GÖRMEZDEN GELİR ve
+    // sabit, kanıtlı ağ-hatası metnini kullanır — kullanıcı için "sunucu
+    // şu an hazır değil" ile "bağlantı kurulamadı" arasındaki ayrım
+    // ANLAMSIZDIR (ikisi de "tekrar dene").
+    if (response.status >= 500) {
+      setFormError(VEHICLE_LOGIN_RESULT_MESSAGES.networkError);
       setIsSubmitting(false);
       return;
     }
@@ -216,9 +301,13 @@ export function LoginForm({
   return (
     <div className="flex flex-col gap-8">
       <div>
-        <h1 className="text-2xl font-semibold text-[var(--color-text)]">{heading}</h1>
+        <h1 className="break-words text-2xl font-semibold text-[var(--color-text)]">
+          {heading}
+        </h1>
         {subheading && (
-          <p className="mt-1 text-base text-[var(--color-text-secondary)]">{subheading}</p>
+          <p className="mt-1 break-words text-base text-[var(--color-text-secondary)]">
+            {subheading}
+          </p>
         )}
       </div>
 
@@ -231,41 +320,55 @@ export function LoginForm({
         {formError && (
           <p
             role="alert"
-            className="rounded-[var(--radius-control)] bg-[var(--color-error-surface)] px-3 py-2 text-base text-[var(--color-error)]"
+            className="flex items-start gap-2 rounded-[var(--radius-control)] bg-[var(--color-error-surface)] px-3 py-2 text-base break-words text-[var(--color-error)]"
           >
+            <AlertIcon />
             {formError}
           </p>
         )}
+        {/* T1.6, S1.6, görev tanımı (3) — "başarı/bekleme aria-live=
+         * polite." Görünmez (`sr-only`) durum bildirimi; buton metni
+         * ZATEN görsel olarak "Giriş yapılıyor…" gösterir, bu yalnız
+         * ekran okuyucuya AYNI durumu KİBARCA (kesintisiz, "polite")
+         * duyurur — `role="alert"` (yukarıdaki hata, İVEDİ/"assertive")
+         * İLE KARIŞTIRILMAZ. */}
+        <p aria-live="polite" className="sr-only">
+          {isSubmitting ? "Giriş yapılıyor…" : ""}
+        </p>
 
         <div>
           <label
             htmlFor={identifierField.id}
-            className="block text-lg font-medium text-[var(--color-text)]"
+            className="block break-words text-lg font-medium text-[var(--color-text)]"
           >
             {identifierField.label}
           </label>
           <input
+            ref={identifierInputRef}
             id={identifierField.id}
             name={identifierField.name}
             type="text"
             inputMode={identifierField.inputMode}
+            enterKeyHint={identifierField.enterKeyHint ?? "next"}
             autoCapitalize={identifierField.autoCapitalize}
             autoComplete={identifierField.autoComplete}
             autoCorrect={identifierField.autoCorrect}
             spellCheck={identifierField.spellCheck}
             value={identifierValue}
             onChange={(event) => setIdentifierValue(event.target.value)}
+            onFocus={(event) => scrollFieldIntoView(event.currentTarget)}
             aria-invalid={fieldErrors.identifier ? true : undefined}
             aria-describedby={
               fieldErrors.identifier ? `${identifierField.id}-error` : undefined
             }
-            className="mt-1 min-h-[var(--control-min-height)] w-full rounded-[var(--radius-control)] border border-[var(--color-input-border)] bg-[var(--color-surface)] px-3 text-[length:var(--font-size-body)] text-[var(--color-text)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+            className="mt-1 min-h-[var(--control-min-height)] w-full rounded-[var(--radius-control)] border border-[var(--color-input-border)] bg-[var(--color-surface)] px-3 text-[length:var(--font-size-body)] text-[var(--color-text)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]"
           />
           {fieldErrors.identifier && (
             <p
               id={`${identifierField.id}-error`}
-              className="mt-1 text-base text-[var(--color-error)]"
+              className="mt-1 flex items-start gap-1.5 break-words text-base text-[var(--color-error)]"
             >
+              <AlertIcon />
               {fieldErrors.identifier}
             </p>
           )}
@@ -274,33 +377,40 @@ export function LoginForm({
         <div>
           <label
             htmlFor="password"
-            className="block text-lg font-medium text-[var(--color-text)]"
+            className="block break-words text-lg font-medium text-[var(--color-text)]"
           >
             Şifre
           </label>
           <div className="mt-1 flex items-stretch gap-2">
             <input
+              ref={passwordInputRef}
               id="password"
               name="password"
               type={showPassword ? "text" : "password"}
+              enterKeyHint="go"
               autoComplete="current-password"
               value={password}
               onChange={(event) => setPassword(event.target.value)}
+              onFocus={(event) => scrollFieldIntoView(event.currentTarget)}
               aria-invalid={fieldErrors.password ? true : undefined}
               aria-describedby={fieldErrors.password ? "password-error" : undefined}
-              className="min-h-[var(--control-min-height)] w-full flex-1 rounded-[var(--radius-control)] border border-[var(--color-input-border)] bg-[var(--color-surface)] px-3 text-[length:var(--font-size-body)] text-[var(--color-text)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+              className="min-h-[var(--control-min-height)] w-full flex-1 rounded-[var(--radius-control)] border border-[var(--color-input-border)] bg-[var(--color-surface)] px-3 text-[length:var(--font-size-body)] text-[var(--color-text)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]"
             />
             <button
               type="button"
               onClick={() => setShowPassword((prev) => !prev)}
               aria-pressed={showPassword}
-              className="min-h-[var(--control-min-height)] min-w-[3rem] shrink-0 rounded-[var(--radius-control)] border border-[var(--color-input-border)] px-3 text-base font-medium text-[var(--color-text)] focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+              className="min-h-[var(--control-min-height)] min-w-[3rem] shrink-0 rounded-[var(--radius-control)] border border-[var(--color-input-border)] px-3 text-base font-medium text-[var(--color-text)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]"
             >
               {showPassword ? "Gizle" : "Göster"}
             </button>
           </div>
           {fieldErrors.password && (
-            <p id="password-error" className="mt-1 text-base text-[var(--color-error)]">
+            <p
+              id="password-error"
+              className="mt-1 flex items-start gap-1.5 break-words text-base text-[var(--color-error)]"
+            >
+              <AlertIcon />
               {fieldErrors.password}
             </p>
           )}
@@ -309,14 +419,17 @@ export function LoginForm({
         <button
           type="submit"
           disabled={isSubmitting}
-          className="min-h-[var(--primary-min-height)] w-full rounded-[var(--radius-control)] bg-[var(--color-primary)] text-lg font-semibold text-[var(--color-on-primary)] transition-opacity disabled:opacity-70"
+          aria-busy={isSubmitting}
+          className="min-h-[var(--primary-min-height)] w-full rounded-[var(--radius-control)] bg-[var(--color-primary)] text-lg font-semibold text-[var(--color-on-primary)] transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--color-primary)] disabled:opacity-70"
         >
           {isSubmitting ? "Giriş yapılıyor…" : "Giriş yap"}
         </button>
       </form>
 
       {helpText && (
-        <p className="text-center text-base text-[var(--color-text-secondary)]">{helpText}</p>
+        <p className="break-words text-center text-base text-[var(--color-text-secondary)]">
+          {helpText}
+        </p>
       )}
     </div>
   );

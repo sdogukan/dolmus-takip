@@ -120,3 +120,11 @@ Faz 0: 14 doküman, 7 mercek, 38 aday bulgu, 3'lü çürütme; 20 birleşik bulg
 - GET /session platform oturumunda `username` döner; /yonetim başlığında username + rol etiketi (Yönetici/Destek).
 - Ortak LoginForm bileşeni src/app/_components (araç/ekip varyantı; serileştirilebilir prop'lar, RSC sınırı). Platform oturumu `/`, `/sofor`, `/sahip` → /yonetim.
 - scripts/ saf Node ESM: src/server/auth ve src/server/usecases altına {type:module} package.json, göreli import'larda açık .ts uzantısı (T1.1 deseni).
+
+## T1.6 uygulama kararları (2026-09-17)
+- Giriş formu erişilebilirlik: alan hatası aria-describedby/aria-invalid + ilk hatalı alana odak; genel hata role=alert; bekleme sr-only aria-live=polite; hata metinlerinde renk dışı ikon; focus-visible halkası; enterkeyhint; odaklanan alan scrollIntoView.
+- 5xx ve ağ hatası istemcide tek genel metne eşlenir ('Bağlantı kurulamadı. Tekrar dene.'); sunucunun 5xx mesajı ekrana basılmaz (teknik ayrıntı sızmaz).
+- Kontrast kanıtı: src/lib/contrast.ts + birim testleri DESIGN §3 token çiftlerini WCAG AA (≥4.5:1) ile doğrular.
+- Yardım metni ('Giriş yapamıyorsan hesabını açan ekipten yardım al.') hem araç hem ekip girişinde görünür (S1.6 AC7).
+- Playwright: globalTimeout 15 dk, timeout 30 sn, expect 5 sn, actionTimeout 15 sn, navigationTimeout 30 sn, webServer stdout/stderr pipe. WebKit masaüstü varsayılanı düğmeleri Tab sırasına almaz; Tab sırası Chromium'da, odak görünürlüğü her iki tarayıcıda test edilir.
+- QA-PLAN §5 manuel telefon kontrolleri: tests/e2e/MANUAL-CHECKS.md (pilotta gerçek cihazla doldurulacak).

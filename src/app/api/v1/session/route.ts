@@ -90,6 +90,7 @@
  */
 import { requireSession } from "../../../../server/auth/guard";
 import { permissionsForActor } from "../../../../server/auth/permissions";
+import { readPlatformUsernameForDisplay } from "../../../../server/auth/platform-username";
 import { computeScopeKey } from "../../../../server/auth/scope";
 import { readVehiclePlateForDisplay } from "../../../../server/auth/vehicle-plate";
 import { jsonSuccessResponse } from "../../../../server/http/errors";
@@ -117,6 +118,19 @@ export async function GET(request: Request): Promise<Response> {
     const plate = await readVehiclePlateForDisplay(db, context.vehicleId);
     if (plate !== undefined) {
       body.plate = plate;
+    }
+  }
+
+  // T1.3, S1.3 — "GET /session platform oturumu için `username` döner."
+  // Kişisel ekip kimliğinin ekranda görünmesi (S1.3 AC3 "çalışan ekip
+  // kullanıcısının kimliği ekranda görünür") bu alana dayanır.
+  if (context.kind === "platform" && context.platformUserId !== undefined) {
+    const username = await readPlatformUsernameForDisplay(
+      db,
+      context.platformUserId,
+    );
+    if (username !== undefined) {
+      body.username = username;
     }
   }
 

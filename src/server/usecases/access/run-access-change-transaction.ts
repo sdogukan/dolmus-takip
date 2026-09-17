@@ -15,7 +15,10 @@
  * paylaştırır — her kullanım durumu kendi güncelleme ve (varsa) revoke
  * mantığını KENDİSİ sağlar; davranışta hiçbir değişiklik yoktur.
  */
-import { type AppDatabase, withImmediateTransaction } from "../../data/db";
+// Açık ".ts" uzantısı KASITLIDIR — bkz. `./bump-platform-user-version.ts`
+// üst notu (T1.3, `scripts/platform-admin.ts` bu zinciri bundler'sız Node
+// ESM ile İÇE AKTARIR).
+import { type AppDatabase, withImmediateTransaction } from "../../data/db.ts";
 
 export function runAccessChangeTransaction(
   db: AppDatabase,

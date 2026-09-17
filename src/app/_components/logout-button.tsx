@@ -15,19 +15,33 @@
  * loga YAZILMAZ; CSRF tokenı bilerek istemcinin OKUYABİLECEĞİ bir
  * anti-CSRF nonce'tur).
  *
- * Yönlendirme `next/navigation` `useRouter().push()` iledir (`../giris/
+ * Yönlendirme `next/navigation` `useRouter().push()` iledir (`../_components/
  * login-form.tsx`'in tersine `window.location.assign` DEĞİL): hedef
- * (`/giris`) oturuma bağlı bir server component DEĞİLDİR (`../giris/
- * page.tsx` çerez okumaz, her zaman aynı formu gösterir), bu yüzden
- * "taze çerezle server component render'ı" endişesi burada YOKTUR;
- * `router.push` Next'in kendi önerdiği yoldur (`@next/next/no-location-
- * assign-relative-destination` kuralı).
+ * (`/giris` veya `/yonetim/giris`) oturuma bağlı bir server component
+ * DEĞİLDİR (giriş sayfaları çerez okumaz, her zaman aynı formu gösterir),
+ * bu yüzden "taze çerezle server component render'ı" endişesi burada
+ * YOKTUR; `router.push` Next'in kendi önerdiği yoldur (`@next/next/
+ * no-location-assign-relative-destination` kuralı).
+ *
+ * `redirectTo` — T1.3 ADIM 2/2, S1.3, görev tanımı (b): "Çıkış (mevcut
+ * LogoutButton, çıkış sonrası /yonetim/giris)." Araç sayfaları (`../sofor/
+ * page.tsx`/`../sahip/page.tsx`, bkz. `./vehicle-page-header.tsx`) bu
+ * prop'u VERMEZ ve varsayılan `/giris`'i kullanmaya devam eder; ekip
+ * sayfası (`../yonetim/page.tsx`, bkz. `./team-page-header.tsx`)
+ * `/yonetim/giris` geçirir — düğmenin KENDİSİ (istek/CSRF/durum temizleme
+ * mantığı) iki bağlamda da AYNIDIR, kod tekrarı YOK.
  */
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { clearAllClientState } from "../../lib/client-state";
 
-export function LogoutButton({ csrfToken }: { csrfToken: string }) {
+export function LogoutButton({
+  csrfToken,
+  redirectTo = "/giris",
+}: {
+  csrfToken: string;
+  redirectTo?: string;
+}) {
   const router = useRouter();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -47,16 +61,16 @@ export function LogoutButton({ csrfToken }: { csrfToken: string }) {
     } catch {
       // Ağ hatası olsa bile istemci durumu temizlenip girişe dönülür
       // (aşağıdaki `finally`) — sunucu tarafındaki oturum bu durumda
-      // GEÇERLİ kalabilir, ama kullanıcı zaten /giris'e yönlendiği ve
-      // yeniden giriş istendiği için bu, GÜVENLİ (kapsamı GENİŞLETMEYEN)
-      // bir başarısızlık modudur.
+      // GEÇERLİ kalabilir, ama kullanıcı zaten giriş ekranına yönlendiği
+      // ve yeniden giriş istendiği için bu, GÜVENLİ (kapsamı
+      // GENİŞLETMEYEN) bir başarısızlık modudur.
     } finally {
       try {
         clearAllClientState(window.localStorage);
       } catch {
         // En iyi çaba — bkz. `../../lib/client-state.ts` üst notu.
       }
-      router.push("/giris");
+      router.push(redirectTo);
     }
   }
 

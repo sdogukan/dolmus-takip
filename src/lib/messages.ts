@@ -44,6 +44,19 @@
 const INVALID_CREDENTIALS_MESSAGE = "Plaka veya şifre yanlış.";
 const RATE_LIMITED_MESSAGE = "Çok fazla deneme. Lütfen biraz bekleyip tekrar dene.";
 const HASH_QUEUE_FULL_MESSAGE = "Sistem şu anda yoğun. Lütfen tekrar dene.";
+// T1.3, S1.3 AC4 (birebir) — "Geçersiz giriş kullanıcı adının varlığını
+// ifşa etmeden genel hata verir." Görev tanımı: "genel hata 401
+// INVALID_CREDENTIALS ('Kullanıcı adı veya şifre yanlış.')." KASITLI
+// olarak `INVALID_CREDENTIALS_MESSAGE`'DAN (plaka metni) FARKLI bir metin
+// — aynı HTTP hata KODU (`INVALID_CREDENTIALS`) iki farklı giriş ekranında
+// (araç/ekip) KENDİ bağlamına uygun Türkçe metinle gösterilir; ekip giriş
+// ekranı (ADIM 2/2) bu sabiti DOĞRUDAN kullanır, `ERROR_CODE_MESSAGES`'in
+// KOD bazlı genel eşlemesini KULLANMAZ.
+const PLATFORM_INVALID_CREDENTIALS_MESSAGE = "Kullanıcı adı veya şifre yanlış.";
+// Hem araç hem ekip girişinin PAYLAŞTIĞI şifre alanı boş-hata metni — tek
+// kaynak, iki alan-mesajı sabitinde (aşağıda) tekrar KULLANILIR, tekrar
+// YAZILMAZ.
+const PASSWORD_EMPTY_MESSAGE = "Şifreyi gir.";
 
 export const ERROR_CODE_MESSAGES: Record<string, string> = {
   SESSION_MISSING: "Oturum bulunamadı. Giriş yap.",
@@ -129,7 +142,50 @@ export const VEHICLE_LOGIN_FIELD_MESSAGES = {
    * BİREBİR örnek metin. */
   plateInvalidFormat: "Plaka biçimi geçersiz.",
   /** Boş/eksik şifre alanı. */
-  passwordEmpty: "Şifreyi gir.",
+  passwordEmpty: PASSWORD_EMPTY_MESSAGE,
+} as const;
+
+/**
+ * Ekip girişi (POST /api/v1/auth/platform-login) alan doğrulama metinleri —
+ * T1.3, S1.3. `passwordEmpty` `VEHICLE_LOGIN_FIELD_MESSAGES.passwordEmpty`
+ * ile AYNI kaynaktan (`PASSWORD_EMPTY_MESSAGE`) gelir — iki form AYNI
+ * kavramı ("şifre alanı boş") taşır, metin İKİ YERDE AYRI YAZILMAZ.
+ */
+export const PLATFORM_LOGIN_FIELD_MESSAGES = {
+  /** Boş/eksik kullanıcı adı alanı. */
+  usernameEmpty: "Kullanıcı adını gir.",
+  /** Boş/eksik şifre alanı. */
+  passwordEmpty: PASSWORD_EMPTY_MESSAGE,
+} as const;
+
+/**
+ * `../server/usecases/auth/platform-login.ts` sonucunun ROUTE HANDLER'ının
+ * (`../app/api/v1/auth/platform-login/route.ts`) kullanacağı DAR tipli
+ * sabitler — `VEHICLE_LOGIN_RESULT_MESSAGES`'in ekip girişi karşılığı.
+ * `rateLimited`/`hashQueueFull` metinleri PLAKAYA ÖZGÜ DEĞİLDİR (genel
+ * sistem durumu metinleridir); bu yüzden AYNI iki sabitten (yukarıdaki
+ * dosya-özel `RATE_LIMITED_MESSAGE`/`HASH_QUEUE_FULL_MESSAGE`) tekrar
+ * KULLANILIR, ikinci bir kopya YAZILMAZ. Yalnız `invalidCredentials`
+ * araç girişinden FARKLIDIR (bkz. `PLATFORM_INVALID_CREDENTIALS_MESSAGE`
+ * üstü not).
+ */
+export const PLATFORM_LOGIN_RESULT_MESSAGES = {
+  invalidCredentials: PLATFORM_INVALID_CREDENTIALS_MESSAGE,
+  rateLimited: RATE_LIMITED_MESSAGE,
+  hashQueueFull: HASH_QUEUE_FULL_MESSAGE,
+} as const;
+
+/**
+ * Platform rolü → ekranda gösterilecek Türkçe etiket — T1.3 ADIM 2/2,
+ * S1.3, görev tanımı (b, birebir): "rol etiketi ('Yönetici' / 'Destek')."
+ * `../server/usecases/session/types.ts` `SessionRole`'ün `"admin"|
+ * "support"` alt kümesiyle sınırlıdır (araç rolleri owner/driver bu
+ * eşlemede YOKTUR — `../app/_components/team-page-header.tsx` yalnız
+ * platform oturumları için çağrılır).
+ */
+export const PLATFORM_ROLE_LABELS = {
+  admin: "Yönetici",
+  support: "Destek",
 } as const;
 
 /**

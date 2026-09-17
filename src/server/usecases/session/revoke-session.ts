@@ -37,8 +37,11 @@
  */
 import { and, eq, inArray, isNull } from "drizzle-orm";
 import type { BetterSQLite3Database } from "drizzle-orm/better-sqlite3";
-import { systemClock, type Clock } from "../../auth/session";
-import { sessions, vehicleCredentials, type Schema } from "../../data/schema";
+// Açık ".ts" uzantısı KASITLIDIR — bkz. `../access/bump-platform-user-
+// version.ts` üst notu (T1.3, `scripts/platform-admin.ts` bu zinciri
+// bundler'sız Node ESM ile İÇE AKTARIR).
+import { systemClock, type Clock } from "../../auth/session.ts";
+import { sessions, vehicleCredentials, type Schema } from "../../data/schema.ts";
 
 export function revokeSessionSync(
   db: BetterSQLite3Database<Schema>,

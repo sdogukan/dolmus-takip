@@ -233,6 +233,72 @@ export interface VehicleLoginRateLimitKeys {
 }
 
 /**
+ * T1.3, S1.3, görev tanımı (b) — "hız sınırı rate-limit.ts ile (anahtar
+ * 'platform:'+normalize(username) 20/15 dk ve IP 120/15 dk)". ARCHITECTURE
+ * §6 "Giriş saldırıları" satırı "credential/plaka ve IP bazında" der —
+ * `../usecases/auth/platform-login.ts` bu anahtarı KENDİSİ üretir
+ * (`` `platform:${normalize(username)}` ``); bu modül yalnız TAŞIR,
+ * normalizasyon YAPMAZ.
+ */
+export interface PlatformLoginRateLimitKeys {
+  /** `` `platform:${username normalize edilmiş}` `` — çağıranın (usecase)
+   * ürettiği hazır anahtar. */
+  usernameKey: string;
+  /** `resolveClientIp(request)` — bkz. altı. */
+  ipKey: string;
+}
+
+/**
+ * `checkVehicleLoginRateLimit`/`checkPlatformLoginRateLimit`'in PAYLAŞTIĞI
+ * çekirdek — ikisi de AYNI sayısal kurala (`PLATE_LOGIN_RATE_LIMIT` 20/15dk,
+ * `IP_LOGIN_RATE_LIMIT` 120/15dk) tabidir; tek fark hangi "kimlik" anahtarı
+ * (normalize plaka VEYA `` `platform:${username}` ``) kullanıldığıdır.
+ * `store.plate` Map'i bu yüzden GENEL bir "kimlik bilgisi" kovasıdır — iki
+ * anahtar biçimi (plaka biçimi ve `platform:` ön ekli kullanıcı adı)
+ * ASLA çakışmaz, bu yüzden aynı Map'te GÜVENLE birlikte tutulabilirler;
+ * `getRateLimitTrackedKeyCountsForTests`'in döndürdüğü `plate` alanı GERİYE
+ * DÖNÜK UYUMLU adını korur (mevcut `rate-limit.test.ts` bunu kullanır).
+ */
+function checkCredentialRateLimit(
+  credentialKey: string,
+  ipKey: string,
+  clock: Clock,
+): RateLimitDecision {
+  const now = clock().getTime();
+
+  const credentialTimestamps = pruneTimestamps(
+    store.plate.get(credentialKey),
+    now,
+    PLATE_LOGIN_RATE_LIMIT.windowMs,
+  );
+  const ipTimestamps = pruneTimestamps(
+    store.ip.get(ipKey),
+    now,
+    IP_LOGIN_RATE_LIMIT.windowMs,
+  );
+  // Budanmış listeleri geri yaz — süresi geçmiş damgaların Map'te
+  // sonsuza dek BİRİKMESİNİ önler (bellek içi tek süreç için gerekli
+  // temizlik; görev tanımı "sınırsız bellek kuyruğu yok" ilkesiyle aynı
+  // doğrultuda — bkz. `./hash-queue.ts` üst notu).
+  if (credentialTimestamps.length > 0) {
+    store.plate.set(credentialKey, credentialTimestamps);
+  } else {
+    store.plate.delete(credentialKey);
+  }
+  if (ipTimestamps.length > 0) {
+    store.ip.set(ipKey, ipTimestamps);
+  } else {
+    store.ip.delete(ipKey);
+  }
+
+  const credentialDecision = decide(credentialTimestamps, PLATE_LOGIN_RATE_LIMIT, now);
+  if (credentialDecision.limited) {
+    return credentialDecision;
+  }
+  return decide(ipTimestamps, IP_LOGIN_RATE_LIMIT, now);
+}
+
+/**
  * Salt OKUMA denetimi — herhangi bir sayaç ARTIRMAZ. `../usecases/auth/
  * vehicle-login.ts` bunu Argon2 doğrulamasına (gerçek veya dummy-hash
  * yolu) BAŞLAMADAN ÖNCE çağırır; sınırlıysa DB sorgusu/hash kuyruğu HİÇ
@@ -244,38 +310,56 @@ export function checkVehicleLoginRateLimit(
   keys: VehicleLoginRateLimitKeys,
   clock: Clock = systemClock,
 ): RateLimitDecision {
+  return checkCredentialRateLimit(keys.plateKey, keys.ipKey, clock);
+}
+
+/** `../usecases/auth/platform-login.ts`'in `checkVehicleLoginRateLimit` ile
+ * AYNI (paylaşılan `checkCredentialRateLimit`) davranışı — bkz. üstteki not. */
+export function checkPlatformLoginRateLimit(
+  keys: PlatformLoginRateLimitKeys,
+  clock: Clock = systemClock,
+): RateLimitDecision {
+  return checkCredentialRateLimit(keys.usernameKey, keys.ipKey, clock);
+}
+
+/**
+ * `recordFailedVehicleLoginAttempt`/`recordFailedPlatformLoginAttempt`'in
+ * PAYLAŞTIĞI çekirdek — bkz. `checkCredentialRateLimit` üst notu (aynı
+ * gerekçe).
+ */
+function recordFailedCredentialAttempt(
+  credentialKey: string,
+  ipKey: string,
+  clock: Clock,
+): void {
   const now = clock().getTime();
 
-  const plateTimestamps = pruneTimestamps(
-    store.plate.get(keys.plateKey),
+  // Üstteki "KÖK NEDEN/GEREKÇE" notu — YENİ bir anahtar eklemeden önce
+  // mağazanın sınırsız büyümesini engeller; var olan bir anahtarın
+  // güncellenmesini (aşağıdaki `.set`) ETKİLEMEZ.
+  evictIfAtCapacity(
+    store.plate,
+    credentialKey,
+    MAX_TRACKED_KEYS_PER_STORE,
     now,
     PLATE_LOGIN_RATE_LIMIT.windowMs,
   );
-  const ipTimestamps = pruneTimestamps(
-    store.ip.get(keys.ipKey),
+  const credentialTimestamps = pruneTimestamps(
+    store.plate.get(credentialKey),
+    now,
+    PLATE_LOGIN_RATE_LIMIT.windowMs,
+  );
+  credentialTimestamps.push(now);
+  store.plate.set(credentialKey, credentialTimestamps);
+
+  evictIfAtCapacity(store.ip, ipKey, MAX_TRACKED_KEYS_PER_STORE, now, IP_LOGIN_RATE_LIMIT.windowMs);
+  const ipTimestampsForRecord = pruneTimestamps(
+    store.ip.get(ipKey),
     now,
     IP_LOGIN_RATE_LIMIT.windowMs,
   );
-  // Budanmış listeleri geri yaz — süresi geçmiş damgaların Map'te
-  // sonsuza dek BİRİKMESİNİ önler (bellek içi tek süreç için gerekli
-  // temizlik; görev tanımı "sınırsız bellek kuyruğu yok" ilkesiyle aynı
-  // doğrultuda — bkz. `./hash-queue.ts` üst notu).
-  if (plateTimestamps.length > 0) {
-    store.plate.set(keys.plateKey, plateTimestamps);
-  } else {
-    store.plate.delete(keys.plateKey);
-  }
-  if (ipTimestamps.length > 0) {
-    store.ip.set(keys.ipKey, ipTimestamps);
-  } else {
-    store.ip.delete(keys.ipKey);
-  }
-
-  const plateDecision = decide(plateTimestamps, PLATE_LOGIN_RATE_LIMIT, now);
-  if (plateDecision.limited) {
-    return plateDecision;
-  }
-  return decide(ipTimestamps, IP_LOGIN_RATE_LIMIT, now);
+  ipTimestampsForRecord.push(now);
+  store.ip.set(ipKey, ipTimestampsForRecord);
 }
 
 /**
@@ -288,40 +372,16 @@ export function recordFailedVehicleLoginAttempt(
   keys: VehicleLoginRateLimitKeys,
   clock: Clock = systemClock,
 ): void {
-  const now = clock().getTime();
+  recordFailedCredentialAttempt(keys.plateKey, keys.ipKey, clock);
+}
 
-  // Üstteki "KÖK NEDEN/GEREKÇE" notu — YENİ bir anahtar eklemeden önce
-  // mağazanın sınırsız büyümesini engeller; var olan bir anahtarın
-  // güncellenmesini (aşağıdaki `.set`) ETKİLEMEZ.
-  evictIfAtCapacity(
-    store.plate,
-    keys.plateKey,
-    MAX_TRACKED_KEYS_PER_STORE,
-    now,
-    PLATE_LOGIN_RATE_LIMIT.windowMs,
-  );
-  const plateTimestamps = pruneTimestamps(
-    store.plate.get(keys.plateKey),
-    now,
-    PLATE_LOGIN_RATE_LIMIT.windowMs,
-  );
-  plateTimestamps.push(now);
-  store.plate.set(keys.plateKey, plateTimestamps);
-
-  evictIfAtCapacity(
-    store.ip,
-    keys.ipKey,
-    MAX_TRACKED_KEYS_PER_STORE,
-    now,
-    IP_LOGIN_RATE_LIMIT.windowMs,
-  );
-  const ipTimestamps = pruneTimestamps(
-    store.ip.get(keys.ipKey),
-    now,
-    IP_LOGIN_RATE_LIMIT.windowMs,
-  );
-  ipTimestamps.push(now);
-  store.ip.set(keys.ipKey, ipTimestamps);
+/** `../usecases/auth/platform-login.ts`'in `recordFailedVehicleLoginAttempt`
+ * ile AYNI (paylaşılan `recordFailedCredentialAttempt`) davranışı. */
+export function recordFailedPlatformLoginAttempt(
+  keys: PlatformLoginRateLimitKeys,
+  clock: Clock = systemClock,
+): void {
+  recordFailedCredentialAttempt(keys.usernameKey, keys.ipKey, clock);
 }
 
 // ---------------------------------------------------------------------------

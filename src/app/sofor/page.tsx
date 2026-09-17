@@ -6,7 +6,9 @@ import { readVehiclePlateForDisplay } from "../../server/auth/vehicle-plate";
 import { VehiclePageHeader } from "../_components/vehicle-page-header";
 
 /**
- * /sofor — şoför ana ekranı (DESIGN.md §1/§2.2). T1.2 ADIM 2/2, S1.2.
+ * /sofor — şoför ana ekranı (DESIGN.md §1/§2.2). T1.2 ADIM 2/2, S1.2;
+ * T1.3 ADIM 2/2, S1.3, görev tanımı (c) — platform oturumu artık /giris
+ * yerine /yonetim'e yönlendirilir.
  *
  * Görev tanımı (2, birebir): "oturum yoksa /giris'e yönlendirir
  * (redirect); rol uyuşmuyorsa rolüne uygun sayfaya yönlendirir (şoför
@@ -26,10 +28,9 @@ export default async function SoforPage() {
   const { context } = session;
 
   if (context.kind !== "vehicle") {
-    // Ekip (platform) oturumu — T1.3 henüz /yonetim'i AÇMADI. Var
-    // olmayan bir rotaya yönlendirmek yerine güvenli varsayılana (giriş
-    // ekranı) dönülür; bu, bu paketin open_issues'ında not edilmiştir.
-    redirect("/giris");
+    // Ekip (platform) oturumu — DESIGN §1 "geçerli oturum varsa ilgili
+    // ana ekrana yönlenir" (T1.3 ADIM 2/2, görev tanımı c).
+    redirect("/yonetim");
   }
   if (context.role === "owner") {
     redirect("/sahip");

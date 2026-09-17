@@ -10,11 +10,19 @@
  * UserSync`) iptal eder.
  */
 import { eq, sql } from "drizzle-orm";
-import { systemClock, type Clock } from "../../auth/session";
-import type { AppDatabase } from "../../data/db";
-import { platformUsers } from "../../data/schema";
-import { revokeSessionsForPlatformUserSync } from "../session/revoke-session";
-import { runAccessChangeTransaction } from "./run-access-change-transaction";
+// T1.3, S1.3 — açık ".ts" uzantısı KASITLIDIR (bkz. `../../data/db.ts` üst
+// notu ve `../../data/package.json`/`../../../../scripts/package.json` —
+// AYNI desen): `scripts/platform-admin.ts` bu modülü (dolaylı olarak,
+// `bumpPlatformUserVersion` üzerinden) DOĞRUDAN Node'un yerel ESM
+// çözümleyicisiyle (bundler'sız) İÇE AKTARIR; Node uzantısız göreli
+// import'u ÇÖZEMEZ. `allowImportingTsExtensions` (tsconfig) ve Next.js/
+// Vitest'in bundler tabanlı çözümleyicileri açık ".ts" uzantısını da
+// SORUNSUZ kabul eder — bu yüzden davranış hiçbir tüketicide DEĞİŞMEZ.
+import { systemClock, type Clock } from "../../auth/session.ts";
+import type { AppDatabase } from "../../data/db.ts";
+import { platformUsers } from "../../data/schema.ts";
+import { revokeSessionsForPlatformUserSync } from "../session/revoke-session.ts";
+import { runAccessChangeTransaction } from "./run-access-change-transaction.ts";
 
 export function bumpPlatformUserVersion(
   db: AppDatabase,

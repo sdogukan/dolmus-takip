@@ -173,6 +173,21 @@ export const SEED_IDS = {
   platformSupportPassive1: fixedId("platform-user:support:passive:1"),
 } as const;
 
+/**
+ * Ekip hesabı kullanıcı adları — T1.3, S1.3 platform-login testlerinin
+ * (`tests/integration/platform-login-route.test.ts`,
+ * `tests/integration/platform-admin-cli.test.ts`) DOĞRUDAN kullandığı tek
+ * kaynak; önceden bu dizeler yalnız aşağıdaki `insertPlatformUser`
+ * çağrılarında GÖMÜLÜYDÜ (T1.1'de henüz bir giriş akışı OLMADIĞINDAN dışa
+ * aktarılmaya gerek yoktu).
+ */
+export const SEED_USERNAMES = {
+  admin: "admin.test",
+  adminPassive: "admin.pasif.test",
+  support: "destek.test",
+  supportPassive: "destek.pasif.test",
+} as const;
+
 /** İnsanların okuyacağı ham plaka biçimleri — `normalizePlate` ile saklanır. */
 export const SEED_RAW_PLATES = {
   vehicleA1: "34 AAA 001",
@@ -540,7 +555,7 @@ export async function seedDevData(sqlite: SqliteConnection): Promise<SeedRowCoun
     insertPlatformUser(
       sqlite,
       SEED_IDS.platformAdmin1,
-      "admin.test",
+      SEED_USERNAMES.admin,
       adminHash,
       "admin",
       true,
@@ -548,7 +563,7 @@ export async function seedDevData(sqlite: SqliteConnection): Promise<SeedRowCoun
     insertPlatformUser(
       sqlite,
       SEED_IDS.platformAdminPassive1,
-      "admin.pasif.test",
+      SEED_USERNAMES.adminPassive,
       adminHash,
       "admin",
       false,
@@ -556,7 +571,7 @@ export async function seedDevData(sqlite: SqliteConnection): Promise<SeedRowCoun
     insertPlatformUser(
       sqlite,
       SEED_IDS.platformSupport1,
-      "destek.test",
+      SEED_USERNAMES.support,
       supportHash,
       "support",
       true,
@@ -564,7 +579,7 @@ export async function seedDevData(sqlite: SqliteConnection): Promise<SeedRowCoun
     insertPlatformUser(
       sqlite,
       SEED_IDS.platformSupportPassive1,
-      "destek.pasif.test",
+      SEED_USERNAMES.supportPassive,
       supportHash,
       "support",
       false,

@@ -16,7 +16,8 @@
     "test:e2e": "next build && node scripts/prepare-standalone.ts && playwright test",
     "db:init": "node --env-file-if-exists=.env scripts/db-init.ts",
     "db:generate": "drizzle-kit generate",
-    "db:seed-dev": "node --env-file-if-exists=.env scripts/db-seed-dev.ts"
+    "db:seed-dev": "node --env-file-if-exists=.env scripts/db-seed-dev.ts",
+    "platform-admin": "node scripts/platform-admin.ts"
   },
   "dependencies": {
     "next": "16.3.5",

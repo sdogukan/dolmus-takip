@@ -114,7 +114,13 @@ function fieldErrorsFromZodIssues(error: z.ZodError): Record<string, string> {
 export const DUMMY_ARGON2ID_HASH =
   "$argon2id$v=19$m=19456,p=1,t=2$IZucioL54ivovTekOuvEhA$q6c/zQkP7H06bG5SOlSDlksDMgIIw+xkAqvwwU3PL44";
 
-async function verifyPasswordOrDummy(
+// T1.3, S1.3 — "araç girişiyle AYNI ortak yardımcı kullanılır, kod tekrarı
+// yapılmaz" (görev tanımı, birebir): `export` eklendi ki `../usecases/
+// auth/platform-login.ts` (ekip girişi) bu fonksiyonu VE üstteki
+// `DUMMY_ARGON2ID_HASH` sabitini DOĞRUDAN İÇE AKTARSIN — dummy-hash yolu
+// ve hash-kuyruğu ORKESTRASYONU İKİNCİ bir yerde YENİDEN YAZILMAZ. Davranış
+// DEĞİŞMEDİ (araç girişinin kendi kullanımı birebir aynı kalır).
+export async function verifyPasswordOrDummy(
   hash: string | undefined,
   password: string,
   clock: Clock,

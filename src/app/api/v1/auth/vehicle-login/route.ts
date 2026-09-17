@@ -68,7 +68,12 @@ import { revokeSession } from "../../../../../server/usecases/session/revoke-ses
  * etmek yeterlidir) — bu yüzden doğrudan `token_hash` eşleşmesiyle
  * `sessions.id` aranır.
  */
-async function revokePriorSessionCookieIfAny(
+// T1.3, S1.3 — `export` eklendi: bu fonksiyon SESSION KİNDİNDEN bağımsız
+// (yalnız "bu tarayıcıda VAR OLAN oturum çerezini iptal et" işini yapar);
+// `../platform-login/route.ts` (ekip girişi) AYNI S1.4 AC2 "ortak telefon"
+// davranışını gerektirir ve bu fonksiyonu DOĞRUDAN İÇE AKTARIR — ikinci
+// bir kopya YAZILMAZ. Davranış DEĞİŞMEDİ.
+export async function revokePriorSessionCookieIfAny(
   db: AppDatabase,
   request: Request,
 ): Promise<void> {

@@ -113,3 +113,10 @@ Faz 0: 14 doküman, 7 mercek, 38 aday bulgu, 3'lü çürütme; 20 birleşik bulg
 - Sayfalar: `/` oturum yoksa /giris, varsa role göre /sofor | /sahip; rol uyuşmazsa role uygun sayfaya yönlendirme. /giris geçerli oturumda otomatik yönlendirme yapmaz (DESIGN §1 yalnız kök adres için ister). Platform oturumu için hedef /yonetim T1.3'te; o zamana kadar /giris'e düşer.
 - M1'de /sofor ve /sahip sahte form/rapor içermez; dürüst durum metni + plaka + Çıkış.
 - E2E: Playwright chromium + webkit; ayrı geçici test DB (global-setup webServer komut zincirinde çalışır, çünkü Playwright webServer'ı globalSetup'tan önce başlatır); **sunucu `node .next/standalone/server.js`** (next start, output:standalone ile desteklenmez); standalone hazırlığı (.next/static + public kopyası) yeniden kullanılabilir script ile (T6.1 de kullanır); APP_ORIGIN=http://127.0.0.1:3100 → çerez Secure değil.
+
+## T1.3 uygulama kararları (2026-09-17)
+- İlk yönetici: `npm run platform-admin -- create-first-admin --username <ad> --password-stdin` yalnız sunucu shell'inden; tekrar çalıştırma çoğaltmaz/değiştirmez ('zaten var', exit 0). admin_audit: action platform_user.bootstrap, aktör = yeni yöneticinin kendisi. `reset-admin-password --username` (F11): credential_version +1 → oturumlar iptal, audit platform_user.reset_password.
+- Platform login: username normalize; bilinmeyen/pasif kullanıcıda dummy hash; 401 INVALID_CREDENTIALS 'Kullanıcı adı veya şifre yanlış.'; hız sınırı anahtarı `platform:<username>` 20/15 dk. **IP kovası araç ve ekip girişi arasında ortaktır** (120/15 dk): aynı IP'den gelen toplam kötüye kullanım tek sayaçta; ARCH §6 'IP bazında' ifadesinin yorumu, kabul edildi.
+- GET /session platform oturumunda `username` döner; /yonetim başlığında username + rol etiketi (Yönetici/Destek).
+- Ortak LoginForm bileşeni src/app/_components (araç/ekip varyantı; serileştirilebilir prop'lar, RSC sınırı). Platform oturumu `/`, `/sofor`, `/sahip` → /yonetim.
+- scripts/ saf Node ESM: src/server/auth ve src/server/usecases altına {type:module} package.json, göreli import'larda açık .ts uzantısı (T1.1 deseni).

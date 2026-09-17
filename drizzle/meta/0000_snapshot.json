@@ -1,0 +1,1627 @@
+{
+  "version": "6",
+  "dialect": "sqlite",
+  "id": "bd28cd16-21c6-472c-b3e1-6fcc6ec23139",
+  "prevId": "00000000-0000-0000-0000-000000000000",
+  "tables": {
+    "admin_audit": {
+      "name": "admin_audit",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "business_id": {
+          "name": "business_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "vehicle_id": {
+          "name": "vehicle_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "entity_type": {
+          "name": "entity_type",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "entity_id": {
+          "name": "entity_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "action": {
+          "name": "action",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "before_json": {
+          "name": "before_json",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "after_json": {
+          "name": "after_json",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "actor_kind": {
+          "name": "actor_kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "actor_session_id": {
+          "name": "actor_session_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "actor_role": {
+          "name": "actor_role",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "actor_credential_id": {
+          "name": "actor_credential_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "actor_platform_user_id": {
+          "name": "actor_platform_user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "on_behalf_of_kind": {
+          "name": "on_behalf_of_kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "on_behalf_of_person_id": {
+          "name": "on_behalf_of_person_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "occurred_at": {
+          "name": "occurred_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "idx_admin_audit_business_period": {
+          "name": "idx_admin_audit_business_period",
+          "columns": [
+            "business_id",
+            "occurred_at",
+            "id"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "admin_audit_business_id_businesses_id_fk": {
+          "name": "admin_audit_business_id_businesses_id_fk",
+          "tableFrom": "admin_audit",
+          "tableTo": "businesses",
+          "columnsFrom": [
+            "business_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "admin_audit_vehicle_id_vehicles_id_fk": {
+          "name": "admin_audit_vehicle_id_vehicles_id_fk",
+          "tableFrom": "admin_audit",
+          "tableTo": "vehicles",
+          "columnsFrom": [
+            "vehicle_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "admin_audit_actor_credential_id_vehicle_credentials_id_fk": {
+          "name": "admin_audit_actor_credential_id_vehicle_credentials_id_fk",
+          "tableFrom": "admin_audit",
+          "tableTo": "vehicle_credentials",
+          "columnsFrom": [
+            "actor_credential_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "admin_audit_actor_platform_user_id_platform_users_id_fk": {
+          "name": "admin_audit_actor_platform_user_id_platform_users_id_fk",
+          "tableFrom": "admin_audit",
+          "tableTo": "platform_users",
+          "columnsFrom": [
+            "actor_platform_user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "admin_audit_on_behalf_of_person_id_people_id_fk": {
+          "name": "admin_audit_on_behalf_of_person_id_people_id_fk",
+          "tableFrom": "admin_audit",
+          "tableTo": "people",
+          "columnsFrom": [
+            "on_behalf_of_person_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "admin_audit_business_vehicle_fk": {
+          "name": "admin_audit_business_vehicle_fk",
+          "tableFrom": "admin_audit",
+          "tableTo": "vehicles",
+          "columnsFrom": [
+            "business_id",
+            "vehicle_id"
+          ],
+          "columnsTo": [
+            "business_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "admin_audit_on_behalf_of_person_fk": {
+          "name": "admin_audit_on_behalf_of_person_fk",
+          "tableFrom": "admin_audit",
+          "tableTo": "people",
+          "columnsFrom": [
+            "business_id",
+            "on_behalf_of_person_id"
+          ],
+          "columnsTo": [
+            "business_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "admin_audit_actor_kind_check": {
+          "name": "admin_audit_actor_kind_check",
+          "value": "\"admin_audit\".\"actor_kind\" IN ('vehicle_credential', 'platform_user')"
+        },
+        "admin_audit_actor_role_check": {
+          "name": "admin_audit_actor_role_check",
+          "value": "\"admin_audit\".\"actor_role\" IN ('owner', 'driver', 'admin', 'support')"
+        },
+        "admin_audit_on_behalf_of_kind_check": {
+          "name": "admin_audit_on_behalf_of_kind_check",
+          "value": "\"admin_audit\".\"on_behalf_of_kind\" IS NULL OR \"admin_audit\".\"on_behalf_of_kind\" IN ('owner', 'driver')"
+        },
+        "admin_audit_actor_kind_exclusivity_check": {
+          "name": "admin_audit_actor_kind_exclusivity_check",
+          "value": "(\n      (\"admin_audit\".\"actor_kind\" = 'vehicle_credential' AND \"admin_audit\".\"actor_credential_id\" IS NOT NULL AND \"admin_audit\".\"actor_platform_user_id\" IS NULL)\n      OR\n      (\"admin_audit\".\"actor_kind\" = 'platform_user' AND \"admin_audit\".\"actor_platform_user_id\" IS NOT NULL AND \"admin_audit\".\"actor_credential_id\" IS NULL)\n    )"
+        },
+        "admin_audit_on_behalf_of_consistency_check": {
+          "name": "admin_audit_on_behalf_of_consistency_check",
+          "value": "(\n      (\"admin_audit\".\"on_behalf_of_kind\" IS NULL AND \"admin_audit\".\"on_behalf_of_person_id\" IS NULL)\n      OR\n      (\"admin_audit\".\"on_behalf_of_kind\" IS NOT NULL AND \"admin_audit\".\"on_behalf_of_person_id\" IS NOT NULL)\n    )"
+        }
+      }
+    },
+    "businesses": {
+      "name": "businesses",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "name": {
+          "name": "name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "active": {
+          "name": "active",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": true
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "cash_confirmations": {
+      "name": "cash_confirmations",
+      "columns": {
+        "business_id": {
+          "name": "business_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "entry_id": {
+          "name": "entry_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "entry_version": {
+          "name": "entry_version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "received_cents": {
+          "name": "received_cents",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "confirmed_at": {
+          "name": "confirmed_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "actor_kind": {
+          "name": "actor_kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "actor_session_id": {
+          "name": "actor_session_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "actor_role": {
+          "name": "actor_role",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "actor_credential_id": {
+          "name": "actor_credential_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "actor_platform_user_id": {
+          "name": "actor_platform_user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "on_behalf_of_kind": {
+          "name": "on_behalf_of_kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "on_behalf_of_person_id": {
+          "name": "on_behalf_of_person_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "cash_confirmations_business_entry_version_uk": {
+          "name": "cash_confirmations_business_entry_version_uk",
+          "columns": [
+            "business_id",
+            "entry_id",
+            "entry_version"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {
+        "cash_confirmations_actor_credential_id_vehicle_credentials_id_fk": {
+          "name": "cash_confirmations_actor_credential_id_vehicle_credentials_id_fk",
+          "tableFrom": "cash_confirmations",
+          "tableTo": "vehicle_credentials",
+          "columnsFrom": [
+            "actor_credential_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "cash_confirmations_actor_platform_user_id_platform_users_id_fk": {
+          "name": "cash_confirmations_actor_platform_user_id_platform_users_id_fk",
+          "tableFrom": "cash_confirmations",
+          "tableTo": "platform_users",
+          "columnsFrom": [
+            "actor_platform_user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "cash_confirmations_on_behalf_of_person_id_people_id_fk": {
+          "name": "cash_confirmations_on_behalf_of_person_id_people_id_fk",
+          "tableFrom": "cash_confirmations",
+          "tableTo": "people",
+          "columnsFrom": [
+            "on_behalf_of_person_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "cash_confirmations_revision_fk": {
+          "name": "cash_confirmations_revision_fk",
+          "tableFrom": "cash_confirmations",
+          "tableTo": "work_entry_revisions",
+          "columnsFrom": [
+            "business_id",
+            "entry_id",
+            "entry_version"
+          ],
+          "columnsTo": [
+            "business_id",
+            "entry_id",
+            "version"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "cash_confirmations_on_behalf_of_person_fk": {
+          "name": "cash_confirmations_on_behalf_of_person_fk",
+          "tableFrom": "cash_confirmations",
+          "tableTo": "people",
+          "columnsFrom": [
+            "business_id",
+            "on_behalf_of_person_id"
+          ],
+          "columnsTo": [
+            "business_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "cash_confirmations_received_cents_nonnegative_check": {
+          "name": "cash_confirmations_received_cents_nonnegative_check",
+          "value": "\"cash_confirmations\".\"received_cents\" >= 0"
+        },
+        "cash_confirmations_actor_kind_check": {
+          "name": "cash_confirmations_actor_kind_check",
+          "value": "\"cash_confirmations\".\"actor_kind\" IN ('vehicle_credential', 'platform_user')"
+        },
+        "cash_confirmations_actor_role_check": {
+          "name": "cash_confirmations_actor_role_check",
+          "value": "\"cash_confirmations\".\"actor_role\" IN ('owner', 'driver', 'admin', 'support')"
+        },
+        "cash_confirmations_on_behalf_of_kind_check": {
+          "name": "cash_confirmations_on_behalf_of_kind_check",
+          "value": "\"cash_confirmations\".\"on_behalf_of_kind\" IS NULL OR \"cash_confirmations\".\"on_behalf_of_kind\" IN ('owner', 'driver')"
+        },
+        "cash_confirmations_actor_kind_exclusivity_check": {
+          "name": "cash_confirmations_actor_kind_exclusivity_check",
+          "value": "(\n      (\"cash_confirmations\".\"actor_kind\" = 'vehicle_credential' AND \"cash_confirmations\".\"actor_credential_id\" IS NOT NULL AND \"cash_confirmations\".\"actor_platform_user_id\" IS NULL)\n      OR\n      (\"cash_confirmations\".\"actor_kind\" = 'platform_user' AND \"cash_confirmations\".\"actor_platform_user_id\" IS NOT NULL AND \"cash_confirmations\".\"actor_credential_id\" IS NULL)\n    )"
+        },
+        "cash_confirmations_on_behalf_of_consistency_check": {
+          "name": "cash_confirmations_on_behalf_of_consistency_check",
+          "value": "(\n      (\"cash_confirmations\".\"on_behalf_of_kind\" IS NULL AND \"cash_confirmations\".\"on_behalf_of_person_id\" IS NULL)\n      OR\n      (\"cash_confirmations\".\"on_behalf_of_kind\" IS NOT NULL AND \"cash_confirmations\".\"on_behalf_of_person_id\" IS NOT NULL)\n    )"
+        }
+      }
+    },
+    "mutation_receipts": {
+      "name": "mutation_receipts",
+      "columns": {
+        "scope_key": {
+          "name": "scope_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "request_id": {
+          "name": "request_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "operation": {
+          "name": "operation",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "request_hash": {
+          "name": "request_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "entity_id": {
+          "name": "entity_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "result_version": {
+          "name": "result_version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "response_code": {
+          "name": "response_code",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {
+        "mutation_receipts_scope_key_request_id_pk": {
+          "columns": [
+            "scope_key",
+            "request_id"
+          ],
+          "name": "mutation_receipts_scope_key_request_id_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "people": {
+      "name": "people",
+      "columns": {
+        "business_id": {
+          "name": "business_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "full_name": {
+          "name": "full_name",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "active": {
+          "name": "active",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": true
+        },
+        "version": {
+          "name": "version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 1
+        }
+      },
+      "indexes": {
+        "people_business_id_id_uk": {
+          "name": "people_business_id_id_uk",
+          "columns": [
+            "business_id",
+            "id"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {
+        "people_business_id_businesses_id_fk": {
+          "name": "people_business_id_businesses_id_fk",
+          "tableFrom": "people",
+          "tableTo": "businesses",
+          "columnsFrom": [
+            "business_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "people_version_positive_check": {
+          "name": "people_version_positive_check",
+          "value": "\"people\".\"version\" >= 1"
+        }
+      }
+    },
+    "platform_users": {
+      "name": "platform_users",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "username": {
+          "name": "username",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "password_hash": {
+          "name": "password_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "platform_role": {
+          "name": "platform_role",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "active": {
+          "name": "active",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": true
+        },
+        "credential_version": {
+          "name": "credential_version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 1
+        }
+      },
+      "indexes": {
+        "platform_users_username_unique": {
+          "name": "platform_users_username_unique",
+          "columns": [
+            "username"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "platform_users_platform_role_check": {
+          "name": "platform_users_platform_role_check",
+          "value": "\"platform_users\".\"platform_role\" IN ('admin', 'support')"
+        },
+        "platform_users_credential_version_positive_check": {
+          "name": "platform_users_credential_version_positive_check",
+          "value": "\"platform_users\".\"credential_version\" >= 1"
+        }
+      }
+    },
+    "sessions": {
+      "name": "sessions",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "token_hash": {
+          "name": "token_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "credential_id": {
+          "name": "credential_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "platform_user_id": {
+          "name": "platform_user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "issued_version": {
+          "name": "issued_version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "last_seen_at": {
+          "name": "last_seen_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "revoked_at": {
+          "name": "revoked_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        }
+      },
+      "indexes": {
+        "sessions_token_hash_unique": {
+          "name": "sessions_token_hash_unique",
+          "columns": [
+            "token_hash"
+          ],
+          "isUnique": true
+        },
+        "idx_sessions_expires_at": {
+          "name": "idx_sessions_expires_at",
+          "columns": [
+            "expires_at"
+          ],
+          "isUnique": false
+        }
+      },
+      "foreignKeys": {
+        "sessions_credential_id_vehicle_credentials_id_fk": {
+          "name": "sessions_credential_id_vehicle_credentials_id_fk",
+          "tableFrom": "sessions",
+          "tableTo": "vehicle_credentials",
+          "columnsFrom": [
+            "credential_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "sessions_platform_user_id_platform_users_id_fk": {
+          "name": "sessions_platform_user_id_platform_users_id_fk",
+          "tableFrom": "sessions",
+          "tableTo": "platform_users",
+          "columnsFrom": [
+            "platform_user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "sessions_exactly_one_actor_check": {
+          "name": "sessions_exactly_one_actor_check",
+          "value": "(\n        (\"sessions\".\"credential_id\" IS NOT NULL AND \"sessions\".\"platform_user_id\" IS NULL)\n        OR\n        (\"sessions\".\"credential_id\" IS NULL AND \"sessions\".\"platform_user_id\" IS NOT NULL)\n      )"
+        }
+      }
+    },
+    "vehicle_credentials": {
+      "name": "vehicle_credentials",
+      "columns": {
+        "business_id": {
+          "name": "business_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "vehicle_id": {
+          "name": "vehicle_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "role": {
+          "name": "role",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "password_hash": {
+          "name": "password_hash",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "credential_version": {
+          "name": "credential_version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 1
+        }
+      },
+      "indexes": {
+        "vehicle_credentials_vehicle_role_uk": {
+          "name": "vehicle_credentials_vehicle_role_uk",
+          "columns": [
+            "vehicle_id",
+            "role"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {
+        "vehicle_credentials_vehicle_fk": {
+          "name": "vehicle_credentials_vehicle_fk",
+          "tableFrom": "vehicle_credentials",
+          "tableTo": "vehicles",
+          "columnsFrom": [
+            "business_id",
+            "vehicle_id"
+          ],
+          "columnsTo": [
+            "business_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "vehicle_credentials_role_check": {
+          "name": "vehicle_credentials_role_check",
+          "value": "\"vehicle_credentials\".\"role\" IN ('owner', 'driver')"
+        },
+        "vehicle_credentials_credential_version_positive_check": {
+          "name": "vehicle_credentials_credential_version_positive_check",
+          "value": "\"vehicle_credentials\".\"credential_version\" >= 1"
+        }
+      }
+    },
+    "vehicle_drivers": {
+      "name": "vehicle_drivers",
+      "columns": {
+        "business_id": {
+          "name": "business_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "vehicle_id": {
+          "name": "vehicle_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "person_id": {
+          "name": "person_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "active": {
+          "name": "active",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": true
+        },
+        "version": {
+          "name": "version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 1
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "vehicle_drivers_vehicle_fk": {
+          "name": "vehicle_drivers_vehicle_fk",
+          "tableFrom": "vehicle_drivers",
+          "tableTo": "vehicles",
+          "columnsFrom": [
+            "business_id",
+            "vehicle_id"
+          ],
+          "columnsTo": [
+            "business_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "vehicle_drivers_person_fk": {
+          "name": "vehicle_drivers_person_fk",
+          "tableFrom": "vehicle_drivers",
+          "tableTo": "people",
+          "columnsFrom": [
+            "business_id",
+            "person_id"
+          ],
+          "columnsTo": [
+            "business_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "vehicle_drivers_business_id_vehicle_id_person_id_pk": {
+          "columns": [
+            "business_id",
+            "vehicle_id",
+            "person_id"
+          ],
+          "name": "vehicle_drivers_business_id_vehicle_id_person_id_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "vehicle_drivers_version_positive_check": {
+          "name": "vehicle_drivers_version_positive_check",
+          "value": "\"vehicle_drivers\".\"version\" >= 1"
+        }
+      }
+    },
+    "vehicles": {
+      "name": "vehicles",
+      "columns": {
+        "business_id": {
+          "name": "business_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "plate_normalized": {
+          "name": "plate_normalized",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "owner_person_id": {
+          "name": "owner_person_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "brand_model": {
+          "name": "brand_model",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "year": {
+          "name": "year",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "route_stop": {
+          "name": "route_stop",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "note": {
+          "name": "note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "active": {
+          "name": "active",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": true
+        },
+        "version": {
+          "name": "version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 1
+        }
+      },
+      "indexes": {
+        "vehicles_plate_normalized_unique": {
+          "name": "vehicles_plate_normalized_unique",
+          "columns": [
+            "plate_normalized"
+          ],
+          "isUnique": true
+        },
+        "vehicles_business_id_id_uk": {
+          "name": "vehicles_business_id_id_uk",
+          "columns": [
+            "business_id",
+            "id"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {
+        "vehicles_business_id_businesses_id_fk": {
+          "name": "vehicles_business_id_businesses_id_fk",
+          "tableFrom": "vehicles",
+          "tableTo": "businesses",
+          "columnsFrom": [
+            "business_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "vehicles_owner_person_fk": {
+          "name": "vehicles_owner_person_fk",
+          "tableFrom": "vehicles",
+          "tableTo": "people",
+          "columnsFrom": [
+            "business_id",
+            "owner_person_id"
+          ],
+          "columnsTo": [
+            "business_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "vehicles_version_positive_check": {
+          "name": "vehicles_version_positive_check",
+          "value": "\"vehicles\".\"version\" >= 1"
+        }
+      }
+    },
+    "work_entries": {
+      "name": "work_entries",
+      "columns": {
+        "business_id": {
+          "name": "business_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "id": {
+          "name": "id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "vehicle_id": {
+          "name": "vehicle_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "person_id": {
+          "name": "person_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "work_kind": {
+          "name": "work_kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "work_date": {
+          "name": "work_date",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "starts_at": {
+          "name": "starts_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "ends_at": {
+          "name": "ends_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "duration_minutes": {
+          "name": "duration_minutes",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "gross_cents": {
+          "name": "gross_cents",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "fuel_cents": {
+          "name": "fuel_cents",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "other_expense_cents": {
+          "name": "other_expense_cents",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "other_expense_note": {
+          "name": "other_expense_note",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "share_bps": {
+          "name": "share_bps",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "share_cents": {
+          "name": "share_cents",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "remainder_cents": {
+          "name": "remainder_cents",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "calculation_version": {
+          "name": "calculation_version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 1
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "version": {
+          "name": "version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 1
+        }
+      },
+      "indexes": {
+        "idx_work_entries_vehicle_period": {
+          "name": "idx_work_entries_vehicle_period",
+          "columns": [
+            "business_id",
+            "vehicle_id",
+            "work_date",
+            "id"
+          ],
+          "isUnique": false
+        },
+        "idx_work_entries_person_period": {
+          "name": "idx_work_entries_person_period",
+          "columns": [
+            "business_id",
+            "person_id",
+            "work_date",
+            "id"
+          ],
+          "isUnique": false
+        },
+        "idx_work_entries_vehicle_status_period": {
+          "name": "idx_work_entries_vehicle_status_period",
+          "columns": [
+            "business_id",
+            "vehicle_id",
+            "status",
+            "work_date",
+            "id"
+          ],
+          "isUnique": false
+        },
+        "work_entries_business_id_id_uk": {
+          "name": "work_entries_business_id_id_uk",
+          "columns": [
+            "business_id",
+            "id"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {
+        "work_entries_vehicle_fk": {
+          "name": "work_entries_vehicle_fk",
+          "tableFrom": "work_entries",
+          "tableTo": "vehicles",
+          "columnsFrom": [
+            "business_id",
+            "vehicle_id"
+          ],
+          "columnsTo": [
+            "business_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "work_entries_person_fk": {
+          "name": "work_entries_person_fk",
+          "tableFrom": "work_entries",
+          "tableTo": "people",
+          "columnsFrom": [
+            "business_id",
+            "person_id"
+          ],
+          "columnsTo": [
+            "business_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "work_entries_work_kind_check": {
+          "name": "work_entries_work_kind_check",
+          "value": "\"work_entries\".\"work_kind\" IN ('owner', 'driver')"
+        },
+        "work_entries_status_check": {
+          "name": "work_entries_status_check",
+          "value": "\"work_entries\".\"status\" IN ('pending', 'confirmed', 'not_required')"
+        },
+        "work_entries_duration_minutes_range_check": {
+          "name": "work_entries_duration_minutes_range_check",
+          "value": "\"work_entries\".\"duration_minutes\" > 0 AND \"work_entries\".\"duration_minutes\" <= 1440"
+        },
+        "work_entries_gross_cents_nonnegative_check": {
+          "name": "work_entries_gross_cents_nonnegative_check",
+          "value": "\"work_entries\".\"gross_cents\" >= 0"
+        },
+        "work_entries_fuel_cents_nonnegative_check": {
+          "name": "work_entries_fuel_cents_nonnegative_check",
+          "value": "\"work_entries\".\"fuel_cents\" >= 0"
+        },
+        "work_entries_other_expense_cents_nonnegative_check": {
+          "name": "work_entries_other_expense_cents_nonnegative_check",
+          "value": "\"work_entries\".\"other_expense_cents\" >= 0"
+        },
+        "work_entries_share_cents_nonnegative_check": {
+          "name": "work_entries_share_cents_nonnegative_check",
+          "value": "\"work_entries\".\"share_cents\" >= 0"
+        },
+        "work_entries_share_bps_check": {
+          "name": "work_entries_share_bps_check",
+          "value": "\"work_entries\".\"share_bps\" = 0 OR \"work_entries\".\"share_bps\" = 2000"
+        },
+        "work_entries_calculation_version_positive_check": {
+          "name": "work_entries_calculation_version_positive_check",
+          "value": "\"work_entries\".\"calculation_version\" >= 1"
+        },
+        "work_entries_version_positive_check": {
+          "name": "work_entries_version_positive_check",
+          "value": "\"work_entries\".\"version\" >= 1"
+        }
+      }
+    },
+    "work_entry_revisions": {
+      "name": "work_entry_revisions",
+      "columns": {
+        "business_id": {
+          "name": "business_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "entry_id": {
+          "name": "entry_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "version": {
+          "name": "version",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "action": {
+          "name": "action",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "snapshot_json": {
+          "name": "snapshot_json",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "actor_kind": {
+          "name": "actor_kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "actor_session_id": {
+          "name": "actor_session_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "actor_role": {
+          "name": "actor_role",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "actor_credential_id": {
+          "name": "actor_credential_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "actor_platform_user_id": {
+          "name": "actor_platform_user_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "on_behalf_of_kind": {
+          "name": "on_behalf_of_kind",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "on_behalf_of_person_id": {
+          "name": "on_behalf_of_person_id",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "work_entry_revisions_actor_credential_id_vehicle_credentials_id_fk": {
+          "name": "work_entry_revisions_actor_credential_id_vehicle_credentials_id_fk",
+          "tableFrom": "work_entry_revisions",
+          "tableTo": "vehicle_credentials",
+          "columnsFrom": [
+            "actor_credential_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "work_entry_revisions_actor_platform_user_id_platform_users_id_fk": {
+          "name": "work_entry_revisions_actor_platform_user_id_platform_users_id_fk",
+          "tableFrom": "work_entry_revisions",
+          "tableTo": "platform_users",
+          "columnsFrom": [
+            "actor_platform_user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "work_entry_revisions_on_behalf_of_person_id_people_id_fk": {
+          "name": "work_entry_revisions_on_behalf_of_person_id_people_id_fk",
+          "tableFrom": "work_entry_revisions",
+          "tableTo": "people",
+          "columnsFrom": [
+            "on_behalf_of_person_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "work_entry_revisions_entry_fk": {
+          "name": "work_entry_revisions_entry_fk",
+          "tableFrom": "work_entry_revisions",
+          "tableTo": "work_entries",
+          "columnsFrom": [
+            "business_id",
+            "entry_id"
+          ],
+          "columnsTo": [
+            "business_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        },
+        "work_entry_revisions_on_behalf_of_person_fk": {
+          "name": "work_entry_revisions_on_behalf_of_person_fk",
+          "tableFrom": "work_entry_revisions",
+          "tableTo": "people",
+          "columnsFrom": [
+            "business_id",
+            "on_behalf_of_person_id"
+          ],
+          "columnsTo": [
+            "business_id",
+            "id"
+          ],
+          "onDelete": "no action",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "work_entry_revisions_business_id_entry_id_version_pk": {
+          "columns": [
+            "business_id",
+            "entry_id",
+            "version"
+          ],
+          "name": "work_entry_revisions_business_id_entry_id_version_pk"
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "work_entry_revisions_version_positive_check": {
+          "name": "work_entry_revisions_version_positive_check",
+          "value": "\"work_entry_revisions\".\"version\" >= 1"
+        },
+        "work_entry_revisions_actor_kind_check": {
+          "name": "work_entry_revisions_actor_kind_check",
+          "value": "\"work_entry_revisions\".\"actor_kind\" IN ('vehicle_credential', 'platform_user')"
+        },
+        "work_entry_revisions_actor_role_check": {
+          "name": "work_entry_revisions_actor_role_check",
+          "value": "\"work_entry_revisions\".\"actor_role\" IN ('owner', 'driver', 'admin', 'support')"
+        },
+        "work_entry_revisions_on_behalf_of_kind_check": {
+          "name": "work_entry_revisions_on_behalf_of_kind_check",
+          "value": "\"work_entry_revisions\".\"on_behalf_of_kind\" IS NULL OR \"work_entry_revisions\".\"on_behalf_of_kind\" IN ('owner', 'driver')"
+        },
+        "work_entry_revisions_actor_kind_exclusivity_check": {
+          "name": "work_entry_revisions_actor_kind_exclusivity_check",
+          "value": "(\n      (\"work_entry_revisions\".\"actor_kind\" = 'vehicle_credential' AND \"work_entry_revisions\".\"actor_credential_id\" IS NOT NULL AND \"work_entry_revisions\".\"actor_platform_user_id\" IS NULL)\n      OR\n      (\"work_entry_revisions\".\"actor_kind\" = 'platform_user' AND \"work_entry_revisions\".\"actor_platform_user_id\" IS NOT NULL AND \"work_entry_revisions\".\"actor_credential_id\" IS NULL)\n    )"
+        },
+        "work_entry_revisions_on_behalf_of_consistency_check": {
+          "name": "work_entry_revisions_on_behalf_of_consistency_check",
+          "value": "(\n      (\"work_entry_revisions\".\"on_behalf_of_kind\" IS NULL AND \"work_entry_revisions\".\"on_behalf_of_person_id\" IS NULL)\n      OR\n      (\"work_entry_revisions\".\"on_behalf_of_kind\" IS NOT NULL AND \"work_entry_revisions\".\"on_behalf_of_person_id\" IS NOT NULL)\n    )"
+        }
+      }
+    }
+  },
+  "views": {},
+  "enums": {},
+  "_meta": {
+    "schemas": {},
+    "tables": {},
+    "columns": {}
+  },
+  "internal": {
+    "indexes": {}
+  }
+}

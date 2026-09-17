@@ -66,3 +66,13 @@ Faz 0: 14 doküman, 7 mercek, 38 aday bulgu, 3'lü çürütme; 20 birleşik bulg
 - F13: Giriş sayacı ve Argon2 kuyruk izleme satırları OPS.md'ye T6.3'te eklenecek.
 - F14: Şifre teslim yöntemi → deploy öncesi kullanıcıya sorulacak.
 - F20: Plaka yeniden tahsisi MVP dışı; backlog notu. plate_normalized UNIQUE koşulsuz kalır.
+
+## T1.1 uygulama kararları (2026-09-17)
+- ESLint: eslint 10.10.0 + eslint-config-next 16.3.5 zinciri (eslint-plugin-react 7.37.5, vendored babel parser) ESLint 10 ile çöküyordu (vercel/next.js#89764, jsx-eslint/eslint-plugin-react#4018). Kök neden düzeltmesi eslint.config.mjs'de: settings.react.version = '19.3.0' (detect kapatıldı) ve tüm JS/TS dosyaları typescript-eslint parser'ına bağlandı. Hiçbir kural kapatılmadı, paket sürümü değişmedi.
+- vehicles sütunları: brand_model, year, route_stop, note (PRD §6 + TASKS T2.2 + DESIGN §2.9).
+- Sabit değerler: platform_role ∈ {admin, support}; actor_kind ∈ {vehicle_credential, platform_user}; actor_role ∈ {owner, driver, admin, support}; work_kind ∈ {driver, owner}; status ∈ {pending, confirmed, not_required}. CHECK kısıtlarında.
+- admin_audit: business_id NULL iken vehicle_id/on_behalf_of_person_id NULL olmak zorunda (CHECK); migration 0001.
+- Scripts ESM: scripts/ ve src/server/data/ altında {"type":"module"} package.json; tsconfig allowImportingTsExtensions; Node 24 yerleşik TS çalıştırma. Kök package.json "type" alanı yok (Next etkilenmesin).
+- Seed üretim koruması NODE_ENV==='production' kontrolüne dayanır → T6.2 systemd env dosyasında NODE_ENV=production ZORUNLU (RELEASE/OPS'a T6.2'de yazılacak).
+- CSP: nonce tabanlı, src/proxy.ts (Next 16'da middleware.ts yerine proxy.ts); x-nonce request header'ı yazılır.
+- Yeniden adlandırılmış kişi senaryosu seed'de people.version=2 ile temsil; gerçek ad geçmişi admin_audit ile T2.4'te.

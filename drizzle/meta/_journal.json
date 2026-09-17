@@ -1,0 +1,20 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1789608826825,
+      "tag": "0000_left_the_stranger",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1789610550844,
+      "tag": "0001_outgoing_eddie_brock",
+      "breakpoints": true
+    }
+  ]
+}

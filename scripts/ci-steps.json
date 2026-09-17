@@ -1,0 +1,12 @@
+{
+  "$comment": "T6.1 ADIM 2/2, S6.1 — CI ve yerel eşdeğerin PAYLAŞTIĞI TEK doğrulama adım listesi. `.github/workflows/ci.yml` (ve `release.yml`) bu dosyadan ÜRETİLMEZ (görev tanımı: 'ci.yml o listeden üretilmez ama test iki listeyi karşılaştırır') — YAML elle yazılır; `tests/unit/ci-workflows.test.ts` iki listeyi (buradaki `run` sırası ile ci.yml'deki `npm run …` adım sırası) KARŞILAŞTIRIR, `scripts/ci-local.ts` ise bu dosyayı OKUYUP sırayla ÇALIŞTIRIR. Bir adımın komutu değişirse TEK bu dosya güncellenir; iki tüketici de otomatik izler/doğrular. Denetim bulgusu (düzeltme turu 1, medium — Actions dakika bütçesi): ayrı bir 'build' adımı (yalnız `npm run build`) BİLEREK YOKTUR; `test:e2e` adımının kendi komutu zaten tam bir `next build` çalıştırır ve hiçbir şey bağımsız 'build' adımının çıktısını TÜKETMİYORDU (üç kez aynı üretim derlemesi çalışıyordu: build → e2e'nin kendi build'i → release:build'in kendi build'i). Denetim bulgusu (düzeltme turu 3, blocker — S6.1 AC3): bu SIRALAMANIN kendisi (typecheck/lint/unit/integration önce, release:build sonra) AC3'ü yalnız BU akış (ci.yml/ci:local) üzerinden çağrıldığında sağlar; `scripts/release-build.ts` doğrudan/elle çağrıldığında (CI dışında) bu sıraya HİÇ tabi değildi. Bu yüzden `release-build.ts` artık AYNI dört kontrolü (typecheck/lint/unit/integration) KENDİ İÇİNDE de çalıştırır (bkz. o dosyanın üst notu) — burada listelenen `typecheck`/`lint`/`test:unit`/`test:integration` adımları bu yüzden `ci:local`/`ci.yml` içinde release:build'ten ÖNCE de KASITLI OLARAK dursun: aynı kontrolün iki bağımsız uygulama noktasında (çağıran akış + üretilen script) tekrarlanması KABUL EDİLEBİLİR fazlalıktır, atlama DEĞİLDİR.",
+  "steps": [
+    { "id": "typecheck", "label": "Tip kontrolü", "run": "npm run typecheck" },
+    { "id": "lint", "label": "Lint", "run": "npm run lint" },
+    { "id": "test:unit", "label": "Birim testleri", "run": "npm run test:unit" },
+    { "id": "test:integration", "label": "Entegrasyon testleri", "run": "npm run test:integration" },
+    { "id": "test:e2e", "label": "Uçtan uca testler", "run": "npm run test:e2e" },
+    { "id": "release:build", "label": "Yayın çıktısı + manifest", "run": "npm run release:build" },
+    { "id": "release:verify", "label": "Yayın çıktısı doğrulama", "run": "npm run release:verify -- dist/*.tar.gz" }
+  ]
+}

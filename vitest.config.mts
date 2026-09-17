@@ -6,8 +6,11 @@ import { defineConfig } from "vitest/config";
  * `node_modules/vitest/dist/chunks/plugin.d.CN87HSxv.d.ts`
  * `TestProjectConfiguration`/`UserWorkspaceConfig` tanımları):
  *
- * - `unit`: `src/**\/*.test.ts`, Node ortamı. Dış kaynaklara (DB, ağ)
- *   dokunmayan saf birim testleri (ör. plaka normalizasyonu).
+ * - `unit`: `src/**\/*.test.ts` + `tests/unit/**\/*.test.ts`, Node ortamı.
+ *   Dış kaynaklara (DB, ağ) dokunmayan saf birim testleri (ör. plaka
+ *   normalizasyonu). İkinci desen T6.1 ADIM 2/2 (S6.1) ile eklendi:
+ *   `.github/workflows/*.yml` metinsel doğrulaması `src/` altında değil,
+ *   görev tanımının istediği gibi `tests/unit/` altında yaşar.
  * - `integration`: `tests/integration/**\/*.test.ts`, Node ortamı, gerçek
  *   geçici SQLite dosyalarıyla çalıştığı için dosyalar arası sıralı
  *   (`fileParallelism: false`) çalıştırılır. QA-PLAN.md §1/§3 —
@@ -24,7 +27,7 @@ export default defineConfig({
         test: {
           name: "unit",
           environment: "node",
-          include: ["src/**/*.test.ts"],
+          include: ["src/**/*.test.ts", "tests/unit/**/*.test.ts"],
         },
       },
       {

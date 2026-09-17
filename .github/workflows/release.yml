@@ -1,0 +1,107 @@
+# T6.1 ADIM 2/2, S6.1 AC7 — "Üretim yayını manuel tetiklenen ayrı adımdır;
+# her push otomatik canlı yayın yapmaz." Bu iş akışı YALNIZ elle
+# (`workflow_dispatch`) tetiklenir; `ci.yml`'deki push/pull_request
+# tetikleyicisi burada YOKTUR.
+#
+# Bu iş akışı `ci.yml` ile AYNI doğrulama zincirini (typecheck → lint →
+# unit → integration → e2e → release:build → release:verify) çalıştırır
+# ve doğrulanmış çıktıyı artifact olarak saklar — GERÇEK sunucuya dağıtım
+# (SSH/Lightsail) BURADA YOKTUR. (Ayrı bir "build" adımı BİLEREK YOKTUR —
+# `e2e` adımı kendi `next build`'ini zaten çalıştırır; bkz. `ci.yml`
+# "Uçtan uca testler" adımı üstü not, S6.1 düzeltme turu 1.)
+#
+# Yayın SSH ile T6.2/T6.5 (RELEASE.md) kapsamında manuel yapılır; secrets
+# henüz tanımlı değil.
+name: Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: "Doğrulanıp yayın çıktısı üretilecek commit/dal/etiket"
+        required: true
+        default: main
+
+concurrency:
+  group: ${{ github.workflow }}-${{ inputs.ref }}
+  cancel-in-progress: true
+
+# En az yetki — bkz. ci.yml üstündeki aynı not: GITHUB_TOKEN yalnız okuma
+# izniyle sınırlanır; `actions/upload-artifact` ayrı bir izin GEREKTİRMEZ.
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Doğrulama (typecheck/lint/test/build/yayın çıktısı)
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    env:
+      APP_ORIGIN: http://127.0.0.1:3100
+      DOLMUS_DB_PATH: ${{ runner.temp }}/dolmus-ci.sqlite
+      NODE_ENV: test
+    steps:
+      - name: Kodu al (seçilen ref)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref }}
+
+      - name: Node.js kurulumu
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Bağımlılıkları kur (lockfile ile sabit)
+        run: npm ci
+
+      - name: Tip kontrolü
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Birim testleri
+        run: npm run test:unit
+
+      - name: Entegrasyon testleri (gerçek geçici SQLite + migration)
+        run: npm run test:integration
+
+      - name: Playwright tarayıcılarını kur (chromium + webkit)
+        run: npx playwright install --with-deps chromium webkit
+
+      # Denetim bulgusu (S6.1 düzeltme turu 1, medium): ayrı bir
+      # "npm run build" adımı YOKTUR — bkz. ci.yml "Uçtan uca testler"
+      # adımı üstü not (bu adımın kendi komutu zaten tam bir
+      # `next build` çalıştırır).
+      - name: Uçtan uca testler
+        run: npm run test:e2e
+
+      - name: Playwright raporu (yalnız başarısızlıkta)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-release-${{ github.sha }}
+          path: playwright-report/
+          retention-days: 7
+
+      - name: Yayın çıktısı + manifest üret
+        run: npm run release:build
+
+      - name: Yayın çıktısını temiz ortamda doğrula
+        run: npm run release:verify -- dist/*.tar.gz
+
+      - name: Yayın çıktısını artifact olarak sakla
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ github.sha }}
+          path: |
+            dist/*.tar.gz
+            dist/*.manifest.json
+          retention-days: 30
+          if-no-files-found: error
+
+  # DEPLOY ADIMI YOK — Yayın SSH ile T6.2/T6.5 (RELEASE.md) kapsamında
+  # manuel yapılır; secrets henüz tanımlı değil. Bu iş akışı yalnız
+  # "verify" job'ının artifact'ını üretir; hedef Lightsail makinesine
+  # kopyalama/yeniden başlatma burada OTOMATİKLEŞTİRİLMEZ (S6.1 AC7).

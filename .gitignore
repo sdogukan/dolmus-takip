@@ -26,6 +26,9 @@ test-results/
 *.log
 *.tsbuildinfo
 
+# release:build output (T6.1) — tarball + manifest, rebuilt on demand
+/dist/
+
 # Local databases and their sidecar files
 *.sqlite
 *.sqlite-*

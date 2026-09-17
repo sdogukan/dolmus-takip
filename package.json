@@ -17,7 +17,10 @@
     "db:init": "node --env-file-if-exists=.env scripts/db-init.ts",
     "db:generate": "drizzle-kit generate",
     "db:seed-dev": "node --env-file-if-exists=.env scripts/db-seed-dev.ts",
-    "platform-admin": "node scripts/platform-admin.ts"
+    "platform-admin": "node scripts/platform-admin.ts",
+    "release:build": "node scripts/release-build.ts",
+    "release:verify": "node scripts/release-verify.ts",
+    "ci:local": "node scripts/ci-local.ts"
   },
   "dependencies": {
     "next": "16.3.5",

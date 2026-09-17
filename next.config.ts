@@ -36,12 +36,29 @@ const nextConfig: NextConfig = {
   // (`src/instrumentation.ts` → `server/data/app-db.ts`) bu klasörü
   // `assertMigrationsApplied` ile okur; olmadan standalone süreç migration
   // kapısını hiç geçemez.
+  //
+  // T6.1 — `node_modules/drizzle-orm/**` de eklendi: Next'in kendi webpack
+  // tracer'ı yalnız GERÇEKTEN import edilen `drizzle-orm` alt yollarını
+  // (ör. `drizzle-orm/better-sqlite3`, uygulama route'larının kullandığı)
+  // standalone'a taşır — `drizzle-orm/better-sqlite3/migrator` (yalnız
+  // `scripts/db-init.ts` kullanır, hiçbir Next route'u değil) bu yüzden
+  // KANITLANDI şekilde standalone `node_modules`'ta YOKTU (`next build`
+  // sonrası `find .next/standalone/node_modules/drizzle-orm` sıfır sonuç
+  // verdi). T6.1'in yayın çıktısı (`scripts/release-build.ts`) standalone
+  // içine `scripts/db-init.ts` + `src/server/data/{db,schema}.ts`
+  // KENDİSİNİ de kopyalar (hedef makinede açık migration komutu
+  // çalıştırılabilsin diye) — o script'in `drizzle-orm` bağımlılığı da
+  // aynı standalone `node_modules` kökünden çözülür; ayrı bir kopyalama
+  // adımına gerek KALMAMASI için paket bütünüyle burada eklendi (paketin
+  // kendi `package.json`'ında runtime `dependencies` alanı YOK — yalnız
+  // opsiyonel peer bağımlılıklar; ekstra native/ağır alt paket taşımaz).
   outputFileTracingIncludes: {
     "/api/**/*": [
       "node_modules/better-sqlite3/build/**",
       "node_modules/better-sqlite3/prebuilds/**",
       "node_modules/argon2/prebuilds/**",
       "node_modules/argon2/lib/**",
+      "node_modules/drizzle-orm/**",
       "drizzle/**",
     ],
   },

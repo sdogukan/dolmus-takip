@@ -83,6 +83,7 @@ const eslintConfig = [
       "playwright-report/**",
       "test-results/**",
       "data/**",
+      "dist/**",
     ],
   },
 ];

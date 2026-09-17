@@ -20,7 +20,7 @@ Ajan betiği: scratchpad/task-uygula.js (args: task, story, milestone, steps?, e
 - [x] T1.3 (S1.3) Kişisel ekip girişi ve ilk yönetici kurulumu — 2026-09-17, wf_410882b0-3b2, 216 birim + 312 entegrasyon + 32 E2E, S1.3 6/6 AC done
 - [x] T1.6 (S1.6) Telefon girişi hata/bekleme/erişilebilirlik — 2026-09-17, wf_68dcc8a1-613, 228 birim + 312 entegrasyon + 74 E2E; AC3/AC-manuel kısımları tests/e2e/MANUAL-CHECKS.md ile pilotta
 - [x] T6.1 (S6.1) Hedefle uyumlu derleme, CI ve yayın çıktısı — 2026-09-17, wf_85e5fe04-ce4, 250 birim + 316 entegrasyon + 78 E2E; release:build/verify izole klonda doğrulandı; GitHub'da gerçek koşu push sonrası
-- [ ] M1 KAPI: MILESTONES §M1 tamamlanma kutuları kontrol → kullanıcıya özet → DEVAM İZNİ BEKLE
+- [x] M1 KAPI: 2026-09-17 wf_b7162bab-63c — 7 story pass (S1.6 pass_with_manual: gerçek cihaz), MILESTONES §M1 4/4 kutu done, release:build+verify OK; manuel bekleyen: gerçek telefon denemesi (tests/e2e/MANUAL-CHECKS.md), GitHub Actions gerçek koşu (push), Lightsail (M6). → KULLANICIDAN M2 İZNİ BEKLENİYOR
 
 ## M2 — Araç ve şoför yönetimi
 - [ ] T2.1 (S2.1) İşletme ve mal sahibi tanımlama

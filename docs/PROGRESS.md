@@ -3,7 +3,7 @@
 Kural: her adım bitince `[x]` işaretle, kısa not ekle. Compact sonrası ilk işaretlenmemiş adımdan devam.
 Tüm ajanlar `claude-sonnet-5`. Her task paketi = Workflow (uygula → 3 mercek doğrula → düzelt → kapı) → commit.
 KAPI: M1 bitince DUR ve kullanıcıdan devam izni al. M2–M6 için de her milestone sonunda DUR. Deploy (AWS) öncesi DUR.
-Ajan betikleri: .claude/workflows/task-uygula.js ve .claude/workflows/milestone-kapi.js (kullanım CLAUDE.md'de).
+Ajan betiği: scratchpad/task-uygula.js (args: task, story, milestone, steps?, extraContext?). Yoksa yeniden yaz (CLAUDE.md'deki kurallara göre).
 
 ## Faz 0 — Anlama ve inceleme
 - [x] 0.1 Tüm dokümanlar Sonnet 5 ajanlarıyla okundu ve özetlendi (14 okuyucu, wf_1343f41f-1cc)

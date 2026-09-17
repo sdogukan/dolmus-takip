@@ -5,8 +5,6 @@
 - Bu oturumun görevi: dokümanlardaki planı (MILESTONES → TASKS sırası) uygulayıp kod işini bitirmek.
 - FAZ KAPISI (kullanıcı talimatı 2026-09-17): Faz 0 bitince kısa rapor ver ve İZİN BEKLEMEDEN M1'e geç. M1 bitince DUR, özet ver, devam izni iste. M2 ve sonrası için de her milestone sonunda DUR ve izin iste. Milestone içindeki task paketleri arasında durma.
 - Her adım bitince `docs/PROGRESS.md` içinde `[x]` işaretle ve kısa not düş. Bu dosya oturumun tek ilerleme kaynağıdır.
-- Workflow betikleri repoda: `.claude/workflows/task-uygula.js` (bir TASKS paketi: uygula → 3 mercek doğrula → düzelt → kapı; args: task, story, milestone, steps[], extraContext, reviewExtra, checks[], maxRounds) ve `.claude/workflows/milestone-kapi.js` (milestone sonu: her story AC denetimi + MILESTONES kutuları; args: milestone, stories[], extraContext). Workflow aracını `scriptPath` ile bu dosyalara vererek çalıştır. Her paket bitince docs/DECISIONS.md'ye "Tx.y uygulama kararları" bölümü ekle, PROGRESS'i işaretle, commit at.
-- Bilinen harness davranışı: bir ajanın tek model isteği ~3 dakikayı aşarsa "Request interrupted" ile kesilip yeniden başlar; betikte efor 'high' ve çıktı uzunluk sınırı bu yüzden var.
 
 ## Kesinleşen kararlar (2026-09-17)
 - K1–K8 açık ürün kararları: ARCHITECTURE §10 önerileri kullanıcı tarafından AYNEN KABUL edildi. Ayrıntı: `docs/DECISIONS.md`. Tekrar sorma.

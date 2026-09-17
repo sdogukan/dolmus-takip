@@ -3,6 +3,8 @@ import {
   COMMON_SCREEN_MESSAGES,
   ERROR_CODE_MESSAGES,
   getErrorMessage,
+  VEHICLE_LOGIN_FIELD_MESSAGES,
+  VEHICLE_LOGIN_RESULT_MESSAGES,
 } from "./messages";
 
 /**
@@ -60,6 +62,32 @@ describe("messages", () => {
     );
     expect(COMMON_SCREEN_MESSAGES.unauthorizedOrInactiveAccess).toBe(
       "Bu işlem için erişimin yok.",
+    );
+  });
+
+  it("T1.2 — INVALID_CREDENTIALS/RATE_LIMITED/HASH_QUEUE_FULL STORIES/ARCH birebir metinlerini taşır", () => {
+    expect(getErrorMessage("INVALID_CREDENTIALS")).toBe(
+      "Plaka veya şifre yanlış.",
+    );
+    expect(getErrorMessage("RATE_LIMITED")).toBe(
+      "Çok fazla deneme. Lütfen biraz bekleyip tekrar dene.",
+    );
+    expect(getErrorMessage("HASH_QUEUE_FULL")).toBe(
+      "Sistem şu anda yoğun. Lütfen tekrar dene.",
+    );
+  });
+
+  it("T1.2 — VEHICLE_LOGIN_FIELD_MESSAGES plaka/şifre alan hatalarını taşır", () => {
+    expect(VEHICLE_LOGIN_FIELD_MESSAGES.plateEmpty).toBe("Plakayı gir.");
+    expect(VEHICLE_LOGIN_FIELD_MESSAGES.plateInvalidFormat).toBe(
+      "Plaka biçimi geçersiz.",
+    );
+    expect(VEHICLE_LOGIN_FIELD_MESSAGES.passwordEmpty).toBe("Şifreyi gir.");
+  });
+
+  it("T1.2 ADIM 2/2 — VEHICLE_LOGIN_RESULT_MESSAGES.networkError giriş ekranının ağ hatası metnini taşır", () => {
+    expect(VEHICLE_LOGIN_RESULT_MESSAGES.networkError).toBe(
+      "Bağlantı kurulamadı. Tekrar dene.",
     );
   });
 });

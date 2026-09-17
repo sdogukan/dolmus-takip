@@ -84,3 +84,24 @@ export function validatePlate(rawPlate: string): PlateValidationResult {
 
   return { valid: true, normalized };
 }
+
+/**
+ * Saklanan (normalize, boşluksuz) plakayı ekranda gösterilecek biçime
+ * çevirir — T1.2, STORIES.md S1.2 / görev tanımı: "formatPlateForDisplay:
+ * '35 ABC 123'". API her yerde normalize plakayı (boşluksuz) taşır
+ * (DECISIONS.md T1.5 notu — "API'de plaka normalize döner; boşluklu
+ * gösterim ekranın işidir"); bu fonksiyon yalnız il kodu/harf/rakam
+ * gruplarının arasına TEK boşluk ekler, başka bir dönüşüm yapmaz.
+ *
+ * Girdinin `PLATE_PATTERN`'e uymadığı (ör. DB'de hiç var olmaması gereken
+ * bozuk bir değer) savunma amaçlı durumda, olduğu gibi (dönüştürülmemiş)
+ * döner — uydurma bir biçim ÜRETİLMEZ.
+ */
+export function formatPlateForDisplay(normalizedPlate: string): string {
+  const match = PLATE_PATTERN.exec(normalizedPlate);
+  if (!match) {
+    return normalizedPlate;
+  }
+  const [, region, letters, digits] = match;
+  return `${region} ${letters} ${digits}`;
+}

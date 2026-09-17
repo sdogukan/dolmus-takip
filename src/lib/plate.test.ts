@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { normalizePlate, validatePlate } from "./plate";
+import { formatPlateForDisplay, normalizePlate, validatePlate } from "./plate";
 
 describe("normalizePlate", () => {
   it("boşlukları atar", () => {
@@ -78,5 +78,25 @@ describe("validatePlate", () => {
     const result = validatePlate("ABCDEFG");
     expect(result.valid).toBe(false);
     expect(result.reason).toBe("invalid_format");
+  });
+});
+
+describe("formatPlateForDisplay", () => {
+  it("normalize plakayı 'İL HARF RAKAM' biçiminde tek boşlukla ayırır (T1.2)", () => {
+    expect(formatPlateForDisplay("35ABC123")).toBe("35 ABC 123");
+  });
+
+  it("kısa harf/rakam kombinasyonlarında da doğru gruplar", () => {
+    expect(formatPlateForDisplay("06A1234")).toBe("06 A 1234");
+    expect(formatPlateForDisplay("34ABC12")).toBe("34 ABC 12");
+  });
+
+  it("normalizePlate + validatePlate ile üretilen değer için giriş biçimiyle aynı görüntü üretir", () => {
+    const { normalized } = validatePlate("35 abc 123");
+    expect(formatPlateForDisplay(normalized)).toBe("35 ABC 123");
+  });
+
+  it("PLATE_PATTERN'e uymayan bozuk girdi için değeri OLDUĞU GİBİ döner (uydurma biçim üretmez)", () => {
+    expect(formatPlateForDisplay("BOZUK")).toBe("BOZUK");
   });
 });

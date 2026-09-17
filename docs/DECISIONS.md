@@ -78,7 +78,7 @@ Faz 0: 14 doküman, 7 mercek, 38 aday bulgu, 3'lü çürütme; 20 birleşik bulg
 - Yeniden adlandırılmış kişi senaryosu seed'de people.version=2 ile temsil; gerçek ad geçmişi admin_audit ile T2.4'te.
 
 ## T1.4 uygulama kararları (2026-09-17)
-- Oturum tokenı: crypto.randomBytes(32) base64url; DB'de yalnız SHA-256 hex özeti. Çerez `dolmus_session`: HttpOnly, SameSite=Lax, Path=/, Domain yok, Secure yalnız NODE_ENV=production, Max-Age = kalan mutlak süre.
+- Oturum tokenı: crypto.randomBytes(32) base64url; DB'de yalnız SHA-256 hex özeti. Çerez `dolmus_session`: HttpOnly, SameSite=Lax, Path=/, Domain yok, Max-Age = kalan mutlak süre. **Secure bayrağı (2026-09-17 güncellendi, T1.2 ek):** APP_ORIGIN şeması `https:` ise Secure, `http:` ise değil; NODE_ENV'e bağlı DEĞİL. Üretimde APP_ORIGIN https olduğundan Secure zorunlu kalır; E2E/dev http'de tarayıcı çerezi kabul eder.
 - Süreler ARCH §6 birebir (araç 30 gün / 7 gün hareketsizlik; ekip 12 saat / 30 dk). Sınırlar yarı açık: now >= limit → geçersiz. last_seen_at en az 5 dk aralıkla yazılır.
 - CSRF tokenı = SHA-256(hamOturumTokenı + ':csrf:v1'); ayrı sütun yok. GET /api/v1/session ile verilir, yazma isteklerinde X-CSRF-Token header'ında beklenir; karşılaştırma sabit zamanlı.
 - Hata kodları: 401 SESSION_MISSING (token yok/eşleşmiyor) | SESSION_EXPIRED (yalnız zaman aşımı) | SESSION_REVOKED (revoked_at, credential_version uyuşmazlığı, işletme/araç/ekip pasifliği). 403 ORIGIN_INVALID | CSRF_TOKEN_INVALID. 415 Content-Type application/json değilse. 413 gövde > 64 KB (akış içinde sayılır, önce belleğe okunmaz). 503 SQLITE_BUSY/LOCKED ve migration bekliyor.
@@ -103,3 +103,13 @@ Faz 0: 14 doküman, 7 mercek, 38 aday bulgu, 3'lü çürütme; 20 birleşik bulg
 - ARCH §4 dışı endpoint açılmaz: GET /vehicles/current denemesi kaldırıldı; plaka /session ile verilir.
 - withProtectedRoute({permission, write?, target}) deseni src/server/http/handler.ts; E2–E5 uçları bunu kullanır. target:'business' dalı T2.1'de gerçek uçla yeniden doğrulanacak.
 - API'de plaka normalize (boşluksuz) döner; boşluklu gösterim ekranın işidir (formatPlateForDisplay).
+
+## T1.2 uygulama kararları (2026-09-17)
+- Araç girişi: rol istemciden alınmaz; owner ve driver hash'leri sırayla doğrulanır; bilinmeyen/pasif plakada sabit dummy Argon2id hash'ine karşı doğrulama (≤2 hash/deneme, F10). Bilinmeyen plaka, pasif araç/işletme ve yanlış parola aynı 401 INVALID_CREDENTIALS ('Plaka veya şifre yanlış.').
+- Hız sınırı (ARCH §6 birebir): normalize plaka başına 20 / 15 dk, IP başına 120 / 15 dk, kayan pencere, yalnız gerçek kimlik doğrulama denemeleri sayılır (422 sayılmaz), kalıcı kilit yok, 429 RATE_LIMITED + Retry-After. Sayaç haritaları süresi dolanları budar (bellek sınırı). IP: TRUSTED_PROXY env tanımlıysa X-Forwarded-For'un ilk değeri; **T6.2 deploy:** `TRUSTED_PROXY=127.0.0.1`.
+- Argon2 kuyruğu: 4 eşzamanlı / 100 bekleyen / 10 sn; aşım 429 HASH_QUEUE_FULL. Metrik loglama OPS'a T6.3'te (F13).
+- POST /api/v1/auth/vehicle-login: 201; oturumsuz yazma için requireAnonymousWrite (origin + JSON + gövde sınırı, CSRF yok); girişte aynı tarayıcıdaki eski oturum iptal edilir (S1.4 AC2).
+- GET /session araç oturumu için `plate` (görüntü biçimi) döner.
+- Sayfalar: `/` oturum yoksa /giris, varsa role göre /sofor | /sahip; rol uyuşmazsa role uygun sayfaya yönlendirme. /giris geçerli oturumda otomatik yönlendirme yapmaz (DESIGN §1 yalnız kök adres için ister). Platform oturumu için hedef /yonetim T1.3'te; o zamana kadar /giris'e düşer.
+- M1'de /sofor ve /sahip sahte form/rapor içermez; dürüst durum metni + plaka + Çıkış.
+- E2E: Playwright chromium + webkit; ayrı geçici test DB (global-setup webServer komut zincirinde çalışır, çünkü Playwright webServer'ı globalSetup'tan önce başlatır); **sunucu `node .next/standalone/server.js`** (next start, output:standalone ile desteklenmez); standalone hazırlığı (.next/static + public kopyası) yeniden kullanılabilir script ile (T6.1 de kullanır); APP_ORIGIN=http://127.0.0.1:3100 → çerez Secure değil.

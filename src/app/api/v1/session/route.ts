@@ -60,10 +60,38 @@
  *   vehicleId).slice(0,16)" (bkz. `computeScopeKey`). `../../../../
  *   lib/client-state.ts` bu opak anahtarı DOĞRUDAN kullanır; iç
  *   credentialId/platformUserId değerlerine ihtiyaç duymaz.
+ *
+ * T1.2 (görev tanımı (1), DECISIONS.md T1.5 notunun son cümlesi —
+ * "Araç oturumu için T1.2'de `plate` (görüntü biçimi) eklenecek."): araç
+ * oturumları için `plate` alanı EKLENDİ — DESIGN §2.2 "Plaka sabittir"
+ * ekranının kaynağı budur (`../../../../server/auth/permissions.ts` dosya
+ * üstü notundaki "KALDIRILDI" bölümünün de doğruladığı gibi, ayrı bir
+ * `GET /vehicles/current` ucu YOKTUR; plaka BURADAN gelir). `SessionContext`
+ * plakayı KENDİSİ TAŞIMAZ (yalnız `vehicleId` — bkz. `../../../../server/
+ * usecases/session/types.ts`); bu yüzden `context.kind === "vehicle"`
+ * iken `vehicles.plate_normalized` `../../../../server/auth/
+ * vehicle-plate.ts` `readVehiclePlateForDisplay` ile okunup görüntü
+ * biçimine (`"35 ABC 123"`) çevrilir — API'nin GERİ KALANI plakayı
+ * normalize (boşluksuz) taşırken (DECISIONS.md T1.5 notu), bu ALAN
+ * KASITLI olarak GÖRÜNTÜ biçimindedir (görev tanımı: "plate (görüntü
+ * biçimi, formatPlateForDisplay)").
+ *
+ * DÜZELTME (denetim bulgusu, düzeltme turu 1 — "readVehiclePlateForDisplay,
+ * GET /session route'undaki aynı sorgu+biçimlendirmeyi tekrar ediyor"):
+ * bu route ÖNCEDEN aynı SELECT + `formatPlateForDisplay` çağrısını
+ * `readVehiclePlateForDisplay` ile birebir aynı şekilde KENDİ İÇİNDE
+ * tekrar ediyordu (iki ayrı kaynak, aynı davranış — biri değişip diğeri
+ * unutulursa /sofor ve /sahip başlığı ile bu yanıtın `plate` alanı
+ * sessizce SAPARDI). Davranış AYNI kalacak şekilde tek kaynağa
+ * (`readVehiclePlateForDisplay`) yönlendirildi; bu fonksiyon zaten
+ * `AppDatabase` alıp `vehicles.id`'ye göre tek satır okuyup
+ * `formatPlateForDisplay` uygular — burada YENİDEN YAZILMADI, olduğu gibi
+ * ÇAĞRILDI (CLAUDE.md "var olan modülleri yeniden yazma; genişlet").
  */
 import { requireSession } from "../../../../server/auth/guard";
 import { permissionsForActor } from "../../../../server/auth/permissions";
 import { computeScopeKey } from "../../../../server/auth/scope";
+import { readVehiclePlateForDisplay } from "../../../../server/auth/vehicle-plate";
 import { jsonSuccessResponse } from "../../../../server/http/errors";
 
 export async function GET(request: Request): Promise<Response> {
@@ -71,7 +99,7 @@ export async function GET(request: Request): Promise<Response> {
   if (!guard.ok) {
     return guard.response;
   }
-  const { context, requestId } = guard;
+  const { context, db, requestId } = guard;
 
   const body: Record<string, unknown> = {
     kind: context.kind,
@@ -85,6 +113,11 @@ export async function GET(request: Request): Promise<Response> {
   }
   if (context.vehicleId !== undefined) {
     body.vehicleId = context.vehicleId;
+
+    const plate = await readVehiclePlateForDisplay(db, context.vehicleId);
+    if (plate !== undefined) {
+      body.plate = plate;
+    }
   }
 
   return jsonSuccessResponse(200, body, { requestId });

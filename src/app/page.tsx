@@ -1,21 +1,30 @@
-export default function Home() {
-  return (
-    <main className="mx-auto flex min-h-dvh max-w-[35rem] flex-col justify-center gap-6 px-4 py-12">
-      <div className="rounded-xl bg-[var(--color-surface)] p-6 shadow-sm">
-        <span className="inline-flex items-center rounded-full bg-[var(--color-primary)] px-3 py-1 text-sm font-medium text-[var(--color-on-primary)]">
-          Dolmuş Takip
-        </span>
-        <h1 className="mt-4 text-2xl font-semibold text-[var(--color-text)]">
-          Şoför ve mal sahibi hesabı bir arada
-        </h1>
-        <p className="mt-2 text-base text-[var(--color-text-secondary)]">
-          Şoförlerin günlük hasılatını ve mal sahibinin hesabını kolayca
-          takip eden uygulama.
-        </p>
-        <p className="mt-4 text-base text-[var(--color-text-secondary)]">
-          Giriş ekranı yakında burada olacak.
-        </p>
-      </div>
-    </main>
-  );
+import { redirect } from "next/navigation";
+import { readPageSession } from "../server/auth/page-session";
+
+/**
+ * '/' — ana adres. T1.2 ADIM 2/2, S1.2, görev tanımı (2): "Ana sayfa '/':
+ * oturum yoksa /giris, varsa rolüne göre yönlendirme (DESIGN §1); mevcut
+ * ana sayfa içeriği kaldırılır."
+ *
+ * DESIGN.md §1 — "Ana adres, oturum yoksa araç girişine; geçerli oturum
+ * varsa ilgili ana ekrana yönlenir." Ekip (platform) oturumunun "ilgili
+ * ana ekranı" (/yonetim) T1.3'te açılacak; o güne kadar platform
+ * oturumları da (mevcut olsalar bile) /giris'e yönlendirilir — bu, bu
+ * paketin open_issues'ında not edilmiştir.
+ */
+export default async function RootPage() {
+  const session = await readPageSession();
+  if (!session.ok) {
+    redirect("/giris");
+  }
+  const { context } = session;
+
+  if (context.kind === "vehicle" && context.role === "owner") {
+    redirect("/sahip");
+  }
+  if (context.kind === "vehicle" && context.role === "driver") {
+    redirect("/sofor");
+  }
+  // Ekip (platform) oturumu — bkz. dosya üstü not.
+  redirect("/giris");
 }

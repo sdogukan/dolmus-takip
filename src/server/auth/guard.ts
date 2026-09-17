@@ -467,3 +467,137 @@ export async function requireWrite(
 
   return { ...sessionResult, bodyText: bodyResult.text };
 }
+
+// ---------------------------------------------------------------------------
+// requireAnonymousWrite — T1.2 ADIM 1/2, S1.2, görev tanımı (4).
+// ---------------------------------------------------------------------------
+
+/**
+ * `POST /api/v1/auth/vehicle-login` (ve ileride T1.3'ün `/auth/platform-
+ * login`'i) için — görev tanımı (4, birebir): "oturum yok, bu yüzden
+ * requireWrite kullanılamaz — guard.ts'e requireAnonymousWrite(request)
+ * ekle: Origin/Sec-Fetch-Site (APP_ORIGIN), Content-Type JSON (415),
+ * gövde sınırı (413); CSRF token yok."
+ *
+ * `requireWrite`'ın AYNI dört savunma-derinliği kontrolünü (origin/
+ * Sec-Fetch-Site, Content-Type, gövde boyutu) KULLANIR — üstteki
+ * `isSameOriginWriteRequest`/`hasJsonContentType`/`readBodyWithLimit`
+ * özel (bu dosyaya AİT) fonksiyonları BİREBİR paylaşılır, mantık
+ * TEKRARLANMAZ. Yalnız İKİ şey `requireWrite`'tan FARKLIDIR:
+ *
+ * 1. `requireSession` HİÇ ÇAĞRILMAZ (henüz oturum YOK — bu endpoint'in
+ *    KENDİSİ oturumu ÜRETİR) — bu yüzden CSRF header karşılaştırması da
+ *    YOKTUR (karşılaştırılacak bir `context.csrfToken` yok; görev tanımı
+ *    "CSRF token yok" der).
+ * 2. DB (`getAppDb()`) burada AYRICA açılır (session yoksa `requireWrite`
+ *    gibi onu `requireSession` üzerinden ALAMAZ) — aynı üç migration/
+ *    sürüm hatası sınıfı ve aynı SQLITE_BUSY/LOCKED sınıflandırıcısı
+ *    `dbUnavailableFailure` ile AYNI 503 zarfına çevrilir (kod
+ *    TEKRARLANMAZ, `requireSession`'ın kullandığı YARDIMCI burada da
+ *    çağrılır).
+ *
+ * Sıra: (1) APP_ORIGIN çözümü/503 (2) origin/Sec-Fetch-Site 403 (3)
+ * Content-Type 415 (4) gövde boyutu 413 (5) DB açılışı/migration 503.
+ * Origin/Content-Type/boyut kontrolleri BİLEREK DB açılışından ÖNCEDİR —
+ * bu, kimliği doğrulanmamış (anonim) bir uca gelen sahte-origin/hatalı
+ * gövdeli istek gürültüsünün DB bağlantısını hiç MEŞGUL ETMEMESİNİ sağlar
+ * (`requireWrite`'ın sırası farklıdır çünkü ORADA zaten geçerli bir
+ * oturum kanıtlanmadan CSRF karşılaştırması YAPILAMAZ — bkz. dosya üstü
+ * not; burada böyle bir zorunluluk yoktur, bu yüzden en ucuz kontroller
+ * öne alınabilir).
+ */
+export interface RequireAnonymousWriteSuccess {
+  ok: true;
+  db: AppDatabase;
+  /** `requireWrite`'ın `bodyText` alanıyla AYNI sözleşme — gövde BURADA
+   * (boyut denetimi için) TÜKETİLMİŞTİR; çağıran `JSON.parse(bodyText)`
+   * ile kendi ayrıştırmasını yapar. */
+  bodyText: string;
+  requestId: string;
+}
+
+export type RequireAnonymousWriteResult = RequireAnonymousWriteSuccess | GuardFailure;
+
+export async function requireAnonymousWrite(
+  request: Request,
+): Promise<RequireAnonymousWriteResult> {
+  const requestId = generateRequestId();
+
+  let trustedOrigin: string;
+  try {
+    trustedOrigin = resolveTrustedAppOrigin();
+  } catch (error) {
+    if (error instanceof InvalidAppOriginError) {
+      console.error(
+        `[guard] APP_ORIGIN yapılandırma hatası (request_id=${requestId}): ${error.message}`,
+      );
+      return {
+        ok: false,
+        response: jsonErrorResponse(
+          503,
+          "SERVICE_UNAVAILABLE",
+          "Sunucu şu anda hazır değil. Az sonra tekrar deneyin.",
+          { requestId },
+        ),
+      };
+    }
+    throw error;
+  }
+
+  if (!isSameOriginWriteRequest(request, trustedOrigin)) {
+    return {
+      ok: false,
+      response: jsonErrorResponse(
+        403,
+        "ORIGIN_INVALID",
+        "İstek kaynağı doğrulanamadı.",
+        { requestId },
+      ),
+    };
+  }
+
+  if (!hasJsonContentType(request)) {
+    return {
+      ok: false,
+      response: jsonErrorResponse(
+        415,
+        "UNSUPPORTED_MEDIA_TYPE",
+        "İçerik türü application/json olmalı.",
+        { requestId },
+      ),
+    };
+  }
+
+  const bodyResult = await readBodyWithLimit(request, MAX_WRITE_BODY_BYTES);
+  if (!bodyResult.ok) {
+    return {
+      ok: false,
+      response: jsonErrorResponse(
+        413,
+        "PAYLOAD_TOO_LARGE",
+        "İstek gövdesi çok büyük.",
+        { requestId },
+      ),
+    };
+  }
+
+  let db: AppDatabase;
+  try {
+    db = getAppDb();
+  } catch (error) {
+    if (
+      error instanceof PendingMigrationsError ||
+      error instanceof MissingDatabaseFileError ||
+      error instanceof UnsupportedSqliteVersionError
+    ) {
+      return dbUnavailableFailure(requestId, error);
+    }
+    const lockError = extractTransientSqliteLockError(error);
+    if (lockError) {
+      return dbUnavailableFailure(requestId, lockError);
+    }
+    throw error;
+  }
+
+  return { ok: true, db, bodyText: bodyResult.text, requestId };
+}

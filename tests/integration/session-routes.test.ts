@@ -196,6 +196,10 @@ describe("GET /api/v1/session ve POST /api/v1/auth/logout (T1.4 ADIM 1/2)", () =
         role: "owner",
         businessId: SEED_IDS.businessA,
         vehicleId: SEED_IDS.vehicleA1,
+        // T1.2, DECISIONS.md T1.5 notunun son cümlesi — "Araç oturumu
+        // için T1.2'de plate (görüntü biçimi) eklenecek." seed'in
+        // vehicleA1 plakası "34 AAA 001" (SEED_RAW_PLATES.vehicleA1).
+        plate: "34 AAA 001",
       });
       expect(typeof body.csrfToken).toBe("string");
       expect(body.csrfToken.length).toBeGreaterThan(0);
@@ -230,6 +234,10 @@ describe("GET /api/v1/session ve POST /api/v1/auth/logout (T1.4 ADIM 1/2)", () =
       expect(body).not.toHaveProperty("sessionId");
       expect(body).not.toHaveProperty("credentialId");
       expect(body).not.toHaveProperty("platformUserId");
+      // T1.2 — `plate` yalnız araç (`kind: "vehicle"`) oturumları içindir;
+      // ekip oturumunda hiç `vehicleId` olmadığından plaka sorgusu hiç
+      // ÇALIŞTIRILMAZ ve alan yanıtta YOKTUR.
+      expect(body).not.toHaveProperty("plate");
     });
 
     it("süresi dolmuş oturum için 401 SESSION_EXPIRED ve S1.4 AC6 metni birebir döner", async () => {

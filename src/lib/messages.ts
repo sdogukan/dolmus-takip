@@ -35,6 +35,16 @@
  * kayıt kullanılır); anahtarlar yukarıdaki iki dosyayla ELLE senkron
  * tutulur.
  */
+// T1.2 metinleri — görev tanımının BİREBİR verdiği üç durum. Önce DAR
+// (literal, index-imzası OLMAYAN) sabitler olarak tanımlanır: hem aşağıdaki
+// `ERROR_CODE_MESSAGES` (client-side kod→metin eşlemesi, GENİŞ `Record<
+// string,string>` tipli) hem de `VEHICLE_LOGIN_RESULT_MESSAGES` (route
+// handler'ın DAR tipe ihtiyaç duyduğu — bkz. onun üst notu) AYNI TEK
+// kaynaktan (bu üç sabit) beslenir; metin İKİ YERDE AYRI YAZILMAZ.
+const INVALID_CREDENTIALS_MESSAGE = "Plaka veya şifre yanlış.";
+const RATE_LIMITED_MESSAGE = "Çok fazla deneme. Lütfen biraz bekleyip tekrar dene.";
+const HASH_QUEUE_FULL_MESSAGE = "Sistem şu anda yoğun. Lütfen tekrar dene.";
+
 export const ERROR_CODE_MESSAGES: Record<string, string> = {
   SESSION_MISSING: "Oturum bulunamadı. Giriş yap.",
   // S1.4 AC6 — birebir metin; SESSION_REVOKED de KASITLI olarak AYNI metni
@@ -50,7 +60,77 @@ export const ERROR_CODE_MESSAGES: Record<string, string> = {
   // kayıtlı DEĞİLDİR (denetim bulgusu, düzeltme turu 2).
   CSRF_TOKEN_INVALID: "Bu işlem için erişimin yok.",
   ORIGIN_INVALID: "Bu işlem için erişimin yok.",
+  // T1.2, STORIES.md S1.2 AC4 — "Biçimi geçerli ama tanımsız plaka ile
+  // yanlış şifre aynı genel 'Plaka veya şifre yanlış.' mesajını verir."
+  // ARCHITECTURE §6 "Kullanıcı/plaka tahmini" — bilinmeyen plaka, pasif
+  // araç/işletme VE yanlış parola aynı bu genel yanıtı üretir; hangi
+  // durumun gerçekleştiği (plaka yok mu, araç pasif mi, şifre yanlış mı)
+  // bu metinden ASLA ayırt edilemez.
+  INVALID_CREDENTIALS: INVALID_CREDENTIALS_MESSAGE,
+  // T1.2, görev tanımı (2) — ARCHITECTURE §6 "Giriş saldırıları" birebir:
+  // "429/geçici bekleme ... anlaşılır mesaj." Görev tanımının verdiği
+  // BİREBİR metin.
+  RATE_LIMITED: RATE_LIMITED_MESSAGE,
+  // T1.2, görev tanımı (3) — ARCHITECTURE §6 "Hash yükü": "Aşım 429";
+  // görev tanımı: "mesaj: sistem yoğun, tekrar dene." Kullanıcıya teknik
+  // "kuyruk/hash" ayrıntısı SIZDIRILMAZ.
+  HASH_QUEUE_FULL: HASH_QUEUE_FULL_MESSAGE,
 };
+
+/**
+ * `ERROR_CODE_MESSAGES`'teki AYNI üç metnin (üstteki dosya-özel sabitler)
+ * DAR (index imzası OLMAYAN, `as const`) tipli tekrarı — `../server/
+ * usecases/auth/vehicle-login.ts`'in ROUTE HANDLER'ı (`../app/api/v1/
+ * auth/vehicle-login/route.ts`) bu sabitleri DOĞRUDAN kullanır.
+ * `tsconfig.json` `noUncheckedIndexedAccess: true` altında `Record<
+ * string, string>` (yukarıdaki `ERROR_CODE_MESSAGES`'in tipi) üzerindeki
+ * HER erişim — nokta gösterimiyle bile — `string | undefined` döner
+ * (TypeScript bunu bir index-imzası erişimi SAYAR); route handler'ın
+ * KESİN bildiği (sabit, hardcoded) bir anahtarı `!` gibi bir GÜVENSİZ
+ * olumsuzlama OPERATÖRÜYLE "biliyorum" DEMEDEN kullanabilmesi için bu üç
+ * metin AYRICA (tek kaynak METNİ birebir KORUYARAK, yalnız TİP amacıyla)
+ * burada dar tipli bir sabitte tekrarlanır.
+ */
+export const VEHICLE_LOGIN_RESULT_MESSAGES = {
+  invalidCredentials: INVALID_CREDENTIALS_MESSAGE,
+  rateLimited: RATE_LIMITED_MESSAGE,
+  hashQueueFull: HASH_QUEUE_FULL_MESSAGE,
+  /**
+   * T1.2 ADIM 2/2 — görev tanımı (1, birebir): "ağ hatasında 'Bağlantı
+   * kurulamadı. Tekrar dene.' benzeri metin (messages.ts)." Diğer üçünden
+   * FARKLI olarak bu metnin sunucu tarafında bir karşılığı YOKTUR (sunucu
+   * hiçbir zaman "ağ hatası" ÜRETMEZ — bu, `fetch()`'in KENDİSİNİN
+   * (bağlantı hiç kurulamadığı, isteğin sunucuya ULAŞMADIĞI için) attığı
+   * bir istisnadır); yalnız `../app/giris/login-form.tsx` bu sabiti okur.
+   * Yine de aynı "tek kaynak" ilkesiyle burada, diğer üç giriş-sonucu
+   * metniyle YAN YANA tutulur — ikinci bir kopya YAZILMAZ.
+   */
+  networkError: "Bağlantı kurulamadı. Tekrar dene.",
+} as const;
+
+/**
+ * Araç girişi (POST /api/v1/auth/vehicle-login) alan doğrulama metinleri —
+ * T1.2, STORIES.md S1.2 AC3: "Biçimi geçersiz veya eksik plaka için
+ * anlaşılır alan hatası gösterilir." Görev tanımı (1): "Plaka biçimi
+ * geçersiz' benzeri Türkçe metin, src/lib/messages.ts."
+ *
+ * Bu üç metin hem SUNUCU tarafından (422 yanıtının `error.fields.plate`/
+ * `error.fields.password` değeri — bkz. `../server/usecases/auth/
+ * vehicle-login.ts`) hem de (ileride, T1.6'da) EKRAN tarafından aynı
+ * kaynaktan okunur; DESIGN.md §2.10'un "Eksik/geçersiz alan" satırındaki
+ * ÖRNEK biçimle (ör. "Hasılatı gir.") aynı kalıptadır — boş alan ve
+ * biçimsiz-ama-dolu alan AYRI, daha isabetli metinler taşır (STORIES bu
+ * ikisini TEK bir metinle sınırlamaz, yalnız "anlaşılır" der).
+ */
+export const VEHICLE_LOGIN_FIELD_MESSAGES = {
+  /** `validatePlate` `reason: "empty"`. */
+  plateEmpty: "Plakayı gir.",
+  /** `validatePlate` `reason: "invalid_format"` — görev tanımının verdiği
+   * BİREBİR örnek metin. */
+  plateInvalidFormat: "Plaka biçimi geçersiz.",
+  /** Boş/eksik şifre alanı. */
+  passwordEmpty: "Şifreyi gir.",
+} as const;
 
 /**
  * `code` bilinen bir hata koduysa Türkçe ekran metnini döner; bilinmeyen

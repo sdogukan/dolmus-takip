@@ -13,7 +13,7 @@
     "lint": "eslint .",
     "test:unit": "vitest run --project unit",
     "test:integration": "vitest run --project integration",
-    "test:e2e": "playwright test",
+    "test:e2e": "next build && node scripts/prepare-standalone.ts && playwright test",
     "db:init": "node --env-file-if-exists=.env scripts/db-init.ts",
     "db:generate": "drizzle-kit generate",
     "db:seed-dev": "node --env-file-if-exists=.env scripts/db-seed-dev.ts"

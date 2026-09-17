@@ -31,13 +31,18 @@ const nextConfig: NextConfig = {
   poweredByHeader: false,
   // ARCHITECTURE.md §2/§8 — better-sqlite3 ve argon2 native dosyaları
   // standalone çıktısına dahil edilmeli; yayın makinesi bu dosyalar
-  // olmadan çalışamaz (F4 kararı, DECISIONS.md).
+  // olmadan çalışamaz (F4 kararı, DECISIONS.md). T1.4 — `drizzle/**`
+  // (migration SQL + `meta/_journal.json`) da eklendi: uygulama açılışı
+  // (`src/instrumentation.ts` → `server/data/app-db.ts`) bu klasörü
+  // `assertMigrationsApplied` ile okur; olmadan standalone süreç migration
+  // kapısını hiç geçemez.
   outputFileTracingIncludes: {
     "/api/**/*": [
       "node_modules/better-sqlite3/build/**",
       "node_modules/better-sqlite3/prebuilds/**",
       "node_modules/argon2/prebuilds/**",
       "node_modules/argon2/lib/**",
+      "drizzle/**",
     ],
   },
   async headers() {

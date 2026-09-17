@@ -76,3 +76,18 @@ Faz 0: 14 doküman, 7 mercek, 38 aday bulgu, 3'lü çürütme; 20 birleşik bulg
 - Seed üretim koruması NODE_ENV==='production' kontrolüne dayanır → T6.2 systemd env dosyasında NODE_ENV=production ZORUNLU (RELEASE/OPS'a T6.2'de yazılacak).
 - CSP: nonce tabanlı, src/proxy.ts (Next 16'da middleware.ts yerine proxy.ts); x-nonce request header'ı yazılır.
 - Yeniden adlandırılmış kişi senaryosu seed'de people.version=2 ile temsil; gerçek ad geçmişi admin_audit ile T2.4'te.
+
+## T1.4 uygulama kararları (2026-09-17)
+- Oturum tokenı: crypto.randomBytes(32) base64url; DB'de yalnız SHA-256 hex özeti. Çerez `dolmus_session`: HttpOnly, SameSite=Lax, Path=/, Domain yok, Secure yalnız NODE_ENV=production, Max-Age = kalan mutlak süre.
+- Süreler ARCH §6 birebir (araç 30 gün / 7 gün hareketsizlik; ekip 12 saat / 30 dk). Sınırlar yarı açık: now >= limit → geçersiz. last_seen_at en az 5 dk aralıkla yazılır.
+- CSRF tokenı = SHA-256(hamOturumTokenı + ':csrf:v1'); ayrı sütun yok. GET /api/v1/session ile verilir, yazma isteklerinde X-CSRF-Token header'ında beklenir; karşılaştırma sabit zamanlı.
+- Hata kodları: 401 SESSION_MISSING (token yok/eşleşmiyor) | SESSION_EXPIRED (yalnız zaman aşımı) | SESSION_REVOKED (revoked_at, credential_version uyuşmazlığı, işletme/araç/ekip pasifliği). 403 ORIGIN_INVALID | CSRF_TOKEN_INVALID. 415 Content-Type application/json değilse. 413 gövde > 64 KB (akış içinde sayılır, önce belleğe okunmaz). 503 SQLITE_BUSY/LOCKED ve migration bekliyor.
+- JSON zarfı (tüm API): hata `{ error: { code, message, fields? }, request_id }`, başarı `{ ...veri, request_id }`. Sunucu her istek için request_id üretir; console log satırları request_id taşır (OPS).
+- Oturuma özel yanıtlar `Cache-Control: private, no-store` (ARCH §5).
+- Aynı kaynak denetimi: Sec-Fetch-Site same-origin VEYA Origin == APP_ORIGIN (zorunlu env, sessiz varsayılan yok; Next request.url Caddy arkasında 127.0.0.1:3000 döndüğü için isteğin url'inden türetilemez). **T6.2 deploy:** systemd env: `APP_ORIGIN=https://<alan-adı>`, `HOSTNAME=127.0.0.1`, `NODE_ENV=production`, `DOLMUS_DB_PATH=/var/lib/dolmus-takip/data/app.sqlite`.
+- POST /auth/logout geçerli oturum + CSRF ister (401/403 aksi halde); idempotent 200 değildir. İstemci çıkışta yerel durumu her hâlükârda temizler.
+- GET /session istemciye sessionId/credentialId/platformUserId VERMEZ. client-state (F6) anahtarı için T1.5'te yanıta gizli olmayan opak `scopeKey` (sunucuda türetilen kısa hash) eklenir.
+- Erişim kullanım durumları src/server/usecases/access/*: bumpCredentialVersion, setVehicleActive, setBusinessActive, setPlatformUserActive, setPlatformUserRole, bumpPlatformUserVersion — ilgili oturum iptaliyle aynı BEGIN IMMEDIATE transaction'ında (ortak yardımcı). M2 ekranları bunları kullanır.
+- Açılış: src/instrumentation.ts register → getAppDb → assertMigrationsApplied (migration bekliyorsa açık hata, otomatik migration yok); next.config outputFileTracingIncludes'a drizzle/** eklendi (standalone).
+- Route handler'lar düz Request/Response ile yazılır (next/headers kullanılmaz) → doğrudan test edilebilir.
+- src/lib/messages.ts: hata kodu → ekran metni; SESSION_EXPIRED ve SESSION_REVOKED aynı metne ('Oturumun sona erdi. Yeniden giriş yap.') eşlenir; sunucu error.message ekrana basılmaz.

@@ -1,9 +1,11 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import Database from "better-sqlite3";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
   createDb,
+  extractTransientSqliteLockError,
   MissingDatabaseFileError,
   openDatabaseConnection,
   resolveDbPathFromEnv,
@@ -169,6 +171,86 @@ describe("createDb", () => {
   it("ham better-sqlite3 bağlantısını $client üzerinden geri verir", () => {
     const db = createDb(sqlite);
     expect(db.$client).toBe(sqlite);
+  });
+});
+
+/**
+ * DÜZELTME TURU 2 — denetim bulgusu ("high", `guvenlik` merceği): bkz.
+ * `../../src/server/data/db.ts` `extractTransientSqliteLockError` üst
+ * notu. Uçtan uca (route seviyesinde) tekrar üretim
+ * `tests/integration/session-routes.test.ts`'te; burada sınıflandırıcının
+ * KENDİSİ, GERÇEK bir kilit dahil, izole olarak sınanır (QA-PLAN.md §1 —
+ * mock/`:memory:` yasağı gerçek `better-sqlite3` bağlantısıyla korunur).
+ */
+describe("extractTransientSqliteLockError", () => {
+  let dir: string;
+  let dbPath: string;
+
+  beforeEach(() => {
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), "dolmus-takip-lock-"));
+    dbPath = path.join(dir, "test.sqlite");
+  });
+
+  afterEach(() => {
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  it(
+    "gerçek eşzamanlı BEGIN IMMEDIATE kilidinden doğan SQLITE_BUSY'i doğrudan tanır",
+    () => {
+      const writer = openDatabaseConnection(dbPath, { createIfMissing: true });
+      writer.exec("CREATE TABLE t (id INTEGER PRIMARY KEY)");
+      const locker = openDatabaseConnection(dbPath);
+      locker.exec("BEGIN IMMEDIATE");
+      try {
+        let caught: unknown;
+        try {
+          writer.prepare("INSERT INTO t (id) VALUES (1)").run();
+        } catch (error) {
+          caught = error;
+        }
+        expect(caught).toBeInstanceOf(Database.SqliteError);
+        const lockError = extractTransientSqliteLockError(caught);
+        expect(lockError).toBeDefined();
+        expect(lockError?.code).toBe("SQLITE_BUSY");
+      } finally {
+        locker.exec("ROLLBACK");
+        locker.close();
+        writer.close();
+      }
+    },
+    10_000,
+  );
+
+  it("DrizzleQueryError gibi bir sarmalayıcının .cause'undaki SqliteError'ı da tanır (Drizzle'ın asenkron API'sinin gerçek sarma davranışı)", () => {
+    const inner = new Database.SqliteError("database is locked", "SQLITE_BUSY");
+    const wrapper = new Error("Failed query: insert into ...");
+    (wrapper as { cause?: unknown }).cause = inner;
+
+    const lockError = extractTransientSqliteLockError(wrapper);
+    expect(lockError).toBe(inner);
+  });
+
+  it("ilgisiz bir hatayı geçici kilit SAYMAZ", () => {
+    expect(
+      extractTransientSqliteLockError(new Error("başka bir hata")),
+    ).toBeUndefined();
+  });
+
+  it("kilit DIŞI bir SqliteError'ı (ör. UNIQUE kısıt ihlali) geçici kilit SAYMAZ — 409/422 kendi yoluna bırakılır, 503'e gizlenmez", () => {
+    const constraintError = new Database.SqliteError(
+      "UNIQUE constraint failed: t.id",
+      "SQLITE_CONSTRAINT_UNIQUE",
+    );
+    expect(extractTransientSqliteLockError(constraintError)).toBeUndefined();
+  });
+
+  it("SQLITE_LOCKED kodunu da (SQLITE_BUSY ile aynı) geçici kilit sayar", () => {
+    const lockedError = new Database.SqliteError(
+      "database table is locked",
+      "SQLITE_LOCKED",
+    );
+    expect(extractTransientSqliteLockError(lockedError)).toBe(lockedError);
   });
 });
 

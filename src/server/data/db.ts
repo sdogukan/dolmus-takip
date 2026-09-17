@@ -202,6 +202,28 @@ export function createDb(sqlite: SqliteConnection) {
 }
 
 /**
+ * `createDb`'nin döndürdüğü GERÇEK tip — T1.4 ADIM 2/2, S1.4. Açık dönüş
+ * tipi OLMAYAN `createDb`'nin çıkarımı, `drizzle-orm/better-sqlite3`
+ * `drizzle(client)` aşırı yüklemesinin `& { $client: Database }` ekini
+ * KORUR (bkz. `node_modules/drizzle-orm/better-sqlite3/driver.d.ts`); oysa
+ * `getAppDb(): BetterSQLite3Database<Schema>` gibi AÇIKÇA yazılmış dönüş
+ * tipleri bu eki yapısal olarak DAR bir tipe (`$client` OLMADAN) keser.
+ *
+ * `../usecases/access/*` (T1.4 iş adımı 2 — "hepsi ilgili revoke ile aynı
+ * BEGIN IMMEDIATE transaction'ında") bu eke ihtiyaç duyar: Drizzle'ın
+ * kendi `db.transaction(fn, { behavior: "immediate" })` sarmalayıcısı HER
+ * sorguyu `async execute()` (bkz. `node_modules/drizzle-orm/sqlite-core/
+ * query-builders/update.js`) üzerinden çalıştırdığından, better-sqlite3'ün
+ * "transaction fonksiyonu senkron olmalı, promise DÖNEMEZ" kısıtına
+ * (`node_modules/better-sqlite3/lib/methods/transaction.js`) çarpar. Bu
+ * yüzden o kullanım durumları HAM `withImmediateTransaction(sqlite, fn)` +
+ * Drizzle'ın SENKRON `.run()/.all()` metotlarını (aynı builder'ların
+ * `execute()` DIŞINDAKİ üyeleri) kullanır; ham bağlantıya erişim için bu
+ * tipe (`AppDatabase`) ihtiyaç vardır.
+ */
+export type AppDatabase = ReturnType<typeof createDb>;
+
+/**
  * Görev tanımı — "Uygulama açılışında (instrumentation veya db modülü)
  * migration bekliyorsa hata ver, otomatik uygulama YOK" — fırlatılır.
  * `npm run db:init` bu hatayı asla görmemelidir (o, eksik migration'ları
@@ -277,4 +299,51 @@ export function withImmediateTransaction<T>(
   fn: () => T,
 ): T {
   return sqlite.transaction(fn).immediate();
+}
+
+/**
+ * DENETİM BULGUSU (düzeltme turu 2, "high", `guvenlik` merceği) — canlı bir
+ * SQLITE_BUSY/SQLITE_LOCKED, `../auth/guard.ts` `requireSession`'ın
+ * catch'inden (yalnız `SessionError | PendingMigrationsError |
+ * MissingDatabaseFileError | UnsupportedSqliteVersionError` yakalar)
+ * SIZIP genel Next.js 500'üne (ARCHITECTURE §4'ün zarfı OLMADAN)
+ * düşüyordu. Kanıt: aynı `DOLMUS_DB_PATH` dosyasına ikinci bir
+ * better-sqlite3 bağlantısıyla `BEGIN IMMEDIATE` açılıp kilit
+ * `busy_timeout`'tan (`applyPragmas` — 2000 ms) UZUN tutulunca, gerçek
+ * `GET /api/v1/session` çağrısı (last_seen_at yazma eşiğini aşan bir
+ * oturumla) ham `SqliteError: database is locked (code: SQLITE_BUSY)`
+ * ile 500 dönüyordu — bkz. `tests/integration/session-routes.test.ts`
+ * "DB kilitli (503, gerçek SQLITE_BUSY)" bloğu.
+ *
+ * ARCHITECTURE §3.6 — "Kilitte sınırsız döngü yoktur: transaction geri
+ * alınır, 503 ... döner" ve §4 — "geçici DB kilidi/hazır olmama 503" bunu
+ * AÇIKÇA ister.
+ *
+ * Drizzle'ın asenkron `db.select()/db.update()` API'si (resolveSession'ın
+ * kullandığı) bu hatayı ÇIPLAK fırlatmaz; `DrizzleQueryError` ile SARAR ve
+ * orijinal `SqliteError`'ı `.cause`'a koyar (bkz.
+ * `node_modules/drizzle-orm/sqlite-core/session.js` `catch (e) { throw new
+ * DrizzleQueryError(queryString, params, e); }`) — bu yüzden hem hatanın
+ * KENDİSİ hem `.cause`'u denetlenir.
+ *
+ * Yalnız GEÇİCİ kilit kodları (`SQLITE_BUSY`/`SQLITE_LOCKED`) yakalanır;
+ * başka bir `SqliteError` (ör. bir CHECK/UNIQUE kısıt ihlali) BURADAN
+ * GEÇMEZ ve kendi anlamlı durumuyla (409/422 vb.) ele alınmalıdır — bir
+ * veri bütünlüğü hatasını sessizce "az sonra tekrar dene" 503'üne
+ * GİZLEMEK yanlış olurdu.
+ */
+export function extractTransientSqliteLockError(
+  error: unknown,
+): InstanceType<typeof Database.SqliteError> | undefined {
+  const isLockError = (
+    candidate: unknown,
+  ): candidate is InstanceType<typeof Database.SqliteError> =>
+    candidate instanceof Database.SqliteError &&
+    (candidate.code === "SQLITE_BUSY" || candidate.code === "SQLITE_LOCKED");
+
+  if (isLockError(error)) {
+    return error;
+  }
+  const cause = error instanceof Error ? error.cause : undefined;
+  return isLockError(cause) ? cause : undefined;
 }

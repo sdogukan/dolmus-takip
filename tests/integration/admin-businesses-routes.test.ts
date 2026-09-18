@@ -405,6 +405,48 @@ describe("admin/businesses routes (T2.1)", () => {
     }
   });
 
+  it("commit olmuş PATCH'in aynı requestId ve aynı (eski version'lı) gövdeyle tekrarı 200 replay döner; sürüm, audit ve makbuz tek kalır", async () => {
+    const { token, csrfToken } = await loginPlatform(SEED_USERNAMES.admin, SEED_TEST_PASSWORDS.admin);
+    const url = `${BASE_URL}/${SEED_IDS.businessA}`;
+    const params = { params: Promise.resolve({ businessId: SEED_IDS.businessA }) };
+    const requestBody = {
+      requestId: "22222222-3333-4444-8555-666666666666",
+      version: 1,
+      name: "İşletme A (replay)",
+    };
+
+    const first = await patchBusiness(writeRequest(token, csrfToken, "PATCH", requestBody, url), params);
+    expect(first.status).toBe(200);
+    const firstBody = await first.json();
+    expect(firstBody.business.version).toBe(2);
+
+    // Gövde birebir aynı: version hâlâ 1 (işletme artık 2'de) — replay, erken
+    // sürüm denetiminden ÖNCE çözülmeli; 409 VERSION_CONFLICT dönmemeli.
+    const second = await patchBusiness(writeRequest(token, csrfToken, "PATCH", requestBody, url), params);
+    expect(second.status).toBe(200);
+    const secondBody = await second.json();
+    expect(secondBody.business.name).toBe("İşletme A (replay)");
+    expect(secondBody.business.version).toBe(firstBody.business.version);
+
+    const sqlite = rawDb(dbPath);
+    try {
+      const row = sqlite
+        .prepare("SELECT version FROM businesses WHERE id = ?")
+        .get(SEED_IDS.businessA) as { version: number };
+      expect(row.version).toBe(2);
+      const audit = sqlite
+        .prepare("SELECT COUNT(*) c FROM admin_audit WHERE entity_id = ? AND action = 'business.update'")
+        .get(SEED_IDS.businessA) as { c: number };
+      expect(audit.c).toBe(1);
+      const receipt = sqlite
+        .prepare("SELECT COUNT(*) c FROM mutation_receipts WHERE request_id = ?")
+        .get(requestBody.requestId) as { c: number };
+      expect(receipt.c).toBe(1);
+    } finally {
+      sqlite.close();
+    }
+  });
+
   it("değişiklik göndermeyen (aynı değerli) PATCH 422 döner, sürümü artırmaz, audit yazmaz", async () => {
     const { token, csrfToken } = await loginPlatform(SEED_USERNAMES.admin, SEED_TEST_PASSWORDS.admin);
     const url = `${BASE_URL}/${SEED_IDS.businessA}`;

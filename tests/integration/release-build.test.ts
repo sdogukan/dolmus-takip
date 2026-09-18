@@ -31,7 +31,7 @@ import { compareVersions, MINIMUM_SQLITE_VERSION } from "../../src/server/data/d
  * türden bir varsayım/kısayol).
  *
  * Bunun yerine test, ÇALIŞMA AĞACININ O ANKİ tam içeriğini (node_modules/
- * .git/.next/dist/data/*.sqlite* HARİÇ — `rsync --exclude`) YENİ, tek
+ * .git/.next/dist/data/*.sqlite* HARİÇ — `fs.cpSync` + `filter`) YENİ, tek
  * kullanımlık bir dizine kopyalar, orada YENİ bir `git init` + tek commit
  * yapar (bu, GERÇEK proje deposuna HİÇBİR şekilde dokunmaz — ayrı `.git`,
  * ayrı geçici dizin) ve GERÇEK bir `git clone` bu geçici depodan yapılır.
@@ -97,27 +97,32 @@ beforeAll(() => {
   // HARİÇ). `/data` ve `/dist` yalnız KÖKTE hariç tutulur (`src/server/
   // data/**` gibi iç içe, meşru kaynak kod dizinlerini YANLIŞ-POZİTİF
   // dışlamamak için — bkz. `../../scripts/lib/release-shared.ts`'teki
-  // AYNI kök-göreli ayrım).
-  runOrThrow(
-    "rsync",
-    [
-      "-a",
-      "--exclude=.git",
-      "--exclude=node_modules",
-      "--exclude=.next",
-      "--exclude=/dist",
-      "--exclude=test-results",
-      "--exclude=playwright-report",
-      "--exclude=coverage",
-      "--exclude=/data",
-      "--exclude=*.sqlite*",
-      "--exclude=.env",
-      `${projectRoot}/`,
-      `${sourceRepoDir}/`,
-    ],
-    projectRoot,
-    "rsync (çalışma ağacı → geçici kaynak depo)",
-  );
+  // AYNI kök-göreli ayrım). Bu konteynerde `rsync` kurulu değil; Node'un
+  // yerleşik `fs.cpSync` + `filter` ile AYNI dışlama kümesi (`--exclude`
+  // ile birebir) uygulanır, sembolik bağlar hedefe olduğu gibi kopyalanır
+  // (`verbatimSymlinks: true` — dereference EDİLMEZ).
+  fs.cpSync(projectRoot, sourceRepoDir, {
+    recursive: true,
+    verbatimSymlinks: true,
+    filter: (src) => {
+      const relPath = path.relative(projectRoot, src);
+      if (relPath === "") {
+        return true; // Kaynak kökün kendisi her zaman kabul edilir.
+      }
+      const baseName = path.basename(relPath);
+      if (baseName === ".git") return false;
+      if (baseName === "node_modules") return false;
+      if (baseName === ".next") return false;
+      if (relPath === "dist") return false; // `--exclude=/dist` — yalnız kökte.
+      if (baseName === "test-results") return false;
+      if (baseName === "playwright-report") return false;
+      if (baseName === "coverage") return false;
+      if (relPath === "data") return false; // `--exclude=/data` — yalnız kökte.
+      if (baseName.includes(".sqlite")) return false; // `--exclude=*.sqlite*`.
+      if (baseName === ".env") return false;
+      return true;
+    },
+  });
 
   // 2) Bu geçici dizinde YENİ, GERÇEK proje deposundan TAMAMEN BAĞIMSIZ
   // bir git deposu kur (dosya üstü not — gerçek `.git`'e HİÇ dokunulmaz).
@@ -229,8 +234,8 @@ describe("release:build / release:verify boru hattı (T6.1, S6.1)", () => {
       ).toBeGreaterThanOrEqual(0);
 
       // --- Şema uyumluluğu: migration journal ile birebir ---
-      expect(manifest.schema.last_migration_idx).toBe(1);
-      expect(manifest.schema.migration_sha256_list).toHaveLength(2);
+      expect(manifest.schema.last_migration_idx).toBe(2);
+      expect(manifest.schema.migration_sha256_list).toHaveLength(3);
       for (const entry of manifest.schema.migration_sha256_list) {
         expect(entry.sha256).toMatch(SHA256_HEX);
       }

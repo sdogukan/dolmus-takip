@@ -123,17 +123,33 @@ function ErrorBanner({ banner }: { banner: Banner }) {
 // Taslak deposu — TEK client-state anahtarı, üç mini-formun alt alanları.
 // ---------------------------------------------------------------------------
 
+/**
+ * `version`/`ownerVersion` YALNIZ sonucu belirsiz (pending) bir istek için
+ * taslakta DONDURULUR: ARCHITECTURE §3.4 — "Tekrar kontrol et" aynı
+ * requestId'yi AYNI değer ve sürümle göndermelidir (istek özetine `version`
+ * de girer; sayfa yenilenip taze sürüm gelirse sunucu 409 REQUEST_ID_REUSED
+ * döner). İstek çözülünce (başarı/kesin red/içerik değişimi) alanlar
+ * temizlenir; taslak sekmeler arası ortak olduğundan çözülmüş bir işlemin
+ * sürümü başka sekmedeki formu ezmez.
+ */
 interface DetailDraft {
-  name: { requestId: string; value: string; pending: boolean };
-  ownerRename: { requestId: string; value: string; pending: boolean };
+  name: { requestId: string; value: string; pending: boolean; version?: number };
+  ownerRename: {
+    requestId: string;
+    value: string;
+    pending: boolean;
+    version?: number;
+    ownerVersion?: number;
+  };
   ownerAssign: {
     requestId: string;
     mode: "existing" | "new";
     existingPersonRef: string;
     newFullName: string;
     pending: boolean;
+    version?: number;
   };
-  active: { requestId: string; target: boolean; pending: boolean } | null;
+  active: { requestId: string; target: boolean; pending: boolean; version?: number } | null;
 }
 
 function emptyDraft(detail: BusinessDetail): DetailDraft {
@@ -201,7 +217,7 @@ export function BusinessDetailForm({
         csrfToken={csrfToken}
         detail={detail}
         draft={draft.name}
-        onDraftChange={(name) => persistDraft({ ...draft, name })}
+        onDraftChange={(name) => persistDraft((prev) => ({ ...prev, name }))}
         onSaved={setDetail}
       />
 
@@ -211,7 +227,7 @@ export function BusinessDetailForm({
           csrfToken={csrfToken}
           detail={detail}
           draft={draft.ownerRename}
-          onDraftChange={(ownerRename) => persistDraft({ ...draft, ownerRename })}
+          onDraftChange={(ownerRename) => persistDraft((prev) => ({ ...prev, ownerRename }))}
           onSaved={setDetail}
         />
       ) : (
@@ -220,7 +236,7 @@ export function BusinessDetailForm({
           csrfToken={csrfToken}
           detail={detail}
           draft={draft.ownerAssign}
-          onDraftChange={(ownerAssign) => persistDraft({ ...draft, ownerAssign })}
+          onDraftChange={(ownerAssign) => persistDraft((prev) => ({ ...prev, ownerAssign }))}
           onSaved={setDetail}
         />
       )}
@@ -232,7 +248,7 @@ export function BusinessDetailForm({
         csrfToken={csrfToken}
         detail={detail}
         draft={draft.active}
-        onDraftChange={(active) => persistDraft({ ...draft, active })}
+        onDraftChange={(active) => persistDraft((prev) => ({ ...prev, active }))}
         onSaved={setDetail}
       />
     </div>
@@ -276,7 +292,7 @@ function NameSection({
     setBanner(null);
     const outcome = await patchBusiness(businessId, csrfToken, {
       requestId: body.requestId,
-      version: detail.business.version,
+      version: body.version ?? detail.business.version,
       name: body.value,
     });
     if (outcome.kind === "ambiguous") {
@@ -288,7 +304,7 @@ function NameSection({
       onSaved(outcome.detail);
       return;
     }
-    onDraftChange({ ...body, pending: false });
+    onDraftChange({ ...body, pending: false, version: undefined });
     if (outcome.status === 422 && outcome.fields?.name) {
       setFieldError(outcome.fields.name);
       inputRef.current?.focus();
@@ -302,8 +318,9 @@ function NameSection({
     if (phase !== "idle") return;
     setFieldError(undefined);
     setIsFetching(true);
-    onDraftChange({ ...draft, pending: true });
-    await run(draft);
+    const sent = { ...draft, pending: true, version: detail.business.version };
+    onDraftChange(sent);
+    await run(sent);
     setIsFetching(false);
   }
 
@@ -404,8 +421,8 @@ function OwnerRenameSection({
     setBanner(null);
     const outcome = await patchBusiness(businessId, csrfToken, {
       requestId: body.requestId,
-      version: detail.business.version,
-      ownerRename: { fullName: body.value, ownerVersion: owner.version },
+      version: body.version ?? detail.business.version,
+      ownerRename: { fullName: body.value, ownerVersion: body.ownerVersion ?? owner.version },
     });
     if (outcome.kind === "ambiguous") {
       onDraftChange({ ...body, pending: true });
@@ -420,7 +437,7 @@ function OwnerRenameSection({
       onSaved(outcome.detail);
       return;
     }
-    onDraftChange({ ...body, pending: false });
+    onDraftChange({ ...body, pending: false, version: undefined, ownerVersion: undefined });
     if (outcome.status === 422 && outcome.fields?.["ownerRename.fullName"]) {
       setFieldError(outcome.fields["ownerRename.fullName"]);
       inputRef.current?.focus();
@@ -434,8 +451,14 @@ function OwnerRenameSection({
     if (phase !== "idle") return;
     setFieldError(undefined);
     setIsFetching(true);
-    onDraftChange({ ...draft, pending: true });
-    await run(draft);
+    const sent = {
+      ...draft,
+      pending: true,
+      version: detail.business.version,
+      ownerVersion: owner.version,
+    };
+    onDraftChange(sent);
+    await run(sent);
     setIsFetching(false);
   }
 
@@ -538,7 +561,7 @@ function OwnerAssignSection({
         : { newFullName: body.newFullName };
     const outcome = await patchBusiness(businessId, csrfToken, {
       requestId: body.requestId,
-      version: detail.business.version,
+      version: body.version ?? detail.business.version,
       ownerAssignment,
     });
     if (outcome.kind === "ambiguous") {
@@ -556,7 +579,7 @@ function OwnerAssignSection({
       onSaved(outcome.detail);
       return;
     }
-    onDraftChange({ ...body, pending: false });
+    onDraftChange({ ...body, pending: false, version: undefined });
     if (outcome.status === 422) {
       const fields = outcome.fields ?? {};
       const message =
@@ -576,8 +599,9 @@ function OwnerAssignSection({
     if (phase !== "idle") return;
     setFieldError(undefined);
     setIsFetching(true);
-    onDraftChange({ ...draft, pending: true });
-    await run(draft);
+    const sent = { ...draft, pending: true, version: detail.business.version };
+    onDraftChange(sent);
+    await run(sent);
     setIsFetching(false);
   }
 
@@ -585,7 +609,7 @@ function OwnerAssignSection({
     const requestId = fieldError || banner ? randomRequestId() : draft.requestId;
     if (fieldError) setFieldError(undefined);
     if (banner) setBanner(null);
-    onDraftChange({ ...draft, ...next, requestId, pending: false });
+    onDraftChange({ ...draft, ...next, requestId, pending: false, version: undefined });
   }
 
   const disabled = phase !== "idle";
@@ -745,7 +769,7 @@ function ActiveSection({
     setBanner(null);
     const outcome = await patchBusiness(businessId, csrfToken, {
       requestId: body.requestId,
-      version: detail.business.version,
+      version: body.version ?? detail.business.version,
       active: body.target,
     });
     if (outcome.kind === "ambiguous") {
@@ -757,7 +781,7 @@ function ActiveSection({
       onSaved(outcome.detail);
       return;
     }
-    onDraftChange({ ...body, pending: false });
+    onDraftChange({ ...body, pending: false, version: undefined });
     setBanner(bannerFor(outcome));
   }
 
@@ -767,15 +791,17 @@ function ActiveSection({
       target,
       pending: false,
     };
-    onDraftChange(body);
     if (target) {
       // Yeniden aktifleştirme sonuçlu bir "kesme" işlemi DEĞİLDİR — onay
       // penceresi gerekmez (DESIGN §3 "Pencere" yalnız "sonuçlu işlemler"
       // ister).
+      const sent = { ...body, pending: true, version: detail.business.version };
+      onDraftChange(sent);
       setIsFetching(true);
-      await run(body);
+      await run(sent);
       setIsFetching(false);
     } else {
+      onDraftChange(body);
       setDialogOpen(true);
     }
   }
@@ -783,8 +809,10 @@ function ActiveSection({
   async function confirmDeactivate(): Promise<void> {
     setDialogOpen(false);
     if (!draft) return;
+    const sent = { ...draft, pending: true, version: detail.business.version };
+    onDraftChange(sent);
     setIsFetching(true);
-    await run(draft);
+    await run(sent);
     setIsFetching(false);
   }
 

@@ -144,14 +144,10 @@ export function NewBusinessForm({
       const nameError = fields.name;
       const ownerError = fields["owner.fullName"];
       setFieldErrors({ name: nameError, ownerFullName: ownerError });
-      if (nameError) {
-        nameInputRef.current?.focus();
-      } else if (ownerError) {
-        ownerInputRef.current?.focus();
-      } else {
-        setFormError(responseBody?.error?.message ?? "Geçersiz veri.");
+      if (nameError || ownerError) {
+        (nameError ? nameInputRef : ownerInputRef).current?.focus();
+        return;
       }
-      return;
     }
 
     if (response.status >= 500) {

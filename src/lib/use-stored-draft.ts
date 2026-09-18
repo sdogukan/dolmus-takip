@@ -26,6 +26,7 @@ import {
   readClientState,
   saveClientState,
   type ClientStateScope,
+  type StorageLike,
 } from "./client-state";
 
 const NOTIFY_EVENT = "dolmus_takip:client_state_written";
@@ -40,18 +41,54 @@ function subscribe(onStoreChange: () => void): () => void {
 }
 
 /**
+ * Bir taslak güncellemesini DEPOLANMIŞ güncel değerin üzerine uygular:
+ * `next` bir fonksiyonsa argümanı React state'indeki (bir önceki render'dan
+ * kalma olabilecek) snapshot DEĞİL, localStorage'daki EN SON değerdir
+ * (yoksa/bozuksa `fallback`). Böylece bir alt formun isteği sürerken başka
+ * bir alt forma yazılan taslak, ilkinin bitişindeki yazımla EZİLMEZ.
+ * Sonucu depoya yazar ve döndürür.
+ */
+export function applyStoredDraftUpdate<T>(
+  storage: StorageLike,
+  scope: ClientStateScope,
+  name: string,
+  fallback: T,
+  next: T | ((prev: T) => T),
+): T {
+  let resolved: T;
+  if (typeof next === "function") {
+    let prev: T;
+    try {
+      prev = readClientState<T>(storage, scope, name) ?? fallback;
+    } catch {
+      prev = fallback;
+    }
+    resolved = (next as (prev: T) => T)(prev);
+  } else {
+    resolved = next;
+  }
+  saveClientState(storage, scope, name, resolved);
+  return resolved;
+}
+
+/**
  * `scope`/`name` bu hook'u çağıran bileşenin ömrü boyunca SABİT kabul
  * edilir (işletme kimliği/oturum kapsamı sayfa yenilenmeden değişmez —
  * bkz. çağıranların üst notu). `createFallback` yalnız BİR KEZ (ilk
  * render'da) çağrılır ve sonucu sabit tutulur — her render'da YENİ bir
  * nesne üretmek `getServerSnapshot`in "değişmeyen değer" beklentisini
  * bozardı.
+ *
+ * Çağıranlar `scope` nesnesini her render'da yeniden kurar; bu yüzden
+ * bağımlılık olarak yalnız ilkel `scopeKey` kullanılır ve kapsam callback'
+ * lerin İÇİNDE bu değerden kurulur.
  */
 export function useStoredDraft<T>(
   scope: ClientStateScope,
   name: string,
   createFallback: () => T,
-): [T, (next: T) => void] {
+): [T, (next: T | ((prev: T) => T)) => void] {
+  const { scopeKey } = scope;
   const fallbackRef = useRef<T | undefined>(undefined);
   if (fallbackRef.current === undefined) {
     fallbackRef.current = createFallback();
@@ -60,41 +97,44 @@ export function useStoredDraft<T>(
 
   const getSnapshot = useCallback((): T => {
     const fallback = fallbackRef.current as T;
+    const scoped: ClientStateScope = { scopeKey };
     let raw: string | null;
     try {
-      raw = window.localStorage.getItem(clientStateKey(scope, name));
+      raw = window.localStorage.getItem(clientStateKey(scoped, name));
     } catch {
       raw = null;
     }
     if (!cacheRef.current || cacheRef.current.raw !== raw) {
       let value: T;
       try {
-        value = readClientState<T>(window.localStorage, scope, name) ?? fallback;
+        value = readClientState<T>(window.localStorage, scoped, name) ?? fallback;
       } catch {
         value = fallback;
       }
       cacheRef.current = { raw, value };
     }
     return cacheRef.current.value;
-    // `scope`/`name` çağıran boyunca sabit (bkz. dosya üstü notu);
-    // `fallbackRef`/`cacheRef` birer ref'tir, değişimleri render TETİKLEMEZ.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scope.scopeKey, name]);
+  }, [scopeKey, name]);
 
   const getServerSnapshot = useCallback((): T => fallbackRef.current as T, []);
 
   const value = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 
   const setValue = useCallback(
-    (next: T) => {
+    (next: T | ((prev: T) => T)) => {
       try {
-        saveClientState(window.localStorage, scope, name, next);
+        applyStoredDraftUpdate(
+          window.localStorage,
+          { scopeKey },
+          name,
+          fallbackRef.current as T,
+          next,
+        );
       } finally {
         window.dispatchEvent(new Event(NOTIFY_EVENT));
       }
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [scope.scopeKey, name],
+    [scopeKey, name],
   );
 
   return [value, setValue];

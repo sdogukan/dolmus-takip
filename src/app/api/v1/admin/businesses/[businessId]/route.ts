@@ -17,7 +17,7 @@ import {
 import { fieldErrorsFromZodIssues, mapMutationErrorToResponse, parseJsonBody } from "../_http";
 
 const ownerAssignmentSchema = scopeSafeObject({
-  existingPersonRef: z.string().trim().min(1).optional(),
+  existingPersonRef: z.string().trim().uuid().optional(),
   newFullName: z.string().trim().min(1).max(120).optional(),
 }).refine(
   (value) => (value.existingPersonRef ? 1 : 0) + (value.newFullName ? 1 : 0) === 1,
@@ -70,7 +70,7 @@ export const PATCH = withProtectedRoute({
 
   const parsed = patchBusinessBodySchema.safeParse(parsedBody.value);
   if (!parsed.success) {
-    return jsonErrorResponse(422, "VALIDATION_FAILED", "Geçersiz veri.", {
+    return jsonErrorResponse(422, "VALIDATION_ERROR", "Geçersiz veri.", {
       fields: fieldErrorsFromZodIssues(parsed.error),
       requestId: ctx.requestId,
     });

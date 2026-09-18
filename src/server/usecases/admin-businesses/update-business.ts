@@ -11,7 +11,7 @@
  * mevcut değerden FARKLIYSA bir "değişiklik" sayılır (businesses.version
  * artırılır, audit satırı yazılır); hiçbir alan gerçek bir değişiklik
  * getirmiyorsa (hepsi aynı veya PATCH gövdesi zaten boşsa — ikincisi zod
- * düzeyinde zaten reddedilir) 422 VALIDATION_FAILED "Değişiklik yok."
+ * düzeyinde zaten reddedilir) 422 VALIDATION_ERROR "Değişiklik yok."
  * döner, sürüm artırılmaz, audit yazılmaz.
  */
 import crypto from "node:crypto";
@@ -129,7 +129,7 @@ export function updateBusiness(
     }
 
     const currentBusiness = db
-      .select({ name: businesses.name, active: businesses.active })
+      .select({ name: businesses.name, active: businesses.active, version: businesses.version })
       .from(businesses)
       .where(eq(businesses.id, businessId))
       .get();
@@ -137,6 +137,14 @@ export function updateBusiness(
       throw new Error(
         `updateBusiness: işletme bulunamadı: "${businessId}" (programlama hatası — resolveAdminScope zaten doğrulamış olmalıydı).`,
       );
+    }
+
+    // Bayat `version` "değişiklik yok"/"zaten sahibi var" 422'lerinden ÖNCE
+    // 409 almalı (istemci önce güncel kaydı görmeli). Bu okuma yalnız erken
+    // bir denetimdir; yarışa karşı asıl koruma aşağıdaki koşullu UPDATE'tir
+    // (`WHERE version = ?`, `changes = 1`).
+    if (currentBusiness.version !== params.version) {
+      throw new BusinessVersionConflictError();
     }
 
     const wantsNameChange = params.name !== undefined && params.name !== currentBusiness.name;
@@ -171,9 +179,10 @@ export function updateBusiness(
       }
 
       let ownerPersonId: string;
+      let ownerFullName: string;
       if (params.ownerAssignment.existingPersonRef) {
         const person = db
-          .select({ id: people.id, active: people.active })
+          .select({ id: people.id, active: people.active, fullName: people.fullName })
           .from(people)
           .where(
             and(
@@ -188,16 +197,18 @@ export function updateBusiness(
           });
         }
         ownerPersonId = person.id;
+        ownerFullName = person.fullName;
       } else {
         // zod şeması `existingPersonRef`/`newFullName`'den TAM BİRİNİ
         // zorunlu kılar (bkz. route handler) — buraya ulaşıldıysa
         // `newFullName` dolu olmalıdır.
         ownerPersonId = crypto.randomUUID();
+        ownerFullName = params.ownerAssignment.newFullName!;
         db.insert(people)
           .values({
             businessId,
             id: ownerPersonId,
-            fullName: params.ownerAssignment.newFullName!,
+            fullName: ownerFullName,
             active: true,
             version: 1,
           })
@@ -210,7 +221,7 @@ export function updateBusiness(
         entityId: businessId,
         action: "business.owner_assign",
         beforeJson: JSON.stringify({ ownerPersonId: null }),
-        afterJson: JSON.stringify({ ownerPersonId }),
+        afterJson: JSON.stringify({ ownerPersonId, ownerFullName }),
       });
     }
 

@@ -29,12 +29,12 @@ export class BusinessVersionConflictError extends Error {
  * durumuna bağlı) kurallar için: sahip ataması yalnız sahipsiz işletmeye,
  * belirtilen mevcut kişinin gerçekten bu işletmeye ait olması, sahip adı
  * düzeltmesinin yalnız sahibi olan işletmede yapılabilmesi gibi. Gövde
- * biçimi ARCHITECTURE §4 — "422 VALIDATION_FAILED benzeri + fields (alan
+ * biçimi ARCHITECTURE §4 — "422 VALIDATION_ERROR + fields (alan
  * anahtarları formdaki alanlarla eşleşir)".
  */
 export class BusinessValidationError extends Error {
   readonly status = 422 as const;
-  readonly code = "VALIDATION_FAILED" as const;
+  readonly code = "VALIDATION_ERROR" as const;
   readonly fields: Record<string, string>;
 
   constructor(fields: Record<string, string>, message = "Geçersiz veri.") {

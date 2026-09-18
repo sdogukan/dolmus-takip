@@ -51,7 +51,7 @@ export const POST = withProtectedRoute({
 
   const parsed = postBusinessBodySchema.safeParse(parsedBody.value);
   if (!parsed.success) {
-    return jsonErrorResponse(422, "VALIDATION_FAILED", "Geçersiz veri.", {
+    return jsonErrorResponse(422, "VALIDATION_ERROR", "Geçersiz veri.", {
       fields: fieldErrorsFromZodIssues(parsed.error),
       requestId: ctx.requestId,
     });

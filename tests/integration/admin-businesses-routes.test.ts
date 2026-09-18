@@ -419,7 +419,7 @@ describe("admin/businesses routes (T2.1)", () => {
       { params: Promise.resolve({ businessId: SEED_IDS.businessA }) },
     );
     expect(response.status).toBe(422);
-    expect((await response.json()).error.code).toBe("VALIDATION_FAILED");
+    expect((await response.json()).error.code).toBe("VALIDATION_ERROR");
 
     const sqlite = rawDb(dbPath);
     try {
@@ -544,10 +544,14 @@ describe("admin/businesses routes (T2.1)", () => {
       expect(ownerRow.person_id).toBe(body.owner.personId);
       const auditRow = sqliteAfter
         .prepare(
-          "SELECT action FROM admin_audit WHERE entity_id = ? AND action = 'business.owner_assign'",
+          "SELECT action, after_json FROM admin_audit WHERE entity_id = ? AND action = 'business.owner_assign'",
         )
-        .get(createdBody.business.id) as { action: string } | undefined;
+        .get(createdBody.business.id) as { action: string; after_json: string } | undefined;
       expect(auditRow?.action).toBe("business.owner_assign");
+      expect(JSON.parse(auditRow!.after_json)).toMatchObject({
+        ownerPersonId: body.owner.personId,
+        ownerFullName: "Yeni Atanan Sahip",
+      });
     } finally {
       sqliteAfter.close();
     }
@@ -746,6 +750,256 @@ describe("admin/businesses routes (T2.1)", () => {
     } finally {
       fs.rmSync(incrementalDir, { recursive: true, force: true });
       fs.rmSync(partialMigrationsDir, { recursive: true, force: true });
+    }
+  });
+
+  // -------------------------------------------------------------------
+  // Düzeltme turu — 409 önceliği, existingPersonRef sınırı, driver 403,
+  // canlı kilit 503, audit ABORT atomikliği.
+  // -------------------------------------------------------------------
+
+  it("eski version ile AYNI değeri gönderen PATCH 422 değil 409 VERSION_CONFLICT döner", async () => {
+    const { token, csrfToken } = await loginPlatform(SEED_USERNAMES.admin, SEED_TEST_PASSWORDS.admin);
+    const response = await patchBusiness(
+      writeRequest(
+        token,
+        csrfToken,
+        "PATCH",
+        { requestId: "14141414-1414-4414-8414-141414141414", version: 999, name: "İşletme A" },
+        `${BASE_URL}/${SEED_IDS.businessA}`,
+      ),
+      { params: Promise.resolve({ businessId: SEED_IDS.businessA }) },
+    );
+    expect(response.status).toBe(409);
+    const body = await response.json();
+    expect(body.error.code).toBe("VERSION_CONFLICT");
+    expect(body.error.message).toBe("Bu kayıt değişmiş. Güncel halini açıp tekrar kontrol et.");
+  });
+
+  it("eski version ile sahibi olan işletmeye sahip atama 422 değil 409 VERSION_CONFLICT döner", async () => {
+    const { token, csrfToken } = await loginPlatform(SEED_USERNAMES.admin, SEED_TEST_PASSWORDS.admin);
+    const response = await patchBusiness(
+      writeRequest(
+        token,
+        csrfToken,
+        "PATCH",
+        {
+          requestId: "15151515-1515-4515-8515-151515151515",
+          version: 999,
+          ownerAssignment: { newFullName: "İkinci Sahip" },
+        },
+        `${BASE_URL}/${SEED_IDS.businessA}`,
+      ),
+      { params: Promise.resolve({ businessId: SEED_IDS.businessA }) },
+    );
+    expect(response.status).toBe(409);
+    expect((await response.json()).error.code).toBe("VERSION_CONFLICT");
+  });
+
+  it.each([
+    ["UUID biçiminde olmayan", "kisi-1"],
+    ["aşırı uzun", "a".repeat(5000)],
+  ])("%s existingPersonRef 422 VALIDATION_ERROR + alan hatası döner", async (_label, ref) => {
+    const { token, csrfToken } = await loginPlatform(SEED_USERNAMES.admin, SEED_TEST_PASSWORDS.admin);
+    const response = await patchBusiness(
+      writeRequest(
+        token,
+        csrfToken,
+        "PATCH",
+        {
+          requestId: "16161616-1616-4616-8616-161616161616",
+          version: 1,
+          ownerAssignment: { existingPersonRef: ref },
+        },
+        `${BASE_URL}/${SEED_IDS.businessA}`,
+      ),
+      { params: Promise.resolve({ businessId: SEED_IDS.businessA }) },
+    );
+    expect(response.status).toBe(422);
+    const body = await response.json();
+    expect(body.error.code).toBe("VALIDATION_ERROR");
+    expect(body.error.fields["ownerAssignment.existingPersonRef"]).toBe("Mevcut kişi kimliği geçersiz.");
+  });
+
+  it("şema hatası (POST ve PATCH) VALIDATION_ERROR kodu ve fields döner", async () => {
+    const { token, csrfToken } = await loginPlatform(SEED_USERNAMES.admin, SEED_TEST_PASSWORDS.admin);
+    const post = await postBusiness(
+      writeRequest(token, csrfToken, "POST", { requestId: "x", name: "", owner: { fullName: "A" } }),
+    );
+    expect(post.status).toBe(422);
+    const postBody = await post.json();
+    expect(postBody.error.code).toBe("VALIDATION_ERROR");
+    expect(postBody.error.fields.name).toBeDefined();
+
+    const patch = await patchBusiness(
+      writeRequest(token, csrfToken, "PATCH", { requestId: "x", version: 0 }, `${BASE_URL}/${SEED_IDS.businessA}`),
+      { params: Promise.resolve({ businessId: SEED_IDS.businessA }) },
+    );
+    expect(patch.status).toBe(422);
+    const patchBody = await patch.json();
+    expect(patchBody.error.code).toBe("VALIDATION_ERROR");
+    expect(patchBody.error.fields.version).toBeDefined();
+  });
+
+  it("driver araç oturumu GET/POST/PATCH/detay uçlarının hepsinde 403 alır", async () => {
+    const { token, csrfToken } = await loginVehicle("34 AAA 001", SEED_TEST_PASSWORDS.driver);
+    const params = { params: Promise.resolve({ businessId: SEED_IDS.businessA }) };
+    const url = `${BASE_URL}/${SEED_IDS.businessA}`;
+
+    expect((await getBusinessesList(getRequest(token))).status).toBe(403);
+    expect(
+      (
+        await postBusiness(
+          writeRequest(token, csrfToken, "POST", {
+            requestId: "17171717-1717-4717-8717-171717171717",
+            name: "Yasak",
+            owner: { fullName: "Yasak Sahip" },
+          }),
+        )
+      ).status,
+    ).toBe(403);
+    expect((await getBusinessDetailRoute(getRequest(token, url), params)).status).toBe(403);
+    expect(
+      (
+        await patchBusiness(
+          writeRequest(
+            token,
+            csrfToken,
+            "PATCH",
+            { requestId: "18181818-1818-4818-8818-181818181818", version: 1, name: "Y" },
+            url,
+          ),
+          params,
+        )
+      ).status,
+    ).toBe(403);
+  });
+
+  function expectLockEnvelope(body: { error: { code: string }; request_id?: unknown }): void {
+    expect(body.error.code).toBe("SERVICE_UNAVAILABLE");
+    expect(typeof body.request_id).toBe("string");
+    const raw = JSON.stringify(body);
+    expect(raw).not.toContain("SQLITE_BUSY");
+    expect(raw).not.toContain("SQLITE_LOCKED");
+    expect(raw).not.toContain(dbPath);
+  }
+
+  it(
+    "POST: eşzamanlı BEGIN IMMEDIATE kilidi busy_timeout'u aşınca 503 SERVICE_UNAVAILABLE döner, satır yazılmaz; kilit kalkınca aynı requestId ile ilk kez uygulanır",
+    async () => {
+      const { token, csrfToken } = await loginPlatform(SEED_USERNAMES.admin, SEED_TEST_PASSWORDS.admin);
+      const requestBody = {
+        requestId: "19191919-1919-4919-8919-191919191919",
+        name: "Kilitli İşletme",
+        owner: { fullName: "Kilitli Sahip" },
+      };
+
+      // İKİNCİ, AYRI bir bağlantı kilidi busy_timeout'tan (2000 ms) uzun tutar
+      // (bkz. session-routes.test.ts "DB kilitli" blokları).
+      const lockerSqlite = rawDb(dbPath);
+      lockerSqlite.exec("BEGIN IMMEDIATE");
+      try {
+        const response = await postBusiness(writeRequest(token, csrfToken, "POST", requestBody));
+        expect(response.status).toBe(503);
+        expectLockEnvelope(await response.json());
+      } finally {
+        lockerSqlite.exec("ROLLBACK");
+        lockerSqlite.close();
+      }
+
+      const sqlite = rawDb(dbPath);
+      try {
+        const counts = sqlite
+          .prepare(
+            "SELECT (SELECT COUNT(*) FROM businesses WHERE name = 'Kilitli İşletme') b, (SELECT COUNT(*) FROM people WHERE full_name = 'Kilitli Sahip') p, (SELECT COUNT(*) FROM mutation_receipts WHERE request_id = ?) r",
+          )
+          .get(requestBody.requestId) as { b: number; p: number; r: number };
+        expect(counts).toEqual({ b: 0, p: 0, r: 0 });
+      } finally {
+        sqlite.close();
+      }
+
+      const retry = await postBusiness(writeRequest(token, csrfToken, "POST", requestBody));
+      expect(retry.status).toBe(201);
+    },
+    15_000,
+  );
+
+  it(
+    "PATCH: eşzamanlı BEGIN IMMEDIATE kilidi busy_timeout'u aşınca 503 SERVICE_UNAVAILABLE döner, kayıt değişmez; kilit kalkınca aynı requestId ile ilk kez uygulanır",
+    async () => {
+      const { token, csrfToken } = await loginPlatform(SEED_USERNAMES.admin, SEED_TEST_PASSWORDS.admin);
+      const url = `${BASE_URL}/${SEED_IDS.businessA}`;
+      const params = { params: Promise.resolve({ businessId: SEED_IDS.businessA }) };
+      const requestBody = {
+        requestId: "20202020-2020-4020-8020-202020202020",
+        version: 1,
+        name: "Kilitli Yeni Ad",
+      };
+
+      const lockerSqlite = rawDb(dbPath);
+      lockerSqlite.exec("BEGIN IMMEDIATE");
+      try {
+        const response = await patchBusiness(writeRequest(token, csrfToken, "PATCH", requestBody, url), params);
+        expect(response.status).toBe(503);
+        expectLockEnvelope(await response.json());
+      } finally {
+        lockerSqlite.exec("ROLLBACK");
+        lockerSqlite.close();
+      }
+
+      const sqlite = rawDb(dbPath);
+      try {
+        const row = sqlite
+          .prepare("SELECT name, version FROM businesses WHERE id = ?")
+          .get(SEED_IDS.businessA) as { name: string; version: number };
+        expect(row).toEqual({ name: "İşletme A", version: 1 });
+        const receipt = sqlite
+          .prepare("SELECT COUNT(*) c FROM mutation_receipts WHERE request_id = ?")
+          .get(requestBody.requestId) as { c: number };
+        expect(receipt.c).toBe(0);
+      } finally {
+        sqlite.close();
+      }
+
+      const retry = await patchBusiness(writeRequest(token, csrfToken, "PATCH", requestBody, url), params);
+      expect(retry.status).toBe(200);
+    },
+    15_000,
+  );
+
+  it("POST: admin_audit yazımı ABORT edilince hiçbir tabloda satır kalmaz (tek transaction atomikliği)", async () => {
+    const { token, csrfToken } = await loginPlatform(SEED_USERNAMES.admin, SEED_TEST_PASSWORDS.admin);
+    const requestBody = {
+      requestId: "21212121-2121-4121-8121-212121212121",
+      name: "Atomik İşletme",
+      owner: { fullName: "Atomik Sahip" },
+    };
+
+    // Geçici trigger yalnız bu testin DB'sinde; sonunda kaldırılır.
+    const sqlite = rawDb(dbPath);
+    sqlite.exec(
+      "CREATE TRIGGER test_abort_admin_audit BEFORE INSERT ON admin_audit BEGIN SELECT RAISE(ABORT, 'test abort'); END",
+    );
+    try {
+      // Bilinmeyen (kilit dışı) hata `mapMutationErrorToResponse`'ta
+      // `undefined` döner ve yeniden fırlatılır.
+      await expect(postBusiness(writeRequest(token, csrfToken, "POST", requestBody))).rejects.toThrow();
+
+      const counts = sqlite
+        .prepare(
+          "SELECT (SELECT COUNT(*) FROM businesses WHERE name = 'Atomik İşletme') b, (SELECT COUNT(*) FROM people WHERE full_name = 'Atomik Sahip') p, (SELECT COUNT(*) FROM business_owners WHERE business_id NOT IN (SELECT id FROM businesses WHERE id IN (?, ?))) o, (SELECT COUNT(*) FROM mutation_receipts WHERE request_id = ?) r",
+        )
+        .get(SEED_IDS.businessA, SEED_IDS.businessB, requestBody.requestId) as {
+        b: number;
+        p: number;
+        o: number;
+        r: number;
+      };
+      expect(counts).toEqual({ b: 0, p: 0, o: 0, r: 0 });
+    } finally {
+      sqlite.exec("DROP TRIGGER IF EXISTS test_abort_admin_audit");
+      sqlite.close();
     }
   });
 });

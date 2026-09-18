@@ -6,6 +6,7 @@
  * deseni).
  */
 import type { z } from "zod";
+import { extractTransientSqliteLockError } from "../../../../../server/data/db";
 import { jsonErrorResponse } from "../../../../../server/http/errors";
 import { ScopeTargetInactiveError } from "../../../../../server/data/scoped";
 import { RequestIdReusedError } from "../../../../../server/usecases/receipts/errors";
@@ -39,6 +40,21 @@ export function mapMutationErrorToResponse(error: unknown, requestId: string): R
       fields: error.fields,
       requestId,
     });
+  }
+  const lockError = extractTransientSqliteLockError(error);
+  if (lockError) {
+    // Ayrıntı (SQL/hata mesajı) istemciye DÖNMEZ — yalnız sunucu logu (bkz.
+    // `../../auth/logout/route.ts` aynı ilke). Transaction geri alındığı
+    // için makbuz yazılmamıştır; aynı requestId ile tekrar deneme geçerlidir.
+    console.error(
+      `[admin/businesses] veritabanı kilitli (request_id=${requestId}): ${lockError.message}`,
+    );
+    return jsonErrorResponse(
+      503,
+      "SERVICE_UNAVAILABLE",
+      "Sunucu şu anda hazır değil. Az sonra tekrar deneyin.",
+      { requestId },
+    );
   }
   return undefined;
 }

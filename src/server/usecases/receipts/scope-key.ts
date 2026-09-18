@@ -35,10 +35,22 @@
  * receipts modülünü kullanmak isterse programlama hatası olmadan
  * ÇALIŞMAYA devam eder.
  */
-import type { Scope } from "../../auth/scope";
+import type { ReceiptScope } from "../../auth/scope";
 
-export function computeReceiptScopeKey(scope: Scope): string {
+/**
+ * T2.1 — `scope` artık tam bir `Scope` (businessId her zaman dolu) VEYA
+ * (POST /admin/businesses gibi hedef işletme henüz VAR OLMADAN önceki
+ * oluşturma uçları için) `StaffActorScope` (businessId/vehicleId YOK)
+ * olabilir; `businessId`/`vehicleId` YOKSA aynı boş-dize yer tutucu
+ * (`../../auth/scope.ts` `computeScopeKey`'in de kullandığı desen)
+ * kullanılır — bu, gerçek bir işletmenin ASLA üretemeyeceği bir
+ * `scope_key` biçimidir (gerçek `businessId` hiçbir zaman boş dize
+ * değildir), bu yüzden aktör-düzeyi ve işletme-düzeyi makbuzlar ASLA
+ * çakışmaz.
+ */
+export function computeReceiptScopeKey(scope: ReceiptScope): string {
   const actorId = scope.kind === "vehicle" ? scope.credentialId : scope.platformUserId;
-  const vehiclePart = scope.vehicleId ?? "";
-  return `${actorId}:${scope.businessId}:${vehiclePart}`;
+  const businessPart = "businessId" in scope ? scope.businessId : "";
+  const vehiclePart = "vehicleId" in scope ? (scope.vehicleId ?? "") : "";
+  return `${actorId}:${businessPart}:${vehiclePart}`;
 }

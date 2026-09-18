@@ -142,6 +142,20 @@ export const businesses = sqliteTable("businesses", {
   name: text("name").notNull(),
   active: integer("active", { mode: "boolean" }).notNull().default(true),
   createdAt: text("created_at").notNull(),
+  // T2.1 — admin işletme/sahip yönetimi PATCH'inin iyimser eşzamanlılık
+  // sürümü (ARCHITECTURE §3.4 — "koşullu UPDATE ... version"). Var olan
+  // `businesses` tablosuna eklenir; migration bu yüzden yalnız `ALTER
+  // TABLE ADD COLUMN` olmalıdır (bkz. drizzle/000X migration dosyasının
+  // üst notu) — bu yüzden burada KASITLI olarak `people`/`vehicles`
+  // tablolarındaki gibi bir `check(... >= 1 ...)` EKLENMEZ: SQLite bir var
+  // olan tabloya CHECK eklemeyi yalnız tam tablo yeniden oluşturarak
+  // (`__new_businesses` + veri kopyalama + DROP + RENAME) destekler — bu
+  // tablo people/vehicles/work_entries/admin_audit'in ebeveynidir ve dolu
+  // bir DB'de bu yeniden oluşturma FK ihlaline düşer (T2.1 risk notu).
+  // Uygulama katmanı (usecases/admin-businesses) version'u her zaman 1'den
+  // başlatıp yalnız +1 arttırarak yazar; DB düzeyinde ek bir CHECK olmadan
+  // da bu değişmez.
+  version: integer("version").notNull().default(1),
 });
 
 // ---------------------------------------------------------------------------
@@ -167,6 +181,36 @@ export const people = sqliteTable(
     // buradan birleşik FK ile referans verecek.
     unique("people_business_id_id_uk").on(t.businessId, t.id),
     check("people_version_positive_check", sql`${t.version} >= 1`),
+  ],
+);
+
+// ---------------------------------------------------------------------------
+// business_owners — T2.1. "Sahip bağı" — bir işletmenin (en fazla bir)
+// mal sahibini taşır; PK tek başına `business_id`'dir (yalnız bir satır ->
+// bir işletmenin sahibi en fazla bir kişidir). Satırın YOKLUĞU "işletme
+// sahipsiz" anlamına gelir (T2.1 görev tanımı — "sahip atama yalnız
+// sahipsiz işletmeye, devir yok"): bir işletmenin sahibi değiştirilemez,
+// yalnız hiç sahibi yokken bir kez atanabilir.
+// ---------------------------------------------------------------------------
+
+export const businessOwners = sqliteTable(
+  "business_owners",
+  {
+    businessId: text("business_id")
+      .primaryKey()
+      .references(() => businesses.id),
+    personId: text("person_id").notNull(),
+  },
+  (t) => [
+    // "sahip aynı işletmedeki kişidir" — vehicles.owner_person_id ile AYNI
+    // birleşik FK deseni (§3.1): başka işletmenin kişisi sahip olarak
+    // YAZILAMAZ (DB düzeyinde reddi, API doğrulaması bunun İKİNCİ
+    // savunma hattıdır — bkz. usecases/admin-businesses).
+    foreignKey({
+      name: "business_owners_person_fk",
+      columns: [t.businessId, t.personId],
+      foreignColumns: [people.businessId, people.id],
+    }),
   ],
 );
 
@@ -776,6 +820,7 @@ export const adminAudit = sqliteTable(
 export const schema = {
   businesses,
   people,
+  businessOwners,
   vehicles,
   vehicleDrivers,
   vehicleCredentials,

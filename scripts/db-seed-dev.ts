@@ -338,6 +338,18 @@ function insertVehicleCredential(
     .run(businessId, id, vehicleId, role, passwordHash);
 }
 
+function insertBusinessOwner(
+  sqlite: SqliteConnection,
+  businessId: string,
+  personId: string,
+): void {
+  sqlite
+    .prepare(
+      "INSERT OR IGNORE INTO business_owners (business_id, person_id) VALUES (?, ?)",
+    )
+    .run(businessId, personId);
+}
+
 function insertVehicleDriver(
   sqlite: SqliteConnection,
   businessId: string,
@@ -414,6 +426,10 @@ export async function seedDevData(sqlite: SqliteConnection): Promise<SeedRowCoun
       version: 2,
     });
     insertPerson(sqlite, SEED_IDS.businessB, SEED_IDS.driverB1d, "Mustafa Er");
+
+    // T2.1 — sahip bağı (business_owners): A->ownerA, B->ownerB.
+    insertBusinessOwner(sqlite, SEED_IDS.businessA, SEED_IDS.ownerA);
+    insertBusinessOwner(sqlite, SEED_IDS.businessB, SEED_IDS.ownerB);
 
     // Araçlar — İşletme A: iki aktif araç.
     insertVehicle(sqlite, {

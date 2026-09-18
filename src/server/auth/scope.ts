@@ -71,6 +71,43 @@ export interface StaffScope extends ScopeBase {
 
 export type Scope = VehicleScope | StaffScope;
 
+/**
+ * T2.1 — POST /admin/businesses (işletme OLUŞTURMA) için: hedef işletme
+ * henüz VAR OLMADIĞINDAN normal `StaffScope`'un zorunlu `businessId`si
+ * ÜRETİLEMEZ (risk notu — "POST oluşturmada Scope yoktur"). Bu, yalnız
+ * EKİP aktörünün kendi KALICI kimliğini taşıyan, işletme/araç hedefi
+ * OLMAYAN bir kapsamdır; yalnız `computeReceiptScopeKey`/
+ * `recheckScopeInTransaction`'ın (bkz. `../data/scoped.ts`,
+ * `../usecases/receipts/*`) "işletme kapsamı olmadan da çağrılabilir"
+ * genişlemesiyle birlikte kullanılır — `authorize`/`hasPermission`
+ * `business.manage` iznini zaten `target: "none"` (Scope'suz) üzerinden
+ * denetler (bkz. `../http/handler.ts`).
+ */
+export interface StaffActorScope {
+  kind: "staff";
+  actor: "support" | "admin";
+  platformUserId: string;
+}
+
+/**
+ * `computeReceiptScopeKey`/`recheckScopeInTransaction`/`findReceipt`/
+ * `resolveReceipt`'in ORTAK parametre tipi — normal (hedefi ÇÖZÜLMÜŞ)
+ * `Scope` VEYA yukarıdaki hedefsiz `StaffActorScope`. Var olan HER çağıran
+ * zaten tam bir `Scope` GEÇTİĞİNDEN (`businessId` her zaman GERÇEK ve
+ * DOLU), bu genişleme onların davranışını DEĞİŞTİRMEZ — yalnız T2.1'in
+ * oluşturma akışına yeni bir GİRİŞ açar.
+ */
+export type ReceiptScope = Scope | StaffActorScope;
+
+export function buildStaffActorScope(context: SessionContext): StaffActorScope {
+  assertStaffSession(context);
+  return {
+    kind: "staff",
+    actor: context.role,
+    platformUserId: context.platformUserId,
+  };
+}
+
 function isVehicleActorRole(role: SessionRole): role is "owner" | "driver" {
   return role === "owner" || role === "driver";
 }

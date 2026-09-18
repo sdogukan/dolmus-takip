@@ -18,7 +18,7 @@ import { and, eq } from "drizzle-orm";
 import type { SQL } from "drizzle-orm";
 import type { SQLiteColumn } from "drizzle-orm/sqlite-core";
 import { systemClock, type Clock } from "../auth/session";
-import type { Scope } from "../auth/scope";
+import type { ReceiptScope, Scope } from "../auth/scope";
 import type { AppDatabase } from "./db";
 import {
   businesses,
@@ -208,10 +208,21 @@ export interface RecheckScopeOptions {
  * ürettiği ORİJİNAL `SessionContext` (guard zamanında çözülmüş `sessionId`/
  * `credentialId`/`platformUserId` taşır). `scope` — aynı isteğin
  * (vehicleId'e göre farklılaşabilen, staff için header'dan çözülmüş)
- * `Scope`'u. İkisi BİRLİKTE gerekir: `context` AKTÖRÜN kendi kimliğini,
+ * `Scope`'u — VEYA (T2.1, POST /admin/businesses gibi hedef işletme henüz
+ * VAR OLMADAN önceki oluşturma uçları için) `../auth/scope.ts`
+ * `StaffActorScope` (yalnız ekip aktörünün kendi kimliği, işletme/araç
+ * hedefi YOK). İkisi BİRLİKTE gerekir: `context` AKTÖRÜN kendi kimliğini,
  * `scope` YAZILACAK HEDEFİ (staff için context'ten FARKLI olabilir)
  * doğrular. `options` — bkz. `RecheckScopeOptions` üst notu; varsayılan
  * `{}` mevcut sıkı davranışı korur.
+ *
+ * `scope`'ta `businessId`/`vehicleId` YOKSA (yalnız `StaffActorScope`),
+ * bu alanlara bağlı aktiflik denetimleri ATLANIR — henüz VAR OLMAYAN bir
+ * hedefin aktifliği sorgulanamaz; AKTÖRÜN KENDİ kimliği (oturum/credential/
+ * platform_user geçerliliği) bundan ETKİLENMEZ, HER ZAMAN denetlenir (401
+ * sınıfı asla atlanamaz). Var olan HER çağıran zaten tam bir `Scope`
+ * (`businessId` her zaman GERÇEK ve DOLU) GEÇTİĞİNDEN, bu genişleme onların
+ * davranışını DEĞİŞTİRMEZ.
  *
  * Başarılı dönüş `void`'tir (hiçbir şey fırlatılmadıysa denetim geçmiştir);
  * başarısızlık `SessionExpiredError`/`SessionRevokedError` (401) veya
@@ -223,7 +234,7 @@ export interface RecheckScopeOptions {
 export function recheckScopeInTransaction(
   db: AppDatabase,
   context: SessionContext,
-  scope: Scope,
+  scope: ReceiptScope,
   clock: Clock = systemClock,
   options: RecheckScopeOptions = {},
 ): void {
@@ -279,19 +290,21 @@ export function recheckScopeInTransaction(
     }
   }
 
-  const business = db
-    .select({ active: businesses.active })
-    .from(businesses)
-    .where(eq(businesses.id, scope.businessId))
-    .get();
-  if (!business) {
-    throw new ScopeTargetInactiveError();
-  }
-  if (!options.skipBusinessActiveCheck && !business.active) {
-    throw new ScopeTargetInactiveError();
+  if ("businessId" in scope && scope.businessId) {
+    const business = db
+      .select({ active: businesses.active })
+      .from(businesses)
+      .where(eq(businesses.id, scope.businessId))
+      .get();
+    if (!business) {
+      throw new ScopeTargetInactiveError();
+    }
+    if (!options.skipBusinessActiveCheck && !business.active) {
+      throw new ScopeTargetInactiveError();
+    }
   }
 
-  if (scope.vehicleId) {
+  if ("vehicleId" in scope && scope.vehicleId) {
     const vehicle = db
       .select({ active: vehicles.active })
       .from(vehicles)

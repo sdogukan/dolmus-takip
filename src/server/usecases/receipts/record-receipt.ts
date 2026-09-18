@@ -29,7 +29,7 @@
  * YUTMAZ, açık bir programlama hatası sinyali olarak KALIR.
  */
 import { systemClock, type Clock } from "../../auth/session";
-import type { Scope } from "../../auth/scope";
+import type { ReceiptScope } from "../../auth/scope";
 import type { AppDatabase } from "../../data/db";
 import { mutationReceipts } from "../../data/schema";
 import { computeReceiptScopeKey } from "./scope-key";
@@ -48,7 +48,7 @@ export interface RecordReceiptParams {
 
 export function recordReceipt(
   db: AppDatabase,
-  scope: Scope,
+  scope: ReceiptScope,
   params: RecordReceiptParams,
   clock: Clock = systemClock,
 ): void {

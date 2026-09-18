@@ -51,9 +51,9 @@
  */
 import { and, eq } from "drizzle-orm";
 import { systemClock, type Clock } from "../../auth/session";
-import type { Scope } from "../../auth/scope";
+import type { ReceiptScope } from "../../auth/scope";
 import type { AppDatabase } from "../../data/db";
-import { recheckScopeInTransaction } from "../../data/scoped";
+import { recheckScopeInTransaction, type RecheckScopeOptions } from "../../data/scoped";
 import { mutationReceipts } from "../../data/schema";
 import type { SessionContext } from "../session/types";
 import { RequestIdReusedError } from "./errors";
@@ -78,17 +78,29 @@ export interface MutationReceiptRecord {
  * FIRLATABİLİR: `SessionExpiredError`/`SessionRevokedError` (401 sınıfı) —
  * `recheckScopeInTransaction`'dan; `ScopeTargetInactiveError` (403) —
  * yine ondan; `RequestIdReusedError` (409) — operation uyuşmazlığı.
+ *
+ * `recheckOptions` (T2.1 eklentisi) — `../../data/scoped.ts`
+ * `RecheckScopeOptions`'ın AYNEN geçirilmesi: bir admin mutasyonu (ör.
+ * işletme/araç REAKTİVASYONU) `skipBusinessActiveCheck`/
+ * `skipVehicleActiveCheck` GEREKTİRİYORSA, bu istisna makbuz aramasında da
+ * (idempotency kontrolünün KENDİSİ de aynı transaction'ın parçasıdır)
+ * uygulanmalıdır — aksi halde reaktivasyon isteğinin İLK (replay
+ * OLMAYAN) denemesi, henüz hiçbir makbuz aranmadan, bu fonksiyonun
+ * VARSAYILAN sıkı denetiminde 403'e düşerdi. Varsayılan `{}` var olan HER
+ * çağıranın (business/vehicle zaten aktifken yazan T1.x kullanım
+ * durumları) davranışını DEĞİŞTİRMEZ.
  */
 export function findReceipt(
   db: AppDatabase,
   context: SessionContext,
-  scope: Scope,
+  scope: ReceiptScope,
   requestId: string,
   operation: string,
   clock: Clock = systemClock,
+  recheckOptions: RecheckScopeOptions = {},
 ): MutationReceiptRecord | undefined {
   // "yetki kontrolü ... makbuz okumada da yapılır" — satırı DÖNMEDEN ÖNCE.
-  recheckScopeInTransaction(db, context, scope, clock);
+  recheckScopeInTransaction(db, context, scope, clock, recheckOptions);
 
   const scopeKey = computeReceiptScopeKey(scope);
   const row = db

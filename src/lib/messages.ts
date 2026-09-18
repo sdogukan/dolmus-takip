@@ -116,6 +116,9 @@ export const ERROR_CODE_MESSAGES: Record<string, string> = {
   // bir kurtarma yoludur — taslak client-state'te kalır).
   REQUEST_ID_REUSED: "Bu işlem başka bir denemeyle çakıştı. Sayfayı yenileyip tekrar dene.",
   FORBIDDEN: UNAUTHORIZED_OR_INACTIVE_ACCESS_MESSAGE,
+  // Sunucu 422 VALIDATION_ERROR döndüğünde alan ayrıntısı ekranda ayrıca
+  // gösterilir; alan hatası olmayan durumlar için genel doğrulama metni.
+  VALIDATION_ERROR: "Girilen bilgiler geçersiz. Alanları kontrol edip tekrar dene.",
 };
 
 /**

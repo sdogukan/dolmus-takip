@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import {
   SEED_IDS,
   SEED_RAW_PLATES,
@@ -34,6 +34,19 @@ async function fetchCsrfToken(page: Page): Promise<string> {
     const body = (await response.json()) as { csrfToken: string };
     return body.csrfToken;
   });
+}
+
+/** Tıklamayı, işletme PATCH yanıtını bekleyerek yapar ve 200'ü doğrular. */
+async function clickAndExpectPatchOk(page: Page, target: Locator): Promise<void> {
+  const [response] = await Promise.all([
+    page.waitForResponse(
+      (candidate) =>
+        candidate.request().method() === "PATCH" &&
+        candidate.url().includes("/api/v1/admin/businesses/"),
+    ),
+    target.click(),
+  ]);
+  expect(response.status()).toBe(200);
 }
 
 test.describe("İşletme oluşturma (/yonetim/isletmeler/yeni)", () => {
@@ -184,9 +197,12 @@ test.describe("İşletme detayı (/yonetim/isletmeler/:id)", () => {
       await expect(dialog).toBeVisible();
       await expect(dialog).toContainText("06CCC003");
       await expect(dialog).toContainText("oturum açamaz");
-      await dialog.getByRole("button", { name: "Pasifleştir", exact: true }).click();
-
-      await expect(page.getByText("Pasif", { exact: true }).first()).toBeVisible();
+      // Durum beklemesi araç rozetlerine ("Pasif"/"Aktif") DEĞİL, işletme
+      // düğmelerine bağlanır; araç rozetleri seed'de zaten görünür olduğundan
+      // PATCH bitmeden geçerdi. Araç girişi reddi PATCH commit olduktan sonra
+      // çalışmalıdır.
+      await clickAndExpectPatchOk(page, dialog.getByRole("button", { name: "Pasifleştir", exact: true }));
+      await expect(page.getByRole("button", { name: "İşletmeyi yeniden aktifleştir" })).toBeVisible();
 
       // Etkilenen araç artık giriş yapamaz.
       await page.goto("/giris");
@@ -201,10 +217,20 @@ test.describe("İşletme detayı (/yonetim/isletmeler/:id)", () => {
       // GERİ ALIR — bkz. dosya üstü notu.
       await page.goto(`/yonetim/isletmeler/${SEED_IDS.businessB}`);
       const reactivateButton = page.getByRole("button", { name: "İşletmeyi yeniden aktifleştir" });
-      if (await reactivateButton.isVisible().catch(() => false)) {
-        await reactivateButton.click();
-        await expect(page.getByText("Aktif", { exact: true }).first()).toBeVisible();
+      const deactivateButton = page.getByRole("button", { name: "İşletmeyi pasifleştir" });
+      await expect(reactivateButton.or(deactivateButton)).toBeVisible();
+
+      // Sonucu belirsiz bekleyen bir istek varsa önce o çözülür; yeniden
+      // kontrol taslaktaki isteği tekrar gönderir ve durumu değiştirebilir.
+      const recheckButton = page.getByRole("button", { name: "Tekrar kontrol et" });
+      if (await recheckButton.isVisible()) {
+        await clickAndExpectPatchOk(page, recheckButton);
+        await expect(recheckButton).toBeHidden();
       }
+      if (await reactivateButton.isVisible()) {
+        await clickAndExpectPatchOk(page, reactivateButton);
+      }
+      await expect(deactivateButton).toBeVisible();
     }
   });
 });

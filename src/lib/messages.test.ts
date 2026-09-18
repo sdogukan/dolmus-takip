@@ -111,4 +111,10 @@ describe("messages", () => {
       COMMON_SCREEN_MESSAGES.unauthorizedOrInactiveAccess,
     );
   });
+
+  it("VALIDATION_ERROR genel doğrulama metnini taşır", () => {
+    expect(getErrorMessage("VALIDATION_ERROR")).toBe(
+      "Girilen bilgiler geçersiz. Alanları kontrol edip tekrar dene.",
+    );
+  });
 });

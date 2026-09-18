@@ -23,7 +23,7 @@ Ajan betiği: scratchpad/task-uygula.js (args: task, story, milestone, steps?, e
 - [x] M1 KAPI: 2026-09-17 wf_b7162bab-63c — 7 story pass (S1.6 pass_with_manual: gerçek cihaz), MILESTONES §M1 4/4 kutu done, release:build+verify OK; manuel bekleyen: gerçek telefon denemesi (tests/e2e/MANUAL-CHECKS.md), GitHub Actions gerçek koşu (push), Lightsail (M6). → KULLANICIDAN M2 İZNİ BEKLENİYOR
 
 ## M2 — Araç ve şoför yönetimi
-- [ ] T2.1 (S2.1) İşletme ve mal sahibi tanımlama
+- [x] T2.1 (S2.1) İşletme ve mal sahibi tanımlama — 2026-09-18, backend (business_owners, admin/businesses API, 1047 satır entegrasyon testi (26 test)) + frontend (/yonetim liste + "İşletme aç", /yonetim/isletmeler/yeni, /yonetim/isletmeler/:id: ad/sahip düzeltme, sahip atama, onaylı pasifleştirme/yeniden aktifleştirme), 258 birim testi, 6 yeni E2E (tests/e2e/admin-businesses.spec.ts) + platform-login.spec.ts'in ana ekran doğrulaması güncellendi; 45/45 E2E (chromium) yeşil, webkit bu ortamda eksik sistem bağımlılığından koşulamadı
 - [ ] T2.2 (S2.2) Araç oluşturma, düzenleme, aktiflik
 - [ ] T2.3 (S2.3) Araç şifrelerini belirleme ve sıfırlama
 - [ ] T2.4 (S2.4) Şoförlerim, sabit kişi, araç atamaları (+F3 uyarısı)

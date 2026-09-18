@@ -26,8 +26,9 @@
  * uyuşmazlığında da `RequestIdReusedError` (409) fırlatılır.
  */
 import { systemClock, type Clock } from "../../auth/session";
-import type { Scope } from "../../auth/scope";
+import type { ReceiptScope } from "../../auth/scope";
 import type { AppDatabase } from "../../data/db";
+import type { RecheckScopeOptions } from "../../data/scoped";
 import type { SessionContext } from "../session/types";
 import { RequestIdReusedError } from "./errors";
 import { findReceipt, type MutationReceiptRecord } from "./find-receipt";
@@ -45,9 +46,10 @@ export type ResolveReceiptResult =
 export function resolveReceipt(
   db: AppDatabase,
   context: SessionContext,
-  scope: Scope,
+  scope: ReceiptScope,
   params: ResolveReceiptParams,
   clock: Clock = systemClock,
+  recheckOptions: RecheckScopeOptions = {},
 ): ResolveReceiptResult {
   const existing = findReceipt(
     db,
@@ -56,6 +58,7 @@ export function resolveReceipt(
     params.requestId,
     params.operation,
     clock,
+    recheckOptions,
   );
 
   if (!existing) {

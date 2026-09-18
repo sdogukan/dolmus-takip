@@ -90,4 +90,25 @@ describe("messages", () => {
       "Bağlantı kurulamadı. Tekrar dene.",
     );
   });
+
+  it("T2.1 — VERSION_CONFLICT, COMMON_SCREEN_MESSAGES.concurrentEditConflict ile BİREBİR ve AYNI kaynaktan gelir", () => {
+    expect(getErrorMessage("VERSION_CONFLICT")).toBe(
+      "Bu kayıt değişmiş. Güncel halini açıp tekrar kontrol et.",
+    );
+    expect(getErrorMessage("VERSION_CONFLICT")).toBe(
+      COMMON_SCREEN_MESSAGES.concurrentEditConflict,
+    );
+  });
+
+  it("T2.1 — TARGET_INACTIVE_FOR_WRITE/REQUEST_ID_REUSED/FORBIDDEN kod eşlemeleri tanımlıdır", () => {
+    expect(getErrorMessage("TARGET_INACTIVE_FOR_WRITE")).toBe(
+      "İşletme veya araç artık pasif; bu işlem yapılamaz.",
+    );
+    expect(getErrorMessage("REQUEST_ID_REUSED")).toBe(
+      "Bu işlem başka bir denemeyle çakıştı. Sayfayı yenileyip tekrar dene.",
+    );
+    expect(getErrorMessage("FORBIDDEN")).toBe(
+      COMMON_SCREEN_MESSAGES.unauthorizedOrInactiveAccess,
+    );
+  });
 });

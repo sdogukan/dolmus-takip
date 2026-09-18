@@ -57,6 +57,19 @@ const PLATFORM_INVALID_CREDENTIALS_MESSAGE = "Kullanıcı adı veya şifre yanl�
 // kaynak, iki alan-mesajı sabitinde (aşağıda) tekrar KULLANILIR, tekrar
 // YAZILMAZ.
 const PASSWORD_EMPTY_MESSAGE = "Şifreyi gir.";
+// F7/ARCHITECTURE §3.4 kanonik 409 metni — hem `ERROR_CODE_MESSAGES.
+// VERSION_CONFLICT` hem `COMMON_SCREEN_MESSAGES.concurrentEditConflict`
+// AYNI kaynaktan beslenir (aşağıdaki `ERROR_CODE_MESSAGES` `COMMON_SCREEN_
+// MESSAGES`'TEN ÖNCE tanımlandığından, bu sabit dosyanın en üstünde tutulur
+// — ikisi de bu SABİTİ kullanır, `const` TDZ'si nedeniyle biri diğerini
+// İLERİYE referans EDEMEZ).
+const CONCURRENT_EDIT_CONFLICT_MESSAGE =
+  "Bu kayıt değişmiş. Güncel halini açıp tekrar kontrol et.";
+// DESIGN §2.10 "Yetkisiz / pasif erişim" satırı — `ERROR_CODE_MESSAGES.
+// CSRF_TOKEN_INVALID`/`ORIGIN_INVALID`/`FORBIDDEN` VE `COMMON_SCREEN_
+// MESSAGES.unauthorizedOrInactiveAccess` AYNI metni taşır (yukarıdaki
+// sabitle AYNI TDZ gerekçesiyle burada tutulur).
+const UNAUTHORIZED_OR_INACTIVE_ACCESS_MESSAGE = "Bu işlem için erişimin yok.";
 
 export const ERROR_CODE_MESSAGES: Record<string, string> = {
   SESSION_MISSING: "Oturum bulunamadı. Giriş yap.",
@@ -88,6 +101,21 @@ export const ERROR_CODE_MESSAGES: Record<string, string> = {
   // görev tanımı: "mesaj: sistem yoğun, tekrar dene." Kullanıcıya teknik
   // "kuyruk/hash" ayrıntısı SIZDIRILMAZ.
   HASH_QUEUE_FULL: HASH_QUEUE_FULL_MESSAGE,
+  // T2.1 ADIM 3, S2.1 — işletme/mal sahibi yönetim ekranlarının mutasyon
+  // uçları (`POST`/`PATCH /admin/businesses`) bu üç kodu da üretebilir
+  // (bkz. `../server/usecases/admin-businesses/errors.ts`, `../server/
+  // data/scoped.ts` `ScopeTargetInactiveError`, `../server/usecases/
+  // receipts/errors.ts` `RequestIdReusedError`). Sunucunun kendi
+  // `error.message`'ı BURADA DA ekrana basılmaz (dosya üstü kural); kod →
+  // Türkçe ekran metni eşlemesi buraya eklenir.
+  VERSION_CONFLICT: CONCURRENT_EDIT_CONFLICT_MESSAGE,
+  TARGET_INACTIVE_FOR_WRITE: "İşletme veya araç artık pasif; bu işlem yapılamaz.",
+  // Normal akışta oluşmaz (istemci aynı requestId'yi yalnız AYNI içerikle
+  // tekrar gönderir, bkz. `../app/yonetim/isletmeler/**` form yorumları);
+  // yine de savunma amaçlı bir genel metin taşır (sayfa yenilemesi güvenli
+  // bir kurtarma yoludur — taslak client-state'te kalır).
+  REQUEST_ID_REUSED: "Bu işlem başka bir denemeyle çakıştı. Sayfayı yenileyip tekrar dene.",
+  FORBIDDEN: UNAUTHORIZED_OR_INACTIVE_ACCESS_MESSAGE,
 };
 
 /**
@@ -243,8 +271,7 @@ export const COMMON_SCREEN_MESSAGES = {
   /** "İki kişinin aynı kaydı düzenlemesi" satırı — F7/ARCHITECTURE §3.4
    * ile senkronlanmış KANONİK metin: "'Bu kayıt değişmiş. Güncel halini
    * açıp tekrar kontrol et.' Eski taslak sessizce üzerine yazılmaz." */
-  concurrentEditConflict:
-    "Bu kayıt değişmiş. Güncel halini açıp tekrar kontrol et.",
+  concurrentEditConflict: CONCURRENT_EDIT_CONFLICT_MESSAGE,
   /** "Onaylı düzeltme başarılı" satırı — "'Kayıt düzeltildi ve
    * onaylandı.' Yeni değerler birlikte görünür." */
   correctedAndConfirmed: "Kayıt düzeltildi ve onaylandı.",

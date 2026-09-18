@@ -45,12 +45,10 @@ test.describe("Ekip girişi (/yonetim/giris)", () => {
     await page.waitForURL("**/yonetim");
     await expect(page.getByText(SEED_USERNAMES.admin, { exact: false })).toBeVisible();
     await expect(page.getByText("Yönetici", { exact: false })).toBeVisible();
-    // MILESTONES M1 — sahte arama/liste/form yok, dürüst kısa metin.
-    await expect(
-      page.getByText(
-        "Ekip girişi başarılı. İşletme ve araç yönetimi bir sonraki aşamada",
-      ),
-    ).toBeVisible();
+    // T2.1, S2.1 — M1'in dürüst yer tutucu metni yerini GERÇEK işe
+    // (işletme açma + mevcut liste) bıraktı (bkz. `../../src/app/yonetim/
+    // page.tsx` üst notu).
+    await expect(page.getByRole("link", { name: "+ İşletme aç" })).toBeVisible();
   });
 
   test("support girişi → 'Destek' görünür", async ({ page }) => {

@@ -79,6 +79,19 @@ function assertSubsequence(haystack: string[], needle: string[], context: string
 }
 
 describe(".github/workflows dosyaları (T6.1 ADIM 2/2, S6.1)", () => {
+  // GitHub, `runner` bağlamını yalnız adım düzeyinde kabul eder; workflow/iş
+  // düzeyindeki `env:` içinde kullanılırsa dosyayı "workflow file issue" ile
+  // reddeder ve koşu 0 saniyede başarısız olur (actionlint: context "runner"
+  // is not allowed here). Adımlar $RUNNER_TEMP kabuk değişkenini kullanır.
+  test.each(["ci.yml", "release.yml"])(
+    "%s: `${{ runner.* }}` ifadesi kullanılmaz (iş düzeyi env'de GitHub reddeder)",
+    (name) => {
+      const yaml = readWorkflow(name);
+      expect(yaml).not.toMatch(/\$\{\{\s*runner\./);
+      expect(yaml).toContain('echo "DOLMUS_DB_PATH=$RUNNER_TEMP/dolmus-ci.sqlite" >> "$GITHUB_ENV"');
+    },
+  );
+
   test("ci.yml var; push (tüm dallar) + pull_request tetikler, branches filtresi yok", () => {
     const ci = readWorkflow("ci.yml");
     const trigger = extractTriggerBlock(ci);

@@ -54,17 +54,18 @@ jobs:
       # gerçek bir alan adı/sertifika GEREKTİRMEZ, yalnız "aynı köken"
       # denetiminin (src/server/auth/app-origin.ts) geçmesi için.
       APP_ORIGIN: http://127.0.0.1:3100
-      # Geçici, bu koşuya özel dosya yolu — GERÇEK müşteri veritabanı bu
-      # çalışma ortamında HİÇ bulunmaz (S6.1 AC6). `npm run test:e2e` ve
-      # `npm run release:verify` kendi geçici DB yollarını AYRICA
-      # kullanır (bkz. playwright.config.ts / scripts/release-verify.ts);
-      # bu değişken yalnız job seviyesinde tanımlı diğer adımlar (ör.
-      # `npm run build`) için varsayılan sağlar.
-      DOLMUS_DB_PATH: ${{ runner.temp }}/dolmus-ci.sqlite
       NODE_ENV: test
     steps:
       - name: Kodu al
         uses: actions/checkout@v4
+
+      # Geçici, bu koşuya özel DB yolu — GERÇEK müşteri veritabanı bu ortamda
+      # HİÇ bulunmaz (S6.1 AC6). `runner` bağlamı jobs.<id>.env içinde
+      # KULLANILAMAZ (GitHub iş akışını "workflow file issue" ile reddeder);
+      # bu yüzden yol, adım düzeyinde $RUNNER_TEMP ile GITHUB_ENV'e yazılır.
+      # test:e2e ve release:verify kendi geçici DB yollarını ayrıca kullanır.
+      - name: Koşuya özel geçici DB yolu
+        run: echo "DOLMUS_DB_PATH=$RUNNER_TEMP/dolmus-ci.sqlite" >> "$GITHUB_ENV"
 
       - name: Node.js kurulumu
         uses: actions/setup-node@v4

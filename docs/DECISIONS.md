@@ -42,6 +42,8 @@ K9'un kalan kalemleri (şifre teslim yöntemi, alan adı, AWS hesap erişimi, d�
 
 ## Oturum kararları
 - Commit stratejisi: her task paketi (T1.1, T1.2, ...) sonunda ayrı commit. Push yok; GitHub/deploy aşamasında sorulacak.
+- **E2E kapısı, çalışma ortamına göre (2026-09-19, kullanıcı kararı, tüm sonraki paketler için geçerli):** WebKit sistem kütüphaneleri kurulamayan ortamlarda (ör. dijji-ai runtime container'ı: root yok, yalnız Chromium) paket kapısındaki E2E `npx playwright test --project=chromium` ile koşulur ve bu durum PROGRESS notunda belirtilir. WebKit dahil tam E2E (`npm run test:e2e`) GitHub Actions `ci.yml`'de her push/PR'da koşar; **CI yeşil olmadan PR merge edilmez**. `playwright.config.ts` değiştirilmez; bu durum için her pakette kullanıcıya yeniden sorulmaz.
+- **CI düzeltmesi (2026-09-19):** `ci.yml`/`release.yml` iş düzeyi `env`'de `${{ runner.temp }}` kullandığı için GitHub iş akışını reddediyordu (tüm koşular 0 sn, "workflow file issue"; actionlint: context "runner" is not allowed here). DB yolu adım düzeyinde `$RUNNER_TEMP` ile `GITHUB_ENV`'e yazılır; tests/unit/ci-workflows.test.ts bunu kilitler. Bu tarihten önce merge edilen PR'lar (#1, #2) CI'dan geçmemiştir.
 
 ## Faz 0 inceleme bulgularından çıkan mühendislik kararları (2026-09-17)
 

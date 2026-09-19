@@ -38,13 +38,16 @@ jobs:
     timeout-minutes: 30
     env:
       APP_ORIGIN: http://127.0.0.1:3100
-      DOLMUS_DB_PATH: ${{ runner.temp }}/dolmus-ci.sqlite
       NODE_ENV: test
     steps:
       - name: Kodu al (seçilen ref)
         uses: actions/checkout@v4
         with:
           ref: ${{ inputs.ref }}
+
+      # `runner` bağlamı jobs.<id>.env içinde kullanılamaz; bkz. ci.yml aynı adım.
+      - name: Koşuya özel geçici DB yolu
+        run: echo "DOLMUS_DB_PATH=$RUNNER_TEMP/dolmus-ci.sqlite" >> "$GITHUB_ENV"
 
       - name: Node.js kurulumu
         uses: actions/setup-node@v4

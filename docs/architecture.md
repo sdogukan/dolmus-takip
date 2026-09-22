@@ -1,0 +1,444 @@
+# Architecture
+
+_A field marked **Repos:** applies only to those repositories; a field without the line is project-wide._
+
+## TL;DR
+
+### TL;DR
+
+**Repos:** dolmus-takip
+
+1 service: a single Node 24 / Next.js 16 process (pages + /api/v1 + use cases) behind Caddy on one AWS Lightsail VM, managed by systemd.
+Database: SQLite (WAL, FULL sync) via Drizzle ORM + better-sqlite3; 13 tables, composite (business_id, id) foreign keys enforce tenant boundaries.
+Cache: none shared; tenant responses are private, no-store; only hashed static assets are long-cached.
+Auth: in-house revocable DB sessions (SHA-256 token hash, HttpOnly cookie) for vehicle roles (plate + owner/driver password) and personal staff accounts (admin/support); CSRF token + same-origin check on writes.
+Integrity: every mutation carries a client request_id (idempotency receipt) and optimistic version; financial changes write entry + immutable revision + confirmation atomically (BEGIN IMMEDIATE).
+
+_Condensed from ARCHITECTURE 'Kısa anlatım', §2, §3 and the implemented schema (13 tables incl. business_owners added in T2.1)._
+
+## System Flow Diagram
+
+### Flow: Vehicle setup and plate login (PRD §2, S1.2, S2.1–S2.3)
+
+**Repos:** dolmus-takip
+
+1. Staff (personal account) creates business + owner person (POST /api/v1/admin/businesses — implemented), then vehicle with plate and two passwords (owner, driver; must differ) — T2.2/T2.3 planned.
+2. Plate normalized (spaces removed, upper-cased) and globally unique; each role password stored as a separate Argon2id hash.
+3. User posts plate + password to POST /api/v1/auth/vehicle-login; server tries owner then driver hash (≤2 hashes per attempt, dummy hash for unknown plate), rate-limited 20/plate and 120/IP per 15 min.
+4. On success a new session is issued (prior session in the same browser revoked); role/vehicle/business are derived from the credential, never from the client.
+5. Root page routes: no session → /giris; driver → /sofor; owner → /sahip; unknown plate, inactive vehicle/business and wrong password share one 401 message.
+
+_Login is implemented and E2E-covered (tests/e2e/vehicle-login.spec.ts); vehicle creation/password screens are planned in M2._
+
+### Flow: Staff login and business management (S1.3, S2.1, S2.5–S2.6)
+
+**Repos:** dolmus-takip
+
+1. First admin is created with `npm run platform-admin -- create-first-admin` on the server shell (idempotent); `reset-admin-password` recovers access. No public admin signup endpoint.
+2. Staff signs in at /yonetim/giris → POST /api/v1/auth/platform-login (username normalized, dummy hash, 20/username + shared IP bucket per 15 min).
+3. /yonetim lists businesses; "İşletme aç" posts name + owner full name (always created with an owner).
+4. /yonetim/isletmeler/:id edits name/owner name, assigns an owner only to an owner-less business (no transfer, K8), deactivates/reactivates with confirmation; PATCH is optimistic on businesses.version.
+5. Deactivation revokes all sessions under the business in the same transaction; every change writes admin_audit with real staff actor and before/after.
+6. Planned: vehicle management, team accounts (/yonetim/ekip, admin only), support target area and audit history (T2.2–T2.6).
+
+_Steps 1-5 implemented (T1.3, T2.1); step 6 planned per PROGRESS._
+
+### Flow: Daily work entry (PRD §3–4, S3.1–S3.6)
+
+**Repos:** dolmus-takip
+
+1. Date and vehicle prefilled; user picks an active person from the vehicle's driver list, start/end time, gross, fuel and optional single other expense + note (K6).
+2. Browser shows a preview only; server re-validates authority, person–vehicle assignment, dates (0 < duration ≤ 1440 min, work_date = start day, K3) and amounts.
+3. Server computes share: driver kind 20% (share_bps 2000), owner kind 0%; share = floor((gross_cents × bps + 5000) / 10000) with integer/BigInt math; negative remainder is shown, not clamped (K5).
+4. One BEGIN IMMEDIATE transaction writes work_entries (driver → pending, owner → not_required, version 1), the first revision and the mutation receipt.
+5. "Kaydedildi" only after commit; unknown result freezes the form and re-sends the same request_id (draft + request_id kept in localStorage, 24 h TTL, F6). No offline queue (K7).
+
+_Planned for M3 (T3.1–T3.6); the receipt/idempotency layer already exists in src/server/usecases/receipts._
+
+### Flow: Cash confirmation and correct-and-confirm (PRD §7, S4.1–S4.6)
+
+**Repos:** dolmus-takip
+
+1. Owner (or staff on behalf, with real staff identity) opens entry detail: expected hand-over vs received amount (received_cents must be explicit, ≥ 0).
+2. POST /work-entries/:id/confirm: version +1, confirmed revision + cash_confirmation bound to that entry_version, in one transaction.
+3. Confirmed entries reject generic PATCH; only POST /work-entries/:id/correct-and-confirm writes new values + new revision + new confirmation atomically; old versions/confirmations stay.
+4. Driver↔owner kind change on a confirmed entry is closed in v1 (422, K4).
+5. Concurrent edits use conditional UPDATE on version → 409 "Bu kayıt değişmiş. Güncel halini açıp tekrar kontrol et."
+6. Driver sees delivery status of entries of the person selected on the same vehicle; may edit unconfirmed entries only on the work day (K1).
+
+_Planned for M4; ADR-002 is the governing decision._
+
+### Flow: Period reports (PRD §5, S5.1–S5.5)
+
+**Repos:** dolmus-takip
+
+1. Server resolves authorized business/vehicle and period [start, next start) in Europe/Istanbul; week starts Monday (K3); max one calendar year per request.
+2. SQL SUM/GROUP BY over current work_entries for hours, gross, costs, share, remainder; verified hand-over sums only the confirmation whose entry_version equals the current version.
+3. Person view: COUNT(DISTINCT work_date) work days, SUM(duration_minutes); vehicle work day = distinct work_date with ≥1 entry (F17).
+4. Day-by-day list paginated 50 (max 100) with (work_date, id) cursor; totals and list read in one snapshot.
+5. No export/charts in v1; screens refresh on open and "Yenile".
+
+_Planned for M5 (T5.1–T5.5)._
+
+### Flow: Logout and access revocation (S1.4)
+
+**Repos:** dolmus-takip
+
+1. POST /api/v1/auth/logout requires a valid session + CSRF token; client clears local state regardless.
+2. Access-change use cases (bumpCredentialVersion, setVehicleActive, setBusinessActive, setPlatformUserActive/Role, bumpPlatformUserVersion) revoke sessions in the same BEGIN IMMEDIATE transaction.
+3. Every request checks expiry, revoked_at, issued_version vs credential_version and active flags → 401 SESSION_EXPIRED / SESSION_REVOKED.
+4. Session lifetime: vehicle 30 days absolute / 7 days idle; staff 12 h / 30 min idle.
+
+_Implemented in T1.4 and covered by tests/integration/session-revocation.test.ts._
+
+### Flow: Daily backup, restore and release (S6.1, S6.4–S6.5)
+
+**Repos:** dolmus-takip
+
+1. 02:30 Europe/Istanbul: SQLite Backup API copy → integrity_check, foreign_key_check, totals → fsync + atomic publish with manifest before 02:55; keep last two good copies.
+2. ~03:00 Lightsail automatic snapshot (keep 7); prepared-copy, snapshot-success and restore-tested are tracked as separate facts.
+3. Restore on a separate machine: verify copy hash, relations, totals and login; revoke restored sessions before opening traffic.
+4. Release: CI builds target-compatible tarball + manifest → SSH to new release dir → shared ops lock → maintenance → pre-migration copy → migrate once → switch current → readiness + financial smoke → open traffic.
+5. Rollback: code-only if schema compatible; old code + pre-release DB only while no new customer writes were accepted; otherwise forward fix.
+
+_Release build/verify implemented (T6.1); backup/restore/deploy planned for M6._
+
+## Service Topology
+
+### Services
+
+**Repos:** dolmus-takip
+
+- Caddy — TLS, HTTPS redirect, request size limit, maintenance response; exposes 80/443, proxies to localhost
+- Next.js app (single Node 24 process, 127.0.0.1:3000) — pages, /api/v1, sessions, authorization, calculations, reports
+- Identity/authorization module (src/server/auth, usecases/auth, usecases/session, usecases/access) — sessions, cookies, CSRF/origin, permissions matrix, scope, rate limit, Argon2 queue
+- Receipts module (src/server/usecases/receipts) — request_id idempotency receipts for every mutation
+- Admin module (src/server/usecases/admin-businesses; planned vehicles/users/audit) — businesses, owners, vehicles, passwords, team accounts, support; full audit
+- Work/delivery module (planned, M3–M4) — create, edit, confirm, correct-and-confirm, version conflicts
+- Report module (planned, M5) — period filters and SQL aggregates within authorized scope
+- Data access (src/server/data: Drizzle + better-sqlite3) — parameterized queries, transactions, migrations, scoped filters
+- systemd jobs — app/Caddy services, 30 s health timer, nightly backup preparation, cleanup
+
+_ARCHITECTURE §2 component table mapped onto the actual src/server layout from code; planned modules marked._
+
+### Database tables
+
+**Repos:** dolmus-takip
+
+- businesses — tenant boundary (name, active, version)
+- business_owners — at most one owner person per business (T2.1)
+- people — stable identity of drivers and owners; not a login account
+- vehicles — globally unique normalized plate, owner person, vehicle info, active, version
+- vehicle_drivers — vehicle ↔ person assignment, active flag; history never deleted
+- vehicle_credentials — one owner and one driver password hash per vehicle, credential_version
+- platform_users — personal staff accounts (admin/support)
+- sessions — hashed session tokens for exactly one actor kind
+- work_entries — current version of each work record with calculated amounts and status
+- work_entry_revisions — immutable full snapshot per version
+- cash_confirmations — immutable received amount bound to one entry version
+- mutation_receipts — idempotency results keyed by scope + request_id
+- admin_audit — before/after history of admin and support actions (no secrets)
+
+_13 tables in schema.ts and migrations 0000–0002._
+
+### Connection diagram
+
+**Repos:** dolmus-takip
+
+```
+[Phone browser]
+      | HTTPS 443
+      v
++------------------- AWS Lightsail VM (Ubuntu LTS) -------------------+
+|  [Caddy] --http--> [Next.js app 127.0.0.1:3000]                      |
+|                       | pages / API / use cases                      |
+|                       v                                              |
+|                 [Drizzle + better-sqlite3]                           |
+|                       v                                              |
+|      [SQLite /var/lib/dolmus-takip/data/app.sqlite (WAL)]            |
+|                       |  02:30 Backup API                            |
+|                       v                                              |
+|      [backup-ready/ verified copy + manifest]                        |
+|  [systemd timer] --GET /api/v1/health/live every 30 s--> [Next.js]   |
++----------------------------------------------------------------------+
+      | daily ~03:00
+      v
+[Lightsail automatic snapshot, keep 7]
+
+[GitHub Actions] --tarball+manifest--(manual SSH)--> /opt/dolmus-takip/releases/<id>
+```
+
+_Merges ARCHITECTURE §1 and §8 diagrams; Next listens on localhost only._
+
+## Database Design
+
+### businesses table
+
+**Repos:** dolmus-takip
+
+| PK | SK | Type | Attributes |
+| --- | --- | --- | --- |
+| id (app UUID) | — | SQLite table | name, active (bool, default true), created_at (ISO UTC), version (int, default 1) |
+
+_PK/SK columns adapted to SQL: PK = primary key, SK = additional unique/composite keys. version added by ALTER in migration 0002 without CHECK (table rebuild would break FKs)._
+
+### business_owners table
+
+**Repos:** dolmus-takip
+
+| PK | SK | Type | Attributes |
+| --- | --- | --- | --- |
+| business_id | FK (business_id, person_id) → people(business_id, id) | SQLite table | person_id; row absent = owner-less business |
+
+_T2.1 decision; owner assigned once, no transfer (K8)._
+
+### people table
+
+**Repos:** dolmus-takip
+
+| PK | SK | Type | Attributes |
+| --- | --- | --- | --- |
+| id | UNIQUE (business_id, id) | SQLite table | business_id, full_name, active, version (CHECK ≥ 1) |
+
+_Composite unique is the target of child composite FKs._
+
+### vehicles table
+
+**Repos:** dolmus-takip
+
+| PK | SK | Type | Attributes |
+| --- | --- | --- | --- |
+| id | UNIQUE plate_normalized; UNIQUE (business_id, id); FK (business_id, owner_person_id) → people | SQLite table | brand_model, year, route_stop, note, active, version |
+
+_Plate reallocation out of MVP scope (F20); plate stays unconditionally unique._
+
+### vehicle_drivers table
+
+**Repos:** dolmus-takip
+
+| PK | SK | Type | Attributes |
+| --- | --- | --- | --- |
+| (business_id, vehicle_id, person_id) | FK → vehicles(business_id, id); FK → people(business_id, id) | SQLite table | active, version |
+
+_Owner's own driving is not an assignment row._
+
+### vehicle_credentials table
+
+**Repos:** dolmus-takip
+
+| PK | SK | Type | Attributes |
+| --- | --- | --- | --- |
+| id | UNIQUE (vehicle_id, role); FK (business_id, vehicle_id) → vehicles | SQLite table | role (owner\|driver), password_hash (Argon2id), credential_version |
+
+_Owner and driver passwords must differ (checked at create/reset)._
+
+### platform_users table
+
+**Repos:** dolmus-takip
+
+| PK | SK | Type | Attributes |
+| --- | --- | --- | --- |
+| id | UNIQUE username | SQLite table | password_hash, platform_role (admin\|support), active, credential_version |
+
+_Not tied to a business; support target validated per request._
+
+### sessions table
+
+**Repos:** dolmus-takip
+
+| PK | SK | Type | Attributes |
+| --- | --- | --- | --- |
+| id | UNIQUE token_hash; CHECK exactly one of credential_id / platform_user_id | SQLite table | issued_version, created_at, last_seen_at, expires_at, revoked_at |
+
+_Technical table without business_id; scope resolved through the credential._
+
+### work_entries table
+
+**Repos:** dolmus-takip
+
+| PK | SK | Type | Attributes |
+| --- | --- | --- | --- |
+| id | UNIQUE (business_id, id); FK → vehicles, people (composite) | SQLite table | work_kind (owner\|driver), work_date, starts_at, ends_at, duration_minutes, gross_cents, fuel_cents, other_expense_cents, other_expense_note, share_bps, share_cents, remainder_cents, calculation_version, status (pending\|confirmed\|not_required), version |
+
+_No uniqueness on (person, vehicle, date): multiple real entries per day are valid. Table exists since migration 0000; use cases arrive in M3._
+
+### work_entry_revisions table
+
+**Repos:** dolmus-takip
+
+| PK | SK | Type | Attributes |
+| --- | --- | --- | --- |
+| (business_id, entry_id, version) | FK → work_entries(business_id, id) | SQLite table (append-only) | action, snapshot_json, actor fields (actor_kind, actor_session_id, actor_role, credential/platform_user id, on_behalf_of), created_at |
+
+_No UPDATE/DELETE; reports never scan JSON._
+
+### cash_confirmations table
+
+**Repos:** dolmus-takip
+
+| PK | SK | Type | Attributes |
+| --- | --- | --- | --- |
+| id | UNIQUE (business_id, entry_id, entry_version); FK → revision | SQLite table (append-only) | received_cents, confirmed_at, actor fields |
+
+_Reports count only the confirmation whose entry_version = current version._
+
+### mutation_receipts table
+
+**Repos:** dolmus-takip
+
+| PK | SK | Type | Attributes |
+| --- | --- | --- | --- |
+| (scope_key, request_id) | — | SQLite table | operation, request_hash, entity_id, result_version, response_code, created_at |
+
+_scope_key = actor id + businessId + vehicleId; same key + same hash → replay, different hash → 409 REQUEST_ID_REUSED._
+
+### admin_audit table
+
+**Repos:** dolmus-takip
+
+| PK | SK | Type | Attributes |
+| --- | --- | --- | --- |
+| id | CHECK: business_id NULL ⇒ vehicle_id and on_behalf_of_person_id NULL | SQLite table (append-only) | business_id?, vehicle_id?, entity_type, entity_id, action, before_json, after_json, actor fields, occurred_at |
+
+_CHECK added in migration 0001 (table rebuild)._
+
+### GSIs
+
+**Repos:** dolmus-takip
+
+| GSI name | PK | SK | Purpose |
+| --- | --- | --- | --- |
+| vehicles_plate_normalized_unique | plate_normalized | — | Plate login lookup |
+| idx_work_entries_vehicle_period | business_id, vehicle_id | work_date, id | Vehicle period report + cursor pagination |
+| idx_work_entries_person_period | business_id, person_id | work_date, id | Person report |
+| idx_work_entries_vehicle_status_period | business_id, vehicle_id, status | work_date, id | Owner's pending (unconfirmed) list |
+| cash_confirmations_business_entry_version_uk | business_id, entry_id | entry_version | Bind confirmation to exactly one version |
+| vehicle_credentials_vehicle_role_uk | vehicle_id | role | One credential per role per vehicle |
+| platform_users_username_unique | username | — | Staff login lookup |
+| sessions_token_hash_unique | token_hash | — | Session validation |
+| idx_sessions_expires_at | expires_at | — | Bulk cleanup of expired sessions |
+| mutation_receipts PK | scope_key | request_id | Duplicate-submit detection |
+| idx_admin_audit_business_period | business_id | occurred_at, id | Support/audit history per business |
+
+_SQLite secondary/unique indexes stand in for GSIs (template column names kept). All exist in migrations; no index is added without EXPLAIN QUERY PLAN evidence on 5-year data._
+
+### TTL
+
+**Repos:** dolmus-takip
+
+| Type | Duration | Field |
+| --- | --- | --- |
+| Vehicle session | 30 days absolute / 7 days idle | sessions.expires_at, last_seen_at |
+| Staff session | 12 hours absolute / 30 min idle | sessions.expires_at, last_seen_at |
+| last_seen write throttle | ≥ 5 min between writes | sessions.last_seen_at |
+| Client draft + request_id | 24 hours (cleared on logout/session change) | browser localStorage (F6) |
+| Login rate-limit window | 15 min sliding (in memory) | plate / username / IP counters |
+| Local backup copies | last 2 verified copies | /var/lib/dolmus-takip/backup-ready/ |
+| Lightsail snapshots | last 7 daily | AWS automatic snapshots |
+| Financial records, revisions, confirmations, receipts | ≥ 5 years (no TTL) | work_entries / revisions / cash_confirmations / mutation_receipts |
+
+_SQLite has no native TTL; expiry is enforced by checks at request time and cleanup jobs._
+
+## API Endpoint List
+
+### API Endpoint List
+
+**Repos:** dolmus-takip
+
+| Method | Path | Description | Auth required |
+| --- | --- | --- | --- |
+| POST | /api/v1/auth/vehicle-login | Plate + password session (implemented) | No; rate-limited, same-origin |
+| POST | /api/v1/auth/platform-login | Personal staff login (implemented) | No; rate-limited, same-origin |
+| POST | /api/v1/auth/logout | Revoke current session (implemented) | Session + CSRF |
+| GET | /api/v1/session | Role, permissions, opaque scopeKey, CSRF token, plate/username (implemented) | Session |
+| GET | /api/v1/health/live | Liveness without DB access (implemented) | Localhost only via Caddy |
+| GET | /api/v1/health/ready | DB + schema readiness (planned) | Localhost only |
+| GET / POST | /api/v1/admin/businesses | List / create business with owner (implemented) | Staff (business.manage) |
+| GET / PATCH | /api/v1/admin/businesses/:businessId | Read / edit name, owner, active (implemented) | Staff (business.manage) |
+| GET / POST / PATCH | /api/v1/admin/vehicles; /api/v1/admin/vehicles/:id | Vehicle create/edit/deactivate (planned T2.2) | Staff |
+| POST | /api/v1/admin/vehicles/:id/reset-password | Reset owner or driver password (planned T2.3) | Staff |
+| GET / POST / PATCH | /api/v1/admin/users; /api/v1/admin/users/:id | Team accounts (planned T2.6) | Platform admin |
+| POST | /api/v1/admin/users/:id/reset-password | Team password reset + session revoke (planned) | Platform admin |
+| GET | /api/v1/admin/audit | Admin/support history (planned T2.5) | Staff |
+| GET | /api/v1/drivers | Driver picker or management list (planned T2.4) | Driver/owner/staff by scope |
+| POST / PATCH | /api/v1/drivers; /api/v1/drivers/:id | Add driver / fix name (planned) | Owner or staff |
+| PUT | /api/v1/vehicles/:id/drivers/:personId | Activate/deactivate assignment (planned) | Owner or staff |
+| POST | /api/v1/work-entries | Create work entry (planned M3) | Driver/owner/staff |
+| GET | /api/v1/work-entries; /api/v1/work-entries/:id | Entries and delivery status (planned) | Scope + K1 driver rule |
+| PATCH | /api/v1/work-entries/:id | Edit unconfirmed or owner entry (planned) | Owner/staff; driver only same work day (K1) |
+| POST | /api/v1/work-entries/:id/confirm | First received-amount confirmation (planned M4) | Owner/staff |
+| POST | /api/v1/work-entries/:id/correct-and-confirm | Atomic correct + confirm (planned M4) | Owner/staff |
+| GET | /api/v1/work-entries/:id/history | Versions and confirmations (planned) | Owner/staff |
+| GET | /api/v1/reports/summary; /reports/people; /reports/vehicles | Period totals and breakdowns (planned M5) | Owner/staff |
+
+_Status codes: 201 create, 200 update, 401/403/404/409/413/415/422/429/503; envelope { error: { code, message, fields? }, request_id }. Staff target on customer endpoints via X-Target-Vehicle header (403 for vehicle sessions). Cents travel as decimal integer strings._
+
+## Cache Strategy
+
+### Cache layers
+
+**Repos:** dolmus-takip
+
+- No shared persistent cache for financial records, reports, person lists or authorization data in v1.
+- Session-specific API/page responses: Cache-Control: private, no-store; Caddy never caches them.
+- Next.js content-hashed CSS/JS: long-lived immutable caching.
+- Per-request memoization only (avoid recomputing scope within one request).
+
+_ARCHITECTURE §5; private,no-store implemented in T1.4._
+
+### Invalidation
+
+**Repos:** dolmus-takip
+
+After a mutation the affected screen re-queries the server. Stale screens (back button, old tab) cannot bypass optimistic version checks (409 on mismatch). No live connection or background polling in v1; screens refresh on open and via "Yenile". Offline sync is out of scope (K7).
+
+_ARCHITECTURE §1.4, §5; DECISIONS K7._
+
+## Security Checklist
+
+### Security Checklist
+
+**Repos:** dolmus-takip
+
+| Control | Implementation |
+| --- | --- |
+| Password hashing | node-argon2 Argon2id m=19456 KiB, t=2, p=1, random salt; bounded hash queue 4 concurrent / 100 waiting / 10 s → 429 HASH_QUEUE_FULL |
+| Brute force | Sliding 15 min counters: 20 failures per plate or username, 120 per IP (shared vehicle+staff bucket); 429 + Retry-After; no permanent lockout; IP from X-Forwarded-For only if TRUSTED_PROXY set |
+| Enumeration | Unknown plate/user, inactive vehicle/business and wrong password → same 401 INVALID_CREDENTIALS; dummy Argon2 hash path; no role disclosure |
+| Session token | 32 random bytes (base64url), SHA-256 stored; cookie dolmus_session HttpOnly, SameSite=Lax, Path=/, no Domain, Secure when APP_ORIGIN is https; never in URL/localStorage |
+| Token rotation / revocation | New token per login; logout, password reset, credential_version bump and vehicle/business/staff deactivation revoke sessions in the same transaction |
+| JWT secret | Not applicable — no JWT |
+| Reset / verify token | Not applicable — no email tokens; password reset only via back office or server CLI (reset-admin-password) |
+| Credential handover | New owner/driver passwords are sent to the customer manually by staff over WhatsApp, outside the app; the app never displays existing passwords and sends no message |
+| CSRF | Same-origin check (Sec-Fetch-Site or Origin == APP_ORIGIN) + session-bound CSRF token (SHA-256(token + ':csrf:v1')) in X-CSRF-Token, constant-time compare; JSON content type (415), body ≤ 64 KB (413) |
+| XSS / headers | Plain-text names/notes via React escaping; nonce-based CSP set in src/proxy.ts; no dynamic HTML; zod allowlist validation |
+| Object authorization | Server-derived scope on every query; permission matrix (16 permissions × 4 actors); role/personId/businessId/ownerId forbidden in request bodies (scopeSafeObject); out-of-scope → 404, inactive target write → 403 TARGET_INACTIVE_FOR_WRITE |
+| Tenant integrity | Composite (business_id, id) foreign keys reject cross-business links at DB level |
+| Rate limiting | Login endpoints as above; Caddy request size limit |
+| Secrets and logs | Passwords, hashes, tokens and cookies never logged or copied into audit/revisions; secrets in /etc/dolmus-takip with restricted permissions |
+| Network | Only 80/443 public; Next and DB not internet-facing; SSH key auth with host verification; no GitHub secrets in client bundle |
+
+_Custom auth ⇒ detailed checklist. Rows reflect ARCHITECTURE §6 plus implemented values from DECISIONS T1.2–T1.5; the credential handover row is the product owner's answer to F14._
+
+### Personal data notice and deletion policy (KVKK)
+
+**Repos:** dolmus-takip
+
+Personal data in scope: full names of owners, co-drivers and people (people.full_name), staff usernames and names, vehicle plates, and the work/cash records linked to them.
+Notice: a KVKK information notice tells customers which data is kept, why (daily income, expense, driver share and cash handover tracking), and that records are kept for at least five years.
+Deletion request: the person's name is anonymised in place (people.full_name replaced); the person row, work entries, revisions, cash confirmations, receipts and audit history are not deleted, so reports and totals stay intact.
+Retention: the ≥5-year record retention rule is unchanged; backup/snapshot rotation does not shorten it.
+
+_Product owner accepted the proposed technical path as-is (closes DECISIONS.md F8 + F16: people.full_name anonymisation, financial records are never deleted). The legal wording of the notice text is outside the scope of this document (PRD §10). No anonymisation operation or notice page exists in the code yet._
+
+## ADRs
+
+### ADRs
+
+**Repos:** dolmus-takip
+
+- ADR-001: Single machine, single app, native install — one Lightsail VM with Caddy + one Node/Next process + local SQLite, systemd, no Docker
+- ADR-002: Current record, immutable revisions and atomic cash confirmation — entry + revision + confirmation + receipt in one transaction; confirmations bound to entry_version
+- ADR-003: Vehicle/role session separate from the person who actually worked — plate + two passwords, driver picked from list is not an identity proof; personal staff accounts with real actor audit
+
+_Product decisions K1–K8 and version pins K9 are recorded in docs/DECISIONS.md and complement these ADRs._

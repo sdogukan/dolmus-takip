@@ -50,6 +50,19 @@ async function openSeedForm(page: Page): Promise<void> {
   await expect(page.getByRole("option", { name: "Hüseyin Ak" })).toBeAttached();
 }
 
+async function fillMoney(page: Page, gross: string, fuel: string): Promise<void> {
+  await page.getByLabel("Hasılat").fill(gross);
+  await page.getByLabel("Mazot").fill(fuel);
+}
+
+const SUMMARY_SHARE = "Şoför payın (%20)";
+const SUMMARY_REMAINDER = "Teslim edilecek tutar";
+
+/** Özet satırının değeri: etiket + sağdaki tutar aynı satırda. */
+function summaryLine(page: Page, label: string) {
+  return page.locator("#work-summary p", { hasText: label }).first();
+}
+
 test.describe("Şoför günlük kayıt formu (/sofor)", () => {
   test("sabit plaka, bugünün İstanbul tarihi ve yalnız aktif şoförler; hiçbiri önceden seçili değil", async ({
     page,
@@ -69,7 +82,9 @@ test.describe("Şoför günlük kayıt formu (/sofor)", () => {
     // Pasif atama ve başka aracın şoförü listede YOK; serbest metin alanı YOK.
     expect(options).not.toContain("Kemal Şahin");
     expect(options).not.toContain("Zeynep Arslan");
-    await expect(page.locator("form input[type=text], form textarea")).toHaveCount(0);
+    // Serbest metin yok: yalnız iki tutar alanı (masraf bölümü kapalıyken).
+    await expect(page.locator("form input[type=text], form textarea")).toHaveCount(2);
+    await expect(page.locator("form input[type=number]")).toHaveCount(0);
   });
 
   test("canlı süre: 08:00-17:30 → 9 saat 30 dakika; aynı gün eşit/ters saat hata; ertesi gün 22:00-06:00 → 8 saat", async ({
@@ -128,6 +143,7 @@ test.describe("Şoför günlük kayıt formu (/sofor)", () => {
     await page.getByLabel("Kim çalıştı?").selectOption({ label: "Hüseyin Ak" });
     await page.getByLabel("Başlangıç saati").fill("08:00");
     await page.getByLabel("Bitiş saati").fill("17:30");
+    await fillMoney(page, "10.000", "1.500");
     await page.getByRole("button", { name: "Kontrol et" }).click();
 
     await expect(page.getByText(NOT_SAVED_TEXT, { exact: false })).toBeVisible();
@@ -150,6 +166,7 @@ test.describe("Şoför günlük kayıt formu (/sofor)", () => {
     await page.getByLabel("Kim çalıştı?").selectOption({ label: "Hüseyin Ak" });
     await page.getByLabel("Başlangıç saati").fill("08:00");
     await page.getByLabel("Bitiş saati").fill("17:30");
+    await fillMoney(page, "10.000", "1.500");
 
     // Form açıkken kişi pasife alınmış gibi: sonraki okuma onu içermez.
     await page.route("**/api/v1/drivers", (route) =>
@@ -177,6 +194,7 @@ test.describe("Şoför günlük kayıt formu (/sofor)", () => {
     await page.getByLabel("Kim çalıştı?").selectOption({ label: "Hüseyin Ak" });
     await page.getByLabel("Başlangıç saati").fill("08:00");
     await page.getByLabel("Bitiş saati").fill("17:30");
+    await fillMoney(page, "10.000", "1.500");
     await page.route("**/api/v1/drivers", (route) =>
       route.fulfill({
         status: 401,
@@ -244,9 +262,145 @@ test.describe("Şoför günlük kayıt formu (/sofor)", () => {
     await context.close();
   });
 
+  test("canlı özet: 10.000 / 1.500 / 300 → pay 2.000,00 TL, teslim 6.200,00 TL; gönderimden ÖNCE; salt okunur", async ({
+    page,
+  }) => {
+    await openSeedForm(page);
+    await fillMoney(page, "10.000", "1.500");
+    await page.getByRole("button", { name: "+ Masraf ekle" }).click();
+    await page.getByLabel("Diğer masraf").fill("300");
+    await page.getByLabel("Açıklama").fill("Otopark");
+
+    await expect(summaryLine(page, SUMMARY_SHARE)).toContainText("2.000,00 TL");
+    await expect(summaryLine(page, SUMMARY_REMAINDER)).toContainText("6.200,00 TL");
+    await expect(page.getByText("Kaydedildi")).toHaveCount(0);
+
+    // Pay ve kalan düzenlenebilir kontrol DEĞİL.
+    await expect(page.locator("#work-summary input, #work-summary select, #work-summary textarea")).toHaveCount(0);
+
+    // Kullanılmayan masraf bölümü kapalıyken de özet hesaplanır (masraf 0).
+    await page.getByLabel("Diğer masraf").fill("");
+    await page.getByLabel("Açıklama").fill("");
+    await expect(summaryLine(page, SUMMARY_REMAINDER)).toContainText("6.500,00 TL");
+  });
+
+  test("özet '—' gösterir: hasılat boş, geçersiz ('1.5') ve masraf açıklaması tutarsız; son geçerli toplam kalmaz", async ({
+    page,
+  }) => {
+    await openSeedForm(page);
+    await expect(summaryLine(page, SUMMARY_SHARE)).toContainText("—");
+    await expect(summaryLine(page, SUMMARY_REMAINDER)).toContainText("—");
+
+    await fillMoney(page, "10.000", "1.500");
+    await expect(summaryLine(page, SUMMARY_REMAINDER)).toContainText("6.500,00 TL");
+
+    await page.getByLabel("Hasılat").fill("");
+    await expect(summaryLine(page, SUMMARY_SHARE)).toContainText("—");
+    await expect(summaryLine(page, SUMMARY_REMAINDER)).toContainText("—");
+
+    await page.getByLabel("Hasılat").fill("1.5");
+    await expect(summaryLine(page, SUMMARY_SHARE)).toContainText("—");
+    await expect(summaryLine(page, SUMMARY_REMAINDER)).not.toContainText("TL");
+
+    await page.getByLabel("Hasılat").fill("10.000");
+    await page.getByRole("button", { name: "+ Masraf ekle" }).click();
+    await page.getByLabel("Açıklama").fill("Otopark");
+    // Notlu boş tutar 0 sayılmaz.
+    await expect(summaryLine(page, SUMMARY_REMAINDER)).toContainText("—");
+  });
+
+  test("açık 0 geçerlidir: hasılat 0 ve mazot 0 → pay 0,00 TL, teslim 0,00 TL, uyarı yok", async ({
+    page,
+  }) => {
+    await openSeedForm(page);
+    await fillMoney(page, "0", "0");
+    await expect(summaryLine(page, SUMMARY_SHARE)).toContainText("0,00 TL");
+    await expect(summaryLine(page, SUMMARY_REMAINDER)).toContainText("0,00 TL");
+    await expect(page.getByText(/eksi görünür/)).toHaveCount(0);
+
+    await page.getByLabel("Kim çalıştı?").selectOption({ label: "Hüseyin Ak" });
+    await page.getByLabel("Başlangıç saati").fill("08:00");
+    await page.getByLabel("Bitiş saati").fill("17:30");
+    await page.getByRole("button", { name: "Kontrol et" }).click();
+    await expect(page.getByText(NOT_SAVED_TEXT, { exact: false })).toBeVisible();
+  });
+
+  test("eksi teslim tutarı kırpılmaz: 10.000 / 9.000 / 0 → -1.000,00 TL ve uyarı metni", async ({
+    page,
+  }) => {
+    await openSeedForm(page);
+    await fillMoney(page, "10.000", "9.000");
+    await page.getByRole("button", { name: "+ Masraf ekle" }).click();
+    await page.getByLabel("Diğer masraf").fill("0");
+
+    await expect(summaryLine(page, SUMMARY_SHARE)).toContainText("2.000,00 TL");
+    await expect(summaryLine(page, SUMMARY_REMAINDER)).toContainText("-1.000,00 TL");
+    await expect(page.getByText(/Giderler hasılatı ve payı aşıyor/)).toBeVisible();
+  });
+
+  test("dolu masraf bölümünü kapatmak onay ister: Vazgeç 300'ü korur, Kaldır siler", async ({
+    page,
+  }) => {
+    await openSeedForm(page);
+    await fillMoney(page, "10.000", "1.500");
+    await page.getByRole("button", { name: "+ Masraf ekle" }).click();
+    await page.getByLabel("Diğer masraf").fill("300");
+
+    await page.getByRole("button", { name: "Masrafı kaldır" }).click();
+    const dialog = page.getByRole("dialog", { name: "Masraf kaldırılsın mı?" });
+    await expect(dialog).toBeVisible();
+    await dialog.getByRole("button", { name: "Vazgeç" }).click();
+    await expect(dialog).toBeHidden();
+    await expect(page.getByLabel("Diğer masraf")).toHaveValue("300");
+    await expect(summaryLine(page, SUMMARY_REMAINDER)).toContainText("6.200,00 TL");
+
+    await page.getByRole("button", { name: "Masrafı kaldır" }).click();
+    await dialog.getByRole("button", { name: "Kaldır" }).click();
+    await expect(page.getByLabel("Diğer masraf")).toHaveCount(0);
+    await expect(summaryLine(page, SUMMARY_REMAINDER)).toContainText("6.500,00 TL");
+
+    // Boş bölüm onaysız kapanır.
+    await page.getByRole("button", { name: "+ Masraf ekle" }).click();
+    await page.getByRole("button", { name: "Masrafı kaldır" }).click();
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await expect(page.getByLabel("Diğer masraf")).toHaveCount(0);
+  });
+
+  test("'Kontrol et' boş hasılatta alan hatası verir, saat ve kişi korunur, kaydetme/'Kaydedildi' yok", async ({
+    page,
+  }) => {
+    await openSeedForm(page);
+    let reads = 0;
+    await page.route("**/api/v1/drivers", async (route) => {
+      reads += 1;
+      await route.continue();
+    });
+    await page.getByLabel("Kim çalıştı?").selectOption({ label: "Hüseyin Ak" });
+    await page.getByLabel("Başlangıç saati").fill("08:00");
+    await page.getByLabel("Bitiş saati").fill("17:30");
+    await page.getByLabel("Mazot").fill("1.500");
+    await page.getByRole("button", { name: "Kontrol et" }).click();
+
+    const error = page.locator("#work-gross-error");
+    await expect(error).toHaveText("Tutarı gir. Yoksa 0 yaz.");
+    await expect(page.getByLabel("Hasılat")).toHaveAttribute("aria-describedby", "work-gross-error");
+    await expect(page.getByLabel("Başlangıç saati")).toHaveValue("08:00");
+    await expect(page.getByLabel("Bitiş saati")).toHaveValue("17:30");
+    await expect(page.getByLabel("Kim çalıştı?")).not.toHaveValue("");
+    await expect(page.getByText(NOT_SAVED_TEXT, { exact: false })).toHaveCount(0);
+    await expect(page.getByText("Kaydedildi")).toHaveCount(0);
+    expect(reads).toBe(0);
+
+    await page.getByLabel("Hasılat").fill("1.5");
+    await expect(page.locator("#work-gross-error")).toContainText("Nokta yalnız binlik ayracıdır");
+  });
+
   test("320 px viewport'ta yatay kaydırma yok", async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 720 });
     await openSeedForm(page);
+    await fillMoney(page, "10.000.000,00", "9.000.000,00");
+    await page.getByRole("button", { name: "+ Masraf ekle" }).click();
+    await expect(page.getByText(/Giderler hasılatı ve payı aşıyor/)).toBeVisible();
     await expect
       .poll(() => page.evaluate(() => document.scrollingElement?.scrollWidth ?? 0))
       .toBeLessThanOrEqual(320);

@@ -12,11 +12,19 @@
  * İstemcideki liste yetki VERMEZ (kişi kimliği yalnız seçim değeridir, hiçbir
  * istekte yetki olarak gönderilmez) ve tarayıcı depolamasına yazılmaz.
  * "Bugün" sunucuda BİR KEZ hesaplanıp prop gelir (hydration'da kaymaz).
+ *
+ * T3.2: hasılat/mazot zorunlu (açık 0 geçerli), tek "diğer masraf" + açıklama
+ * isteğe bağlı. Şoför payı ve teslim edilecek tutar tarayıcıda CANLI ve
+ * YALNIZ GÖSTERİM olarak hesaplanır (düzenlenebilir kontrol değil, hiçbir
+ * isteğe gönderilmez, depolamaya yazılmaz); eksik/geçersiz girdide "—" görünür.
  */
 import { useEffect, useRef, useState } from "react";
 import { adminReadErrorMessage } from "../../lib/admin-search";
 import { COMMON_SCREEN_MESSAGES, WORK_ENTRY_MESSAGES as TEXT } from "../../lib/messages";
+import { formatTlAmount, parseTlAmount, type ParseTlResult } from "../../lib/money";
+import { AmountOutOfRangeError, calculateWorkEntryAmounts } from "../../lib/work-calculation";
 import { evaluateWorkTime, formatDuration, formatWorkDate } from "../../lib/work-time";
+import { ConfirmDialog } from "../_components/confirm-dialog";
 
 interface SelectableDriver {
   personId: string;
@@ -84,6 +92,40 @@ const secondaryButtonClass =
 const primaryButtonClass =
   "min-h-14 w-full rounded-[var(--radius-control)] bg-[var(--color-primary)] px-4 text-lg font-semibold text-[var(--color-on-primary)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)] focus-visible:ring-offset-2 disabled:opacity-70";
 
+const OTHER_NOTE_MAX_LENGTH = 200;
+const amountInputProps = { type: "text", inputMode: "decimal", autoComplete: "off" } as const;
+
+type SummaryState =
+  | { status: "invalid"; tooLarge: boolean }
+  | { status: "ready"; shareCents: number; remainderCents: number };
+
+function computeSummary(
+  gross: ParseTlResult,
+  fuel: ParseTlResult,
+  other: ParseTlResult | null,
+): SummaryState {
+  // `other === null` = kullanılmayan bölüm (0); geçersizse özet "—" olur.
+  if (!gross.ok || !fuel.ok || (other !== null && !other.ok)) {
+    return { status: "invalid", tooLarge: false };
+  }
+  try {
+    const amounts = calculateWorkEntryAmounts(
+      "driver",
+      gross.cents,
+      fuel.cents,
+      other?.ok ? other.cents : 0n,
+    );
+    return {
+      status: "ready",
+      shareCents: amounts.shareCents,
+      remainderCents: amounts.remainderCents,
+    };
+  } catch (error) {
+    if (error instanceof AmountOutOfRangeError) return { status: "invalid", tooLarge: true };
+    throw error;
+  }
+}
+
 export function WorkEntryForm({ today }: { today: string }) {
   const [list, setList] = useState<ListState>({ status: "loading" });
   const [date, setDate] = useState(today);
@@ -91,6 +133,12 @@ export function WorkEntryForm({ today }: { today: string }) {
   const [startTime, setStartTime] = useState("");
   const [endTime, setEndTime] = useState("");
   const [endsNextDay, setEndsNextDay] = useState(false);
+  const [grossText, setGrossText] = useState("");
+  const [fuelText, setFuelText] = useState("");
+  const [expenseOpen, setExpenseOpen] = useState(false);
+  const [otherText, setOtherText] = useState("");
+  const [otherNote, setOtherNote] = useState("");
+  const [confirmingRemove, setConfirmingRemove] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [personError, setPersonError] = useState<string | null>(null);
   const [formMessage, setFormMessage] = useState<string | null>(null);
@@ -161,6 +209,38 @@ export function WorkEntryForm({ today }: { today: string }) {
   const endError =
     fieldErrors.endTime && (submitted || relationVisible) ? fieldErrors.endTime : undefined;
 
+  const grossResult = parseTlAmount(grossText);
+  const fuelResult = parseTlAmount(fuelText);
+  // Tutar boş + açıklama boş = kullanılmadı (0); açıklamalı boş tutar 0 SAYILMAZ.
+  const otherUsed = expenseOpen && (otherText.trim() !== "" || otherNote.trim() !== "");
+  const otherResult = otherUsed ? parseTlAmount(otherText) : null;
+  const summary = computeSummary(grossResult, fuelResult, otherResult);
+  const grossError = submitted && !grossResult.ok ? grossResult.message : undefined;
+  const fuelError =
+    submitted && !fuelResult.ok
+      ? fuelResult.message
+      : submitted && summary.status === "invalid" && summary.tooLarge
+        ? TEXT.amountsTooLarge
+        : undefined;
+  const otherError = submitted && otherResult && !otherResult.ok ? otherResult.message : undefined;
+
+  function requestRemoveExpense(): void {
+    if (otherText.trim() !== "" || otherNote.trim() !== "") {
+      setConfirmingRemove(true);
+      return;
+    }
+    setExpenseOpen(false);
+    touch();
+  }
+
+  function confirmRemoveExpense(): void {
+    setConfirmingRemove(false);
+    setExpenseOpen(false);
+    setOtherText("");
+    setOtherNote("");
+    touch();
+  }
+
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
     if (submitting) return;
@@ -173,6 +253,8 @@ export function WorkEntryForm({ today }: { today: string }) {
       setPersonError(TEXT.personRequired);
       hasError = true;
     }
+    if (!grossResult.ok || !fuelResult.ok || (otherResult && !otherResult.ok)) hasError = true;
+    if (summary.status === "invalid") hasError = true;
     if (hasError || !evaluation.ok) return;
 
     // Kişi hâlâ seçilebilir mi — istemci listesine GÜVENİLMEZ, taze okunur.
@@ -364,6 +446,146 @@ export function WorkEntryForm({ today }: { today: string }) {
           </div>
         )}
       </div>
+
+      <div>
+        <label htmlFor="work-gross" className={labelClass}>
+          {TEXT.grossLabel}
+        </label>
+        <input
+          id="work-gross"
+          {...amountInputProps}
+          value={grossText}
+          onChange={(event) => {
+            setGrossText(event.target.value);
+            touch();
+          }}
+          aria-invalid={grossError ? true : undefined}
+          aria-describedby={grossError ? "work-gross-error" : undefined}
+          className={`${controlClass} tabular-nums`}
+        />
+        {grossError && (
+          <p id="work-gross-error" role="alert" className={errorTextClass}>
+            {grossError}
+          </p>
+        )}
+      </div>
+
+      <div>
+        <label htmlFor="work-fuel" className={labelClass}>
+          {TEXT.fuelLabel}
+        </label>
+        <input
+          id="work-fuel"
+          {...amountInputProps}
+          value={fuelText}
+          onChange={(event) => {
+            setFuelText(event.target.value);
+            touch();
+          }}
+          aria-invalid={fuelError ? true : undefined}
+          aria-describedby={fuelError ? "work-fuel-error" : undefined}
+          className={`${controlClass} tabular-nums`}
+        />
+        {fuelError && (
+          <p id="work-fuel-error" role="alert" className={errorTextClass}>
+            {fuelError}
+          </p>
+        )}
+      </div>
+
+      {expenseOpen ? (
+        <div className="flex flex-col gap-4 rounded-[var(--radius-card)] border border-[var(--color-divider)] p-4">
+          <div>
+            <label htmlFor="work-other" className={labelClass}>
+              {TEXT.otherExpenseLabel}
+            </label>
+            <input
+              id="work-other"
+              {...amountInputProps}
+              value={otherText}
+              onChange={(event) => {
+                setOtherText(event.target.value);
+                touch();
+              }}
+              aria-invalid={otherError ? true : undefined}
+              aria-describedby={otherError ? "work-other-error" : undefined}
+              className={`${controlClass} tabular-nums`}
+            />
+            {otherError && (
+              <p id="work-other-error" role="alert" className={errorTextClass}>
+                {otherError}
+              </p>
+            )}
+          </div>
+          <div>
+            <label htmlFor="work-other-note" className={labelClass}>
+              {TEXT.otherExpenseNoteLabel}
+            </label>
+            <input
+              id="work-other-note"
+              type="text"
+              maxLength={OTHER_NOTE_MAX_LENGTH}
+              autoComplete="off"
+              value={otherNote}
+              onChange={(event) => {
+                setOtherNote(event.target.value);
+                touch();
+              }}
+              className={controlClass}
+            />
+          </div>
+          <button type="button" onClick={requestRemoveExpense} className={secondaryButtonClass}>
+            {TEXT.removeExpense}
+          </button>
+        </div>
+      ) : (
+        <button
+          type="button"
+          onClick={() => {
+            setExpenseOpen(true);
+            touch();
+          }}
+          className={secondaryButtonClass}
+        >
+          {TEXT.addExpense}
+        </button>
+      )}
+
+      <div
+        id="work-summary"
+        role="status"
+        aria-live="polite"
+        aria-label={TEXT.summaryTitle}
+        className="flex flex-col gap-2 rounded-[var(--radius-card)] border border-[var(--color-divider)] bg-[var(--color-surface)] p-4 text-lg tabular-nums"
+      >
+        <p className="flex justify-between gap-4">
+          <span>{TEXT.driverShareLabel}</span>
+          <span className="font-semibold">
+            {summary.status === "ready" ? formatTlAmount(summary.shareCents) : "—"}
+          </span>
+        </p>
+        <p className="flex justify-between gap-4">
+          <span>{TEXT.remainderLabel}</span>
+          <span className="font-semibold">
+            {summary.status === "ready" ? formatTlAmount(summary.remainderCents) : "—"}
+          </span>
+        </p>
+        {summary.status === "ready" && summary.remainderCents < 0 && (
+          <p className="rounded-[var(--radius-control)] bg-[var(--color-warning-surface)] px-3 py-2 text-base text-[var(--color-warning)]">
+            {TEXT.remainderNegative}
+          </p>
+        )}
+      </div>
+
+      <ConfirmDialog
+        open={confirmingRemove}
+        title={TEXT.removeExpenseTitle}
+        description={TEXT.removeExpenseDescription}
+        confirmLabel={TEXT.removeExpenseConfirm}
+        cancelLabel={TEXT.removeExpenseCancel}
+        onConfirm={confirmRemoveExpense}
+        onCancel={() => setConfirmingRemove(false)}
+      />
 
       {formMessage && (
         <p role="alert" className="rounded-[var(--radius-control)] bg-[var(--color-error-surface)] px-3 py-2 text-base text-[var(--color-error)]">

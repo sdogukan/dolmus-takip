@@ -472,4 +472,29 @@ export const WORK_ENTRY_MESSAGES = {
   notSavedYet:
     "Bilgiler geçerli. Kayıt henüz kaydedilmiyor; kaydetme bir sonraki aşamada açılacak.",
   connectionFailed: "Bağlantı yok. Henüz kaydedilmedi.",
+  // T3.2 — para girdileri ve otomatik pay (`./money.ts`, `./work-calculation.ts`).
+  grossLabel: "Hasılat (TL)",
+  fuelLabel: "Mazot (TL)",
+  otherExpenseLabel: "Diğer masraf (TL)",
+  otherExpenseNoteLabel: "Açıklama",
+  addExpense: "+ Masraf ekle",
+  removeExpense: "Masrafı kaldır",
+  removeExpenseTitle: "Masraf kaldırılsın mı?",
+  removeExpenseDescription: "Girdiğin diğer masraf tutarı ve açıklaması silinecek.",
+  removeExpenseConfirm: "Kaldır",
+  removeExpenseCancel: "Vazgeç",
+  moneyRequired: "Tutarı gir. Yoksa 0 yaz.",
+  moneyNegative: "Tutar eksi olamaz.",
+  moneyFormat: "Tutarı rakamla yaz. Örnek: 1.250,50",
+  moneyThousands:
+    "Nokta yalnız binlik ayracıdır ve 3 haneli gruplardan önce gelir. Kuruş için virgül kullan. Örnek: 1.250,50",
+  moneyPrecision: "Kuruş en fazla 2 haneli olabilir. Örnek: 1.250,50",
+  moneyTooLarge: "Tutar çok büyük.",
+  amountsTooLarge: "Yakıt, diğer gider ve pay toplamı çok büyük.",
+  otherExpenseNoteTooLong: "Açıklama en fazla 200 karakter olabilir.",
+  summaryTitle: "Hesap özeti",
+  driverShareLabel: "Şoför payın (%20)",
+  remainderLabel: "Teslim edilecek tutar",
+  remainderNegative:
+    "Giderler hasılatı ve payı aşıyor; teslim edilecek tutar eksi görünür. Tutarları kontrol et.",
 } as const;

@@ -5,7 +5,7 @@
  * "Seçilebilir şoför" kuralı TEK YERDE yaşar: `listSelectableDrivers` —
  * araçta AKTİF atama + AKTİF kişi, araç/işletme sahibi HARİÇ.
  */
-import { and, asc, eq, sql } from "drizzle-orm";
+import { and, asc, eq, inArray, sql } from "drizzle-orm";
 import type { Scope } from "../../auth/scope";
 import type { AppDatabase } from "../../data/db";
 import { scopedPeopleFilter, scopedVehicleDriversFilter } from "../../data/scoped";
@@ -195,4 +195,36 @@ export function listAffectedVehicles(
     .where(and(eq(vehicleDrivers.businessId, scope.businessId), eq(vehicleDrivers.personId, personId)))
     .orderBy(asc(vehicles.plateNormalized))
     .all();
+}
+
+/** `listAffectedVehicles`'in toplu biçimi (kişi başına ayrı sorgu YOK) —
+ * ekip sayfası küresel pasifleştirme onayında etkilenen araçları gösterir. */
+export function listAffectedVehiclesForPeople(
+  db: AppDatabase,
+  scope: Scope,
+  personIds: string[],
+): Record<string, AffectedVehicle[]> {
+  const byPerson: Record<string, AffectedVehicle[]> = {};
+  if (personIds.length === 0) return byPerson;
+  const rows = db
+    .select({
+      personId: vehicleDrivers.personId,
+      vehicleId: vehicles.id,
+      plateNormalized: vehicles.plateNormalized,
+      assignmentActive: vehicleDrivers.active,
+    })
+    .from(vehicleDrivers)
+    .innerJoin(
+      vehicles,
+      and(eq(vehicles.businessId, vehicleDrivers.businessId), eq(vehicles.id, vehicleDrivers.vehicleId)),
+    )
+    .where(
+      and(eq(vehicleDrivers.businessId, scope.businessId), inArray(vehicleDrivers.personId, personIds)),
+    )
+    .orderBy(asc(vehicles.plateNormalized))
+    .all();
+  for (const { personId, ...vehicle } of rows) {
+    (byPerson[personId] ??= []).push(vehicle);
+  }
+  return byPerson;
 }

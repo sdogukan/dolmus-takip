@@ -317,4 +317,5 @@ export const DRIVER_SCREEN_MESSAGES = {
   renameNote: "Bu kişinin eski kayıtları da yeni adıyla görünür.",
   sharedPasswordWarning:
     "Ortak şoför şifresi hâlâ geçerli. Erişimi tamamen kesmek için ekipten şifre sıfırlama isteyin.",
+  emptyActiveList: "Bu araç için şoför eklenmemiş.",
 } as const;

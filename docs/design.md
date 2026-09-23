@@ -32,12 +32,12 @@ _All three implemented (src/app/page.tsx, giris, yonetim/giris)._
 | 8 | Ekip — işletme/araç bulma (implemented: business list) | /yonetim |
 | 9 | Ekip — işletme oluşturma (implemented) | /yonetim/isletmeler/yeni |
 | 10 | Ekip — işletme düzenleme (implemented; lists the business's vehicles with links and '+ Araç ekle') | /yonetim/isletmeler/:id |
-| 11 | Ekip — araç oluşturma / düzenleme ve pasife alma (implemented) | /yonetim/isletmeler/:id/araclar/yeni; /yonetim/araclar/:id |
+| 11 | Ekip — araç oluşturma / düzenleme, pasife alma ve şifre sıfırlama (implemented) | /yonetim/isletmeler/:id/araclar/yeni; /yonetim/araclar/:id |
 | 12 | Ekip — müşteriye destek alanı (planned) | /yonetim/araclar/:id/destek |
 | 13 | Ekip — işlem geçmişi (planned) | /yonetim/islem-gecmisi |
 | 14 | Yönetici — ekip hesapları (planned) | /yonetim/ekip |
 
-_URLs are DESIGN §1 proposals; implemented routes verified in src/app. Hiding a button never replaces server authorization. '+ Araç ekle' is shown only for an active business with an owner; the server rejects the other cases with 422 anyway. Vehicle sessions opening either vehicle page are redirected to /sahip or /sofor._
+_URLs are DESIGN §1 proposals; implemented routes verified in src/app. Hiding a button never replaces server authorization. '+ Araç ekle' is shown only for an active business with an owner; the server rejects the other cases with 422 anyway. Vehicle sessions opening either vehicle page are redirected to /sahip or /sofor. The vehicle detail page carries a 'Şifre sıfırlama' section (#sifre-sifirlama, T2.3); it is disabled with an explanatory text when the vehicle or its business is inactive._
 
 ## Wireframes
 
@@ -436,7 +436,7 @@ Ortak şoför şifresi
 [             Aracı kaydet          ]
 ```
 
-_Conflict between the approved wireframe (value kept unchanged) and the code written for this task. new-vehicle-form.tsx labels the password inputs 'Sahip şifresi' / 'Şoför şifresi' instead of the approved 'Mal sahibi şifresi' / 'Ortak şoför şifresi', and adds an optional free-text 'Not' field (vehicles.note) that the wireframe does not show; plate, 'Marka / model', 'Yıl', 'Hat / durak notu' and 'Aracı kaydet' match. The edit screen at /yonetim/araclar/:id (vehicle-detail-form.tsx: 'Araç bilgisi' section with 'Bilgiyi kaydet', 'Aktiflik' section with 'Aracı pasifleştir' / 'Aracı yeniden aktifleştir' behind a confirm dialog; plate not editable) is not drawn in the approved wireframe. Keep the approved wireframe and change the screens, or update the wireframe to the implemented screens?_
+_Conflict between the approved wireframe (value kept unchanged) and the code written for this task. new-vehicle-form.tsx labels the password inputs 'Sahip şifresi' / 'Şoför şifresi' instead of the approved 'Mal sahibi şifresi' / 'Ortak şoför şifresi', and adds an optional free-text 'Not' field (vehicles.note) that the wireframe does not show; plate, 'Marka / model', 'Yıl', 'Hat / durak notu' and 'Aracı kaydet' match. The edit screen at /yonetim/araclar/:id (vehicle-detail-form.tsx: 'Araç bilgisi' section with 'Bilgiyi kaydet', 'Aktiflik' section with 'Aracı pasifleştir' / 'Aracı yeniden aktifleştir' behind a confirm dialog; plate not editable) is not drawn in the approved wireframe. Keep the approved wireframe and change the screens, or update the wireframe to the implemented screens? T2.3 added a 'Şifre sıfırlama' section to /yonetim/araclar/:id (password-reset-section.tsx): business name + plate, a radio choice labeled 'Mal sahibi şifresi' / 'Şoför şifresi', 'Yeni şifre' with Göster/Gizle, 'Şifreyi sıfırla', a 'Kaydın sonucu kontrol ediliyor' state with 'Tekrar kontrol et', and a success text naming plate + access and the WhatsApp handover. Its owner label matches the approved 'Mal sahibi şifresi', its driver label does not match 'Ortak şoför şifresi'; the section is not drawn in the approved wireframe either._
 
 ### Araç oluşturma / düzenleme — notes
 

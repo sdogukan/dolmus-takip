@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { WORK_ENTRY_MESSAGES } from "../../../../lib/messages";
 import { istanbulToday } from "../../../../lib/work-time";
 import { readPageSession } from "../../../../server/auth/page-session";
-import { scopeFromVehicleSession } from "../../../../server/auth/scope";
+import { computeScopeKey, scopeFromVehicleSession } from "../../../../server/auth/scope";
 import { readVehiclePlateForDisplay } from "../../../../server/auth/vehicle-plate";
 import { getAppDb } from "../../../../server/data/app-db";
 import { readVehicleOwnerPerson } from "../../../../server/usecases/work-entries";
@@ -15,7 +15,7 @@ import { WorkEntryForm } from "../../../_components/work-entry-form";
  * /sahip/kayit/yeni — sahip çalışma kaydı (DESIGN "Sahip çalışma kaydı").
  * `../../page.tsx` İLE AYNI yönlendirme: oturum yok → /giris, ekip → /yonetim,
  * şoför → /sofor. Sahibin adı sunucuda oturumun kendi kapsamıyla okunur. Form
- * kayıt YAZMAZ (kaydetme sonraki aşamada).
+ * kaydı yazar (T3.4).
  */
 export const metadata: Metadata = {
   title: "Çalışma kaydı — Dolmuş Takip",
@@ -49,7 +49,14 @@ export default async function SahipWorkEntryPage() {
         ← Özet
       </Link>
       <h1 className="text-2xl font-semibold text-[var(--color-text)]">{WORK_ENTRY_MESSAGES.pageTitle}</h1>
-      <WorkEntryForm today={istanbulToday()} mode="owner" ownerName={owner?.fullName} />
+      <WorkEntryForm
+        today={istanbulToday()}
+        mode="owner"
+        ownerName={owner?.fullName}
+        vehicleId={context.vehicleId}
+        scopeKey={computeScopeKey(context)}
+        csrfToken={context.csrfToken}
+      />
     </main>
   );
 }

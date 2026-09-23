@@ -22,7 +22,7 @@ class InMemoryStorage implements StorageLike {
 }
 
 describe("clearVehicleDrafts", () => {
-  it("yalnız hedef aracın üç taslağını siler", () => {
+  it("yalnız hedef aracın dört taslağını siler", () => {
     const storage = new InMemoryStorage();
     const scope = { scopeKey: "ekip-kapsam" };
     for (const id of ["v1", "v2"]) {
@@ -57,6 +57,6 @@ describe("clearVehicleDrafts", () => {
   });
 
   it("taslak adları mevcut form adlarıyla aynıdır", () => {
-    expect(vehicleDraftNames("abc")).toEqual(["arac-abc", "arac-sifre-abc", "soforler-abc"]);
+    expect(vehicleDraftNames("abc")).toEqual(["arac-abc", "arac-sifre-abc", "soforler-abc", "kayit-abc"]);
   });
 });

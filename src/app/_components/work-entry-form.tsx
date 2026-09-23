@@ -7,9 +7,16 @@
  * pay 0; "şoför adına" → yönetim görünümünden türetilen AKTİF şoförler, pay
  * %20. Ekip istekleri `X-Target-Vehicle` taşır. `disabled` (pasif hedef)
  * formu kilitler. Pay/kalan yalnız gösterimdir; hiçbir türetilmiş değer
- * yetki olarak gönderilmez. Bu paket KAYIT YAZMAZ: gönderim yalnız
- * alanları doğrular ve seçilen kişiyi `GET /api/v1/drivers`ten TAZE okuyup
- * hâlâ seçilebilir mi diye kontrol eder; "Kaydedildi" hiçbir yerde denmez.
+ * yetki olarak gönderilmez.
+ *
+ * T3.4: "Kaydet" `POST /api/v1/work-entries` yollar. Alanlar + `requestId`
+ * `useStoredDraft` ile saklanır (24 saat); gönderilecek gövde fetch'ten ÖNCE
+ * taslağa DONDURULUR. "Kaydedildi" yalnız 201'den sonra görünür ve taslağı
+ * siler. Sonuç belirsizse (ağ hatası, okunamayan gövde, 5xx) alanlar kilitlenir;
+ * "tekrar dene" ve sayfa yenilemesi sonrası aynı `requestId` ile dondurulmuş
+ * gövde BAYTI BAYTINA yeniden yollanır — gövde asla form durumundan yeniden
+ * kurulmaz ve o yolda şoför listesi TAZE okunmaz. Kesin hatalar (401/403/409/
+ * 422) formu serbest bırakır ve yeni `requestId` üretir.
  *
  * Liste durumları AYRIDIR: loading / loaded / empty / error. Ağ hatası,
  * 401/403 veya 5xx "boş liste" metnini ASLA göstermez; yalnız `200` +
@@ -26,10 +33,24 @@
  */
 import { useEffect, useRef, useState } from "react";
 import { adminReadErrorMessage } from "../../lib/admin-search";
+import type { ClientStateScope } from "../../lib/client-state";
 import { COMMON_SCREEN_MESSAGES, WORK_ENTRY_MESSAGES as TEXT } from "../../lib/messages";
-import { formatTlAmount, parseTlAmount, type ParseTlResult } from "../../lib/money";
+import { formatTlAmount, parseApiCents, parseTlAmount, type ParseTlResult } from "../../lib/money";
+import { useStoredDraft } from "../../lib/use-stored-draft";
 import { AmountOutOfRangeError, calculateWorkEntryAmounts, type WorkKind } from "../../lib/work-calculation";
-import { selectableFromDriversResponse, type SelectableDriver, type WorkTypeChoice } from "../../lib/work-entry-ui";
+import {
+  buildWorkEntryBody,
+  classifyWorkEntryResponse,
+  emptyWorkEntryDraft,
+  isWorkEntryDraftDirty,
+  selectableFromDriversResponse,
+  workEntryDraftName,
+  workEntryErrorMessage,
+  type SavedWorkEntry,
+  type SelectableDriver,
+  type WorkEntryDraft,
+  type WorkEntrySendOutcome,
+} from "../../lib/work-entry-ui";
 import { evaluateWorkTime, formatDuration, formatWorkDate } from "../../lib/work-time";
 import { ConfirmDialog } from "./confirm-dialog";
 import { useUnsavedChanges } from "./unsaved-changes";
@@ -83,6 +104,36 @@ async function fetchDrivers(
   return { ok: true, drivers };
 }
 
+function randomRequestId(): string {
+  return crypto.randomUUID();
+}
+
+/** Dondurulmuş gövdeyi olduğu gibi yollar; sonuç `classifyWorkEntryResponse`ta sınıflanır. */
+async function postWorkEntry(
+  frozenBody: string,
+  csrfToken: string,
+  targetVehicleId: string | undefined,
+): Promise<WorkEntrySendOutcome> {
+  const headers: Record<string, string> = {
+    "X-CSRF-Token": csrfToken,
+    "Content-Type": "application/json",
+  };
+  if (targetVehicleId) headers["X-Target-Vehicle"] = targetVehicleId;
+  let response: Response;
+  try {
+    response = await fetch("/api/v1/work-entries", { method: "POST", headers, body: frozenBody });
+  } catch {
+    return classifyWorkEntryResponse(null);
+  }
+  let body: unknown;
+  try {
+    body = await response.json();
+  } catch {
+    body = undefined;
+  }
+  return classifyWorkEntryResponse({ status: response.status, body });
+}
+
 const labelClass = "block text-lg font-medium text-[var(--color-text)]";
 const controlClass =
   "mt-1 min-h-[var(--control-min-height)] w-full rounded-[var(--radius-control)] border border-[var(--color-input-border)] bg-[var(--color-surface)] px-3 text-[length:var(--font-size-body)] text-[var(--color-text)] disabled:opacity-70 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]";
@@ -133,6 +184,9 @@ export function WorkEntryForm({
   ownerName,
   targetVehicleId,
   disabled = false,
+  vehicleId,
+  scopeKey,
+  csrfToken,
 }: {
   today: string;
   mode?: WorkEntryMode;
@@ -140,30 +194,52 @@ export function WorkEntryForm({
   ownerName?: string;
   /** Ekip modunda hedef araç (URL'den, sunucuda doğrulanmış). */
   targetVehicleId?: string;
-  /** Pasif hedef: form kilitlenir, kontrol yapılamaz. */
+  /** Pasif hedef: form kilitlenir, kayıt yapılamaz. */
   disabled?: boolean;
+  /** Taslak adı için araç kimliği (oturumdan veya URL'den, sunucuda doğrulanmış). */
+  vehicleId: string;
+  /** Taslak kapsamı (`computeScopeKey`). */
+  scopeKey: string;
+  csrfToken: string;
 }) {
-  const [workType, setWorkType] = useState<WorkTypeChoice>("");
+  const scope: ClientStateScope = { scopeKey };
+  const [draft, persistDraft] = useStoredDraft<WorkEntryDraft>(
+    scope,
+    workEntryDraftName(vehicleId),
+    () => emptyWorkEntryDraft(today, randomRequestId),
+  );
+  const {
+    workType,
+    date,
+    personId,
+    startTime,
+    endTime,
+    endsNextDay,
+    grossText,
+    fuelText,
+    expenseOpen,
+    otherText,
+    otherNote,
+  } = draft;
   const [list, setList] = useState<ListState>({ status: "loading" });
-  const [date, setDate] = useState(today);
-  const [personId, setPersonId] = useState("");
-  const [startTime, setStartTime] = useState("");
-  const [endTime, setEndTime] = useState("");
-  const [endsNextDay, setEndsNextDay] = useState(false);
-  const [grossText, setGrossText] = useState("");
-  const [fuelText, setFuelText] = useState("");
-  const [expenseOpen, setExpenseOpen] = useState(false);
-  const [otherText, setOtherText] = useState("");
-  const [otherNote, setOtherNote] = useState("");
   const [confirmingRemove, setConfirmingRemove] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [personError, setPersonError] = useState<string | null>(null);
   const [formMessage, setFormMessage] = useState<string | null>(null);
-  const [checkedNote, setCheckedNote] = useState<string | null>(null);
+  const [serverFields, setServerFields] = useState<Record<string, string>>({});
+  const [saved, setSaved] = useState<SavedWorkEntry | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [workTypeError, setWorkTypeError] = useState<string | null>(null);
   const sequenceRef = useRef(0);
   const controllerRef = useRef<AbortController | null>(null);
+  const draftRef = useRef(draft);
+  useEffect(() => {
+    draftRef.current = draft;
+  });
+
+  function update(patch: Partial<WorkEntryDraft>): void {
+    persistDraft((prev) => ({ ...prev, ...patch }));
+  }
 
   /** Yeni istek başlatır; öncekini keser. `null` = kesildi/eski yanıt. */
   async function request(): Promise<FetchResult | null> {
@@ -181,10 +257,16 @@ export function WorkEntryForm({
   }
 
   function applyList(result: FetchResult): void {
-    if (result.ok) {
-      setPersonId((current) =>
-        result.drivers.some((driver) => driver.personId === current) ? current : "",
-      );
+    const current = draftRef.current;
+    // Bekleyen (dondurulmuş) gönderimde seçim ASLA değiştirilmez; kişinin
+    // seçilebilirliğine sunucu karar verir.
+    if (
+      result.ok &&
+      !current.pending &&
+      current.personId !== "" &&
+      !result.drivers.some((driver) => driver.personId === current.personId)
+    ) {
+      update({ personId: "" });
     }
     setList(
       result.ok
@@ -212,8 +294,8 @@ export function WorkEntryForm({
   }, []);
 
   function touch(): void {
-    setCheckedNote(null);
     setFormMessage(null);
+    setServerFields({});
   }
 
   const timeInput = { date, startTime, endTime, endsNextDay };
@@ -222,24 +304,15 @@ export function WorkEntryForm({
   // Süre/sıra ilişkisi hataları saatler dolunca CANLI görünür; eksik alan
   // hataları gönderimden sonra.
   const relationVisible = startTime !== "" && endTime !== "";
-  const dateError = submitted ? fieldErrors.date : undefined;
-  const startError = submitted ? fieldErrors.startTime : undefined;
+  const dateError = (submitted ? fieldErrors.date : undefined) ?? serverFields.date;
+  const startError = (submitted ? fieldErrors.startTime : undefined) ?? serverFields.startTime;
   const endError =
-    fieldErrors.endTime && (submitted || relationVisible) ? fieldErrors.endTime : undefined;
+    (fieldErrors.endTime && (submitted || relationVisible) ? fieldErrors.endTime : undefined) ??
+    serverFields.endTime;
 
   const workKind: WorkKind | null = mode === "driver" ? "driver" : workType === "" ? null : workType;
   const needsPerson = workKind === "driver";
-  const dirty =
-    date !== today ||
-    personId !== "" ||
-    startTime !== "" ||
-    endTime !== "" ||
-    endsNextDay ||
-    grossText !== "" ||
-    fuelText !== "" ||
-    otherText !== "" ||
-    otherNote !== "" ||
-    workType !== "";
+  const dirty = isWorkEntryDraftDirty(draft, today);
   useUnsavedChanges("work-entry", dirty);
 
   const grossResult = parseTlAmount(grossText);
@@ -248,38 +321,73 @@ export function WorkEntryForm({
   const otherUsed = expenseOpen && (otherText.trim() !== "" || otherNote.trim() !== "");
   const otherResult = otherUsed ? parseTlAmount(otherText) : null;
   const summary = computeSummary(workKind ?? "driver", grossResult, fuelResult, otherResult);
-  const grossError = submitted && !grossResult.ok ? grossResult.message : undefined;
+  const grossError =
+    (submitted && !grossResult.ok ? grossResult.message : undefined) ?? serverFields.grossCents;
   const fuelError =
-    submitted && !fuelResult.ok
+    (submitted && !fuelResult.ok
       ? fuelResult.message
       : submitted && summary.status === "invalid" && summary.tooLarge
         ? TEXT.amountsTooLarge
-        : undefined;
-  const otherError = submitted && otherResult && !otherResult.ok ? otherResult.message : undefined;
+        : undefined) ?? serverFields.fuelCents;
+  const otherError =
+    (submitted && otherResult && !otherResult.ok ? otherResult.message : undefined) ??
+    serverFields.otherExpenseCents ??
+    serverFields.otherExpenseNote;
 
   function requestRemoveExpense(): void {
     if (otherText.trim() !== "" || otherNote.trim() !== "") {
       setConfirmingRemove(true);
       return;
     }
-    setExpenseOpen(false);
+    update({ expenseOpen: false });
     touch();
   }
 
   function confirmRemoveExpense(): void {
     setConfirmingRemove(false);
-    setExpenseOpen(false);
-    setOtherText("");
-    setOtherNote("");
+    update({ expenseOpen: false, otherText: "", otherNote: "" });
     touch();
+  }
+
+  /** Dondurulmuş gövdeyi yollar ve sonucu işler; çağıran gövdeyi ÖNCEDEN taslağa dondurmuştur. */
+  async function send(frozenBody: string): Promise<void> {
+    setSubmitting(true);
+    setFormMessage(null);
+    const outcome = await postWorkEntry(frozenBody, csrfToken, targetVehicleId);
+    setSubmitting(false);
+    if (outcome.kind === "ambiguous") return; // taslak `pending` kalır: form kilitli, tekrar dene.
+    if (outcome.kind === "created") {
+      persistDraft(() => emptyWorkEntryDraft(today, randomRequestId));
+      setSubmitted(false);
+      setPersonError(null);
+      setServerFields({});
+      setSaved(outcome.entry);
+      return;
+    }
+    // Kesin hata: form serbest kalır, sonraki kayıt yeni requestId ile gider.
+    update({ pending: false, frozenBody: null, requestId: randomRequestId() });
+    setFormMessage(workEntryErrorMessage(outcome.status, outcome.code));
+    if (outcome.status === 422) {
+      setServerFields(outcome.fields);
+      if (outcome.fields.workerPersonId) {
+        update({ personId: "" });
+        setPersonError(outcome.fields.workerPersonId);
+        void loadList();
+      }
+    }
   }
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
     if (submitting || disabled) return;
+    if (draft.pending && draft.frozenBody !== null) {
+      // Belirsiz sonuç: dondurulmuş gövde aynen, aynı requestId ile; liste okunmaz.
+      await send(draft.frozenBody);
+      return;
+    }
     setSubmitted(true);
-    setCheckedNote(null);
     setFormMessage(null);
+    setServerFields({});
 
     let hasError = !evaluation.ok;
     if (workKind === null) {
@@ -294,49 +402,47 @@ export function WorkEntryForm({
     if (summary.status === "invalid") hasError = true;
     if (hasError || !evaluation.ok) return;
 
-    if (workKind === "owner") {
-      // Sahibin kendi çalışması: kişi sunucuda araçtan çözülür; seçilecek kişi yok.
-      setPersonError(null);
-      setCheckedNote(
-        `${ownerName ?? "—"} · ${formatWorkDate(evaluation.workDate)} · ${formatDuration(
-          evaluation.durationMinutes,
-        )}. ${TEXT.notSavedYet}`,
-      );
-      return;
-    }
-
-    // Kişi hâlâ seçilebilir mi — istemci listesine GÜVENİLMEZ, taze okunur.
     setSubmitting(true);
-    const result = await request();
-    setSubmitting(false);
-    if (!result) return;
-    if (!result.ok) {
-      setFormMessage(
-        result.retryable ? TEXT.connectionFailed : COMMON_SCREEN_MESSAGES.sessionEnded,
-      );
-      return;
-    }
-    applyList(result);
-    const person = result.drivers.find((driver) => driver.personId === personId);
-    if (!person) {
-      setPersonId("");
-      setPersonError(TEXT.personUnavailable);
-      return;
+    if (workKind === "driver") {
+      // Kişi hâlâ seçilebilir mi — istemci listesine GÜVENİLMEZ, taze okunur.
+      const result = await request();
+      if (!result) {
+        setSubmitting(false);
+        return;
+      }
+      if (!result.ok) {
+        setSubmitting(false);
+        setFormMessage(
+          result.retryable ? TEXT.connectionFailed : COMMON_SCREEN_MESSAGES.sessionEnded,
+        );
+        return;
+      }
+      applyList(result);
+      if (!result.drivers.some((driver) => driver.personId === personId)) {
+        setSubmitting(false);
+        update({ personId: "" });
+        setPersonError(TEXT.personUnavailable);
+        return;
+      }
     }
     setPersonError(null);
-    setCheckedNote(
-      `${person.fullName} · ${formatWorkDate(evaluation.workDate)} · ${formatDuration(
-        evaluation.durationMinutes,
-      )}. ${TEXT.notSavedYet}`,
-    );
+    const body = buildWorkEntryBody(draft, mode);
+    if (!body) {
+      setSubmitting(false);
+      setFormMessage(TEXT.connectionFailed);
+      return;
+    }
+    const frozenBody = JSON.stringify(body);
+    // Gövde fetch'ten ÖNCE dondurulur; yenileme/yeniden deneme bunu yollar.
+    update({ pending: true, frozenBody, requestId: body.requestId });
+    await send(frozenBody);
   }
 
   function chooseWorkType(next: WorkKind): void {
     if (next === workType) return;
     // Tür değişince kişi ve hatası temizlenir; bayat kişi kimliği sahip türüne taşınmaz.
-    setWorkType(next);
+    update({ workType: next, personId: "" });
     setWorkTypeError(null);
-    setPersonId("");
     setPersonError(null);
     touch();
   }
@@ -359,9 +465,38 @@ export function WorkEntryForm({
         ? "work-person-list-error"
         : undefined;
 
+  if (saved) {
+    const remainder = parseApiCents(saved.remainderCents);
+    return (
+      <section aria-live="polite" className="flex flex-col gap-4">
+        <p role="status" className="text-2xl font-semibold text-[var(--color-success)]">
+          {TEXT.saved}
+        </p>
+        <p className="text-lg font-medium text-[var(--color-text)]">
+          {TEXT.savedPerson(
+            saved.personName,
+            formatWorkDate(saved.workDate),
+            formatDuration(saved.durationMinutes),
+          )}
+        </p>
+        <p className="flex justify-between gap-4 text-lg tabular-nums">
+          <span>{saved.workKind === "owner" ? TEXT.savedOwnerRemainder : TEXT.savedRemainder}</span>
+          <span className="font-semibold">{remainder === null ? "—" : formatTlAmount(remainder)}</span>
+        </p>
+        <p className="text-lg font-medium text-[var(--color-text)]">
+          {saved.status === "pending" ? TEXT.statusPending : TEXT.statusNotRequired}
+        </p>
+        <button type="button" onClick={() => setSaved(null)} className={secondaryButtonClass}>
+          {TEXT.newEntry}
+        </button>
+      </section>
+    );
+  }
+
   return (
     <form noValidate onSubmit={(event) => void handleSubmit(event)}>
       <fieldset disabled={disabled} className="m-0 flex min-w-0 flex-col gap-6 border-0 p-0">
+      <fieldset disabled={draft.pending} className="m-0 flex min-w-0 flex-col gap-6 border-0 p-0">
       {mode !== "driver" && (
         <div role="group" aria-labelledby="work-type-label">
           <p id="work-type-label" className={labelClass}>
@@ -411,7 +546,7 @@ export function WorkEntryForm({
           type="date"
           value={date}
           onChange={(event) => {
-            setDate(event.target.value);
+            update({ date: event.target.value });
             touch();
           }}
           aria-invalid={dateError ? true : undefined}
@@ -438,7 +573,7 @@ export function WorkEntryForm({
           value={personId}
           disabled={list.status !== "loaded" || drivers.length === 0}
           onChange={(event) => {
-            setPersonId(event.target.value);
+            update({ personId: event.target.value });
             setPersonError(null);
             touch();
           }}
@@ -498,7 +633,7 @@ export function WorkEntryForm({
           type="time"
           value={startTime}
           onChange={(event) => {
-            setStartTime(event.target.value);
+            update({ startTime: event.target.value });
             touch();
           }}
           aria-invalid={startError ? true : undefined}
@@ -521,7 +656,7 @@ export function WorkEntryForm({
           type="time"
           value={endTime}
           onChange={(event) => {
-            setEndTime(event.target.value);
+            update({ endTime: event.target.value });
             touch();
           }}
           aria-invalid={endError ? true : undefined}
@@ -537,7 +672,7 @@ export function WorkEntryForm({
             type="checkbox"
             checked={endsNextDay}
             onChange={(event) => {
-              setEndsNextDay(event.target.checked);
+              update({ endsNextDay: event.target.checked });
               touch();
             }}
             className="size-6"
@@ -570,7 +705,7 @@ export function WorkEntryForm({
           {...amountInputProps}
           value={grossText}
           onChange={(event) => {
-            setGrossText(event.target.value);
+            update({ grossText: event.target.value });
             touch();
           }}
           aria-invalid={grossError ? true : undefined}
@@ -593,7 +728,7 @@ export function WorkEntryForm({
           {...amountInputProps}
           value={fuelText}
           onChange={(event) => {
-            setFuelText(event.target.value);
+            update({ fuelText: event.target.value });
             touch();
           }}
           aria-invalid={fuelError ? true : undefined}
@@ -618,7 +753,7 @@ export function WorkEntryForm({
               {...amountInputProps}
               value={otherText}
               onChange={(event) => {
-                setOtherText(event.target.value);
+                update({ otherText: event.target.value });
                 touch();
               }}
               aria-invalid={otherError ? true : undefined}
@@ -642,7 +777,7 @@ export function WorkEntryForm({
               autoComplete="off"
               value={otherNote}
               onChange={(event) => {
-                setOtherNote(event.target.value);
+                update({ otherNote: event.target.value });
                 touch();
               }}
               className={controlClass}
@@ -656,7 +791,7 @@ export function WorkEntryForm({
         <button
           type="button"
           onClick={() => {
-            setExpenseOpen(true);
+            update({ expenseOpen: true });
             touch();
           }}
           className={secondaryButtonClass}
@@ -698,6 +833,8 @@ export function WorkEntryForm({
       </div>
       )}
 
+      </fieldset>
+
       <ConfirmDialog
         open={confirmingRemove}
         title={TEXT.removeExpenseTitle}
@@ -713,14 +850,14 @@ export function WorkEntryForm({
           {formMessage}
         </p>
       )}
-      {checkedNote && (
-        <p role="status" className="rounded-[var(--radius-control)] bg-[var(--color-warning-surface)] px-3 py-2 text-base text-[var(--color-warning)]">
-          {checkedNote}
+      {draft.pending && !submitting && (
+        <p role="alert" className="rounded-[var(--radius-control)] bg-[var(--color-warning-surface)] px-3 py-2 text-base text-[var(--color-warning)]">
+          {TEXT.unknownResult}
         </p>
       )}
 
       <button type="submit" disabled={submitting} className={primaryButtonClass}>
-        {submitting ? TEXT.submitting : TEXT.submit}
+        {submitting ? TEXT.submitting : draft.pending ? TEXT.submitRetry : TEXT.submit}
       </button>
       </fieldset>
     </form>

@@ -7,16 +7,15 @@ import {
 } from "../../scripts/db-seed-dev";
 
 /**
- * Sahip ve ekip çalışma kaydı formu uçtan uca testleri. Gerçek standalone
- * sunucu + seed (yalnız OKUNUR). Form kayıt YAZMAZ: hiçbir testte
- * "Kaydedildi" veya "Parayı aldım" görünmemelidir.
+ * Sahip ve ekip çalışma kaydı formu uçtan uca testleri (T3.3, T3.4). Gerçek
+ * standalone sunucu + seed; "Kaydet" gerçekten kayıt yazar (her kaydeden test
+ * kendi gününü kullanır). "Kaydedildi" yalnız 201'den sonra görünür;
+ * "Parayı aldım" hiçbir yerde görünmez.
  *
  * Hydration: sayfa açılışında şoför listesi istenir; yanıt gelince React
  * hydrate olmuştur — etkileşimler bundan SONRA yapılır.
  */
 
-const NOT_SAVED_TEXT =
-  "Bilgiler geçerli. Kayıt henüz kaydedilmiyor; kaydetme bir sonraki aşamada açılacak.";
 const INACTIVE_NOTICE = "Araç veya işletme pasif; bilgiler okunabilir, değişiklik yapılamaz.";
 const DRIVERS_URL = "**/api/v1/drivers";
 
@@ -48,6 +47,12 @@ async function fillMoney(page: Page): Promise<void> {
   await page.getByLabel("Mazot").fill("1.500");
   await page.getByRole("button", { name: "+ Masraf ekle" }).click();
   await page.getByLabel("Diğer masraf").fill("300");
+}
+
+async function fillTimes(page: Page, date: string): Promise<void> {
+  await page.getByLabel("Çalışılan gün").fill(date);
+  await page.getByLabel("Başlangıç saati").fill("08:00");
+  await page.getByLabel("Bitiş saati").fill("17:00");
 }
 
 function summaryLine(page: Page, label: string) {
@@ -122,40 +127,102 @@ test.describe("Sahip çalışma kaydı (/sahip/kayit/yeni)", () => {
     await expect(page.getByLabel("Kim çalıştı?")).toHaveValue("");
   });
 
-  test("tür seçilmeden kontrol edilemez; sahip türünde geçerli gönderim kayıt YAZMAZ", async ({ page }) => {
+  test("tür seçilmeden kaydedilemez; Kendim çalıştım kaydı 'Kaydedildi' + 'Onay gerekmiyor' gösterir, tek POST gider", async ({
+    page,
+  }) => {
     await login(page, SEED_RAW_PLATES.vehicleA1, SEED_TEST_PASSWORDS.owner, "/sahip");
     await openHydrated(page, "/sahip/kayit/yeni");
-    await page.getByLabel("Başlangıç saati").fill("08:00");
-    await page.getByLabel("Bitiş saati").fill("17:00");
+    const posts: string[] = [];
+    page.on("request", (request) => {
+      if (request.method() === "POST" && request.url().includes("/api/v1/work-entries")) {
+        posts.push(request.postData() ?? "");
+      }
+    });
+    await fillTimes(page, "2026-07-01");
     await fillMoney(page);
 
-    await page.getByRole("button", { name: "Kontrol et" }).click();
+    await page.getByRole("button", { name: "Kaydet", exact: true }).click();
     await expect(page.getByText("Kayıt türünü seç.")).toBeVisible();
-    await expect(page.getByText(NOT_SAVED_TEXT)).toHaveCount(0);
+    await expect(page.getByText("Kaydedildi")).toHaveCount(0);
+    expect(posts).toHaveLength(0);
 
     await page.getByRole("button", { name: "Kendim çalıştım" }).click();
     await expect(page.getByText("Kayıt türünü seç.")).toHaveCount(0);
-    await page.getByRole("button", { name: "Kontrol et" }).click();
-    await expect(page.getByText(/^Ali Kaya · .*\. Bilgiler geçerli\./)).toBeVisible();
-    await expect(page.getByText(NOT_SAVED_TEXT, { exact: false })).toBeVisible();
-    await expect(page.getByText("Kaydedildi")).toHaveCount(0);
+    await page.getByRole("button", { name: "Kaydet", exact: true }).click();
+    await expect(page.getByText("Kaydedildi", { exact: true })).toBeVisible();
+    await expect(page.getByText("Onay gerekmiyor")).toBeVisible();
+    await expect(page.getByText("Henüz doğrulanmadı")).toHaveCount(0);
+    await expect(page.getByText(/^Ali Kaya · 1 Temmuz 2026 · 9 saat$/)).toBeVisible();
+    expect(posts).toHaveLength(1);
+    const body = JSON.parse(posts[0]!);
+    expect(body).toMatchObject({ workType: "owner", otherExpenseCents: "30000" });
+    expect(body).not.toHaveProperty("otherExpenseNote");
+    expect(body).not.toHaveProperty("workerPersonId");
+    await expect(page.getByRole("button", { name: "Kontrol et" })).toHaveCount(0);
   });
 
-  test("Şoför adına: kişi seçilmeden hata verir; seçilince taze okuma sonrası kayıt YAZMAZ", async ({ page }) => {
+  test("Şoför adına: kişi seçilmeden hata verir; seçilince taze okuma sonrası kaydedilir ve 'Henüz doğrulanmadı' görünür", async ({
+    page,
+  }) => {
     await login(page, SEED_RAW_PLATES.vehicleA1, SEED_TEST_PASSWORDS.owner, "/sahip");
     await openHydrated(page, "/sahip/kayit/yeni");
-    await page.getByLabel("Başlangıç saati").fill("08:00");
-    await page.getByLabel("Bitiş saati").fill("17:00");
+    await fillTimes(page, "2026-07-02");
     await fillMoney(page);
     await page.getByRole("button", { name: "Şoför adına" }).click();
 
-    await page.getByRole("button", { name: "Kontrol et" }).click();
+    await page.getByRole("button", { name: "Kaydet", exact: true }).click();
     await expect(page.getByText("Şoförü seç.", { exact: true })).toBeVisible();
 
     await page.getByLabel("Kim çalıştı?").selectOption({ label: "Hüseyin Ak" });
-    await page.getByRole("button", { name: "Kontrol et" }).click();
-    await expect(page.getByText(/^Hüseyin Ak · .*\. Bilgiler geçerli\./)).toBeVisible();
-    await expect(page.getByText("Kaydedildi")).toHaveCount(0);
+    await page.getByRole("button", { name: "Kaydet", exact: true }).click();
+    await expect(page.getByText("Kaydedildi", { exact: true })).toBeVisible();
+    await expect(page.getByText("Henüz doğrulanmadı")).toBeVisible();
+    await expect(page.getByText(/^Hüseyin Ak · 2 Temmuz 2026/)).toBeVisible();
+  });
+
+  test("yanıt kaybolursa form kilitlenir; yenileme sonrası tekrar dene aynı gövde ve requestId ile tek kayıtla biter", async ({
+    page,
+  }) => {
+    await login(page, SEED_RAW_PLATES.vehicleA1, SEED_TEST_PASSWORDS.owner, "/sahip");
+    await openHydrated(page, "/sahip/kayit/yeni");
+    const posts: string[] = [];
+    page.on("request", (request) => {
+      if (request.method() === "POST" && request.url().includes("/api/v1/work-entries")) {
+        posts.push(request.postData() ?? "");
+      }
+    });
+    const ids: string[] = [];
+    let dropNext = true;
+    await page.route("**/api/v1/work-entries", async (route) => {
+      const response = await route.fetch();
+      const json = (await response.json()) as { workEntry?: { id: string } };
+      if (json.workEntry) ids.push(json.workEntry.id);
+      if (dropNext) {
+        dropNext = false;
+        await route.abort("failed");
+        return;
+      }
+      await route.fulfill({ response });
+    });
+    await fillTimes(page, "2026-07-03");
+    await fillMoney(page);
+    await page.getByRole("button", { name: "Kendim çalıştım" }).click();
+    await page.getByRole("button", { name: "Kaydet", exact: true }).click();
+    await expect(page.getByText(/Kaydın gönderilip gönderilmediği bilinmiyor/)).toBeVisible();
+    await expect(page.getByLabel("Hasılat")).toBeDisabled();
+
+    await openHydrated(page, "/sahip/kayit/yeni");
+    await expect(page.getByText(/Kaydın gönderilip gönderilmediği bilinmiyor/)).toBeVisible();
+    await expect(page.getByLabel("Hasılat")).toBeDisabled();
+    await expect(page.getByRole("button", { name: "Kendim çalıştım" })).toBeDisabled();
+
+    await page.getByRole("button", { name: "Kaydı tekrar dene" }).click();
+    await expect(page.getByText("Kaydedildi", { exact: true })).toBeVisible();
+    await expect(page.getByText("Onay gerekmiyor")).toBeVisible();
+    expect(posts).toHaveLength(2);
+    expect(posts[1]).toBe(posts[0]);
+    expect(ids).toHaveLength(2);
+    expect(ids[1]).toBe(ids[0]);
   });
 });
 
@@ -213,6 +280,41 @@ test.describe("Ekip çalışma kaydı (/yonetim/araclar/:id/kayit/yeni)", () => 
     await page.waitForURL("**/yonetim");
   });
 
+  test("Sahip çalıştı kaydı X-Target-Vehicle ile gider, 'Onay gerekmiyor' gösterir; hedef değişince taslak silinir", async ({
+    page,
+  }) => {
+    await loginAsAdmin(page);
+    await openHydrated(page, `/yonetim/araclar/${SEED_IDS.vehicleA1}/kayit/yeni`);
+    const posts: Array<{ target: string | undefined; csrf: string | undefined }> = [];
+    page.on("request", (request) => {
+      if (request.method() === "POST" && request.url().includes("/api/v1/work-entries")) {
+        posts.push({
+          target: request.headers()["x-target-vehicle"],
+          csrf: request.headers()["x-csrf-token"],
+        });
+      }
+    });
+    await fillTimes(page, "2026-07-04");
+    await fillMoney(page);
+    await page.getByRole("button", { name: "Sahip çalıştı" }).click();
+    await page.getByRole("button", { name: "Kaydet", exact: true }).click();
+
+    await expect(page.getByText("Kaydedildi", { exact: true })).toBeVisible();
+    await expect(page.getByText("Onay gerekmiyor")).toBeVisible();
+    expect(posts).toHaveLength(1);
+    expect(posts[0]!.target).toBe(SEED_IDS.vehicleA1);
+    expect(posts[0]!.csrf).toBeTruthy();
+
+    // Yarım bırakılan taslak hedef değişince silinir; aynı araç yeniden açılınca boş gelir.
+    await page.getByRole("button", { name: "Başka bir çalışma kaydı gir" }).click();
+    await page.getByLabel("Hasılat").fill("777");
+    await page.getByRole("button", { name: "Hedefi değiştir" }).click();
+    await page.getByRole("button", { name: "Bırakıp çık" }).click();
+    await page.waitForURL("**/yonetim");
+    await openHydrated(page, `/yonetim/araclar/${SEED_IDS.vehicleA1}/kayit/yeni`);
+    await expect(page.getByLabel("Hasılat")).toHaveValue("");
+  });
+
   test("pasif araçta form kilitli ve uyarı görünür; bilinmeyen araç 404; araç oturumu yönlendirilir", async ({
     page,
     browser,
@@ -220,7 +322,7 @@ test.describe("Ekip çalışma kaydı (/yonetim/araclar/:id/kayit/yeni)", () => 
     await loginAsAdmin(page);
     await page.goto(`/yonetim/araclar/${SEED_IDS.vehicleB2}/kayit/yeni`);
     await expect(page.getByText(INACTIVE_NOTICE)).toBeVisible();
-    await expect(page.getByRole("button", { name: "Kontrol et" })).toBeDisabled();
+    await expect(page.getByRole("button", { name: "Kaydet", exact: true })).toBeDisabled();
     await expect(page.getByRole("button", { name: "Şoför adına" })).toBeDisabled();
     await expect(page.getByLabel("Hasılat")).toBeDisabled();
 

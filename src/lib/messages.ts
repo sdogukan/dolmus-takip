@@ -123,6 +123,9 @@ export const ERROR_CODE_MESSAGES: Record<string, string> = {
   // Başka işletmenin/araçtan bağımsız kişi kimliği de AYNI kodu alır (kimliğin
   // varlığı doğrulanmaz).
   PERSON_NOT_FOUND: "Kişi bulunamadı.",
+  // T3.5 — günlük kayıt okuma/düzenleme uçları (`../server/usecases/work-entries/errors.ts`).
+  WORK_ENTRY_NOT_FOUND: "Kayıt bulunamadı.",
+  ENTRY_CONFIRMED: "Bu kayıt onaylanmış; buradan düzenlenemez.",
 };
 
 /**
@@ -456,6 +459,9 @@ export const WORK_ENTRY_MESSAGES = {
   workTypeInvalid: "Kayıt türünü seç.",
   personUnavailable:
     "Bu kişi artık bu araçta seçilemiyor. Liste yenilendi; adını yeniden seç.",
+  // T3.5 — düzenleme: tür değiştirilemez; şoför yalnız bugünün kaydını düzenler.
+  workTypeMismatch: "Kayıt türü sonradan değiştirilemez.",
+  dateMustBeToday: "Şoför olarak yalnız bugünün kaydını düzenleyebilirsin.",
   retry: "Tekrar dene",
   startLabel: "Başlangıç saati",
   endLabel: "Bitiş saati",

@@ -69,7 +69,7 @@ function validationError(fields: Record<string, string>): PrepareWorkEntryCreate
   return { ok: false, status: 422, code: "VALIDATION_ERROR", fields };
 }
 
-function buildActor(context: SessionContext, scope: Scope, ownerPersonId: string): WorkEntryActor {
+export function buildActor(context: SessionContext, scope: Scope, ownerPersonId: string): WorkEntryActor {
   if (scope.kind === "vehicle") {
     return {
       actorKind: "vehicle_credential",

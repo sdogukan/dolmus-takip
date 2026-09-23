@@ -7,6 +7,7 @@
  * araçta AKTİF atama + AKTİF kişi, araç/işletme sahibi HARİÇ.
  */
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
+import type { SQLiteColumn } from "drizzle-orm/sqlite-core";
 import type { Scope } from "../../auth/scope";
 import type { AppDatabase } from "../../data/db";
 import { scopedPeopleFilter, scopedVehicleDriversFilter } from "../../data/scoped";
@@ -81,6 +82,21 @@ function selectableDriverWhere(scope: Scope) {
   return and(
     scopedVehicleDriversFilter(scope),
     eq(vehicleDrivers.active, true),
+    eq(people.active, true),
+    NOT_OWNER_PERSON,
+  );
+}
+
+/** `selectableDriverWhere` ile AYNI kural, bir kaydın kişisi için: kaydın araç/kişi
+ * sütunlarına bağlı aktif atama + (sorguda birleştirilmiş) aktif, sahip olmayan
+ * `people` satırı. K1 — şoför oturumunun görebileceği kayıtlar. */
+export function entryPersonSelectableWhere(entry: {
+  businessId: SQLiteColumn;
+  vehicleId: SQLiteColumn;
+  personId: SQLiteColumn;
+}) {
+  return and(
+    sql`EXISTS (SELECT 1 FROM ${vehicleDrivers} WHERE ${vehicleDrivers.businessId} = ${entry.businessId} AND ${vehicleDrivers.vehicleId} = ${entry.vehicleId} AND ${vehicleDrivers.personId} = ${entry.personId} AND ${vehicleDrivers.active} = 1)`,
     eq(people.active, true),
     NOT_OWNER_PERSON,
   );

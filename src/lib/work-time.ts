@@ -140,6 +140,12 @@ export function istanbulToday(now: Date = new Date()): string {
   return toDateString(f.year!, f.month!, f.day!);
 }
 
+/** Kayıtlı UTC anını İstanbul duvar saatine çevirir: `{ date: "YYYY-MM-DD", time: "HH:MM" }`. */
+export function istanbulWallClock(isoUtc: string): { date: string; time: string } {
+  const f = istanbulFields(new Date(isoUtc).getTime());
+  return { date: toDateString(f.year!, f.month!, f.day!), time: `${pad(f.hour!)}:${pad(f.minute!)}` };
+}
+
 /**
  * K3 kuralını değerlendirir. Alan hataları Türkçe metindir; yalnız hatalı
  * alanlar anahtar taşır (diğer alanların değerine dokunulmaz).

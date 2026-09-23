@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { clientStateKey, saveClientState, type StorageLike } from "./client-state";
 import { clearVehicleDrafts, vehicleDraftNames } from "./support-target";
+import { workEntryEditDraftName } from "./work-entry-ui";
 
 class InMemoryStorage implements StorageLike {
   private readonly store = new Map<string, string>();
@@ -41,6 +42,25 @@ describe("clearVehicleDrafts", () => {
     expect(
       storage.getItem(clientStateKey({ scopeKey: "baska-kapsam" }, vehicleDraftNames("v1")[0]!)),
     ).not.toBeNull();
+  });
+
+  it("hedef aracın kayıt düzenleme taslaklarını da siler; başka aracınkine dokunmaz", () => {
+    const storage = new InMemoryStorage();
+    const scope = { scopeKey: "ekip-kapsam" };
+    const names = [
+      workEntryEditDraftName("v1", "e1"),
+      workEntryEditDraftName("v1", "e2"),
+      workEntryEditDraftName("v2", "e1"),
+    ];
+    for (const name of names) saveClientState(storage, scope, name, { x: 1 });
+    saveClientState(storage, { scopeKey: "baska-kapsam" }, names[0]!, { x: 1 });
+
+    clearVehicleDrafts(storage, scope, "v1");
+
+    expect(storage.getItem(clientStateKey(scope, names[0]!))).toBeNull();
+    expect(storage.getItem(clientStateKey(scope, names[1]!))).toBeNull();
+    expect(storage.getItem(clientStateKey(scope, names[2]!))).not.toBeNull();
+    expect(storage.getItem(clientStateKey({ scopeKey: "baska-kapsam" }, names[0]!))).not.toBeNull();
   });
 
   it("depo hata verirse fırlatmaz", () => {

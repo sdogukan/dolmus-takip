@@ -32,6 +32,7 @@
  * YALNIZ GÖSTERİM olarak hesaplanır (düzenlenebilir kontrol değil, hiçbir
  * isteğe gönderilmez, depolamaya yazılmaz); eksik/geçersiz girdide "—" görünür.
  */
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { adminReadErrorMessage } from "../../lib/admin-search";
 import type { ClientStateScope } from "../../lib/client-state";
@@ -47,6 +48,7 @@ import {
   isWorkEntryDraftDirty,
   selectableFromDriversResponse,
   shouldReleaseAfterError,
+  workEntryDetailHref,
   workEntryDraftName,
   workEntryErrorMessage,
   type SavedWorkEntry,
@@ -65,11 +67,11 @@ type ListState =
   | { status: "loaded"; drivers: SelectableDriver[] }
   | { status: "error"; message: string; retryable: boolean };
 
-type FetchResult =
+export type FetchResult =
   | { ok: true; drivers: SelectableDriver[] }
   | { ok: false; message: string; retryable: boolean };
 
-async function fetchDrivers(
+export async function fetchDrivers(
   signal: AbortSignal,
   targetVehicleId: string | undefined,
 ): Promise<FetchResult> {
@@ -107,7 +109,7 @@ async function fetchDrivers(
   return { ok: true, drivers };
 }
 
-function randomRequestId(): string {
+export function randomRequestId(): string {
   return crypto.randomUUID();
 }
 
@@ -137,23 +139,23 @@ async function postWorkEntry(
   return classifyWorkEntryResponse({ status: response.status, body });
 }
 
-const labelClass = "block text-lg font-medium text-[var(--color-text)]";
-const controlClass =
+export const labelClass = "block text-lg font-medium text-[var(--color-text)]";
+export const controlClass =
   "mt-1 min-h-[var(--control-min-height)] w-full rounded-[var(--radius-control)] border border-[var(--color-input-border)] bg-[var(--color-surface)] px-3 text-[length:var(--font-size-body)] text-[var(--color-text)] disabled:opacity-70 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]";
-const errorTextClass = "mt-1 text-base text-[var(--color-error)]";
-const secondaryButtonClass =
+export const errorTextClass = "mt-1 text-base text-[var(--color-error)]";
+export const secondaryButtonClass =
   "min-h-[var(--control-min-height)] self-start rounded-[var(--radius-control)] border border-[var(--color-input-border)] px-4 text-base font-medium text-[var(--color-text)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)] disabled:opacity-70";
-const primaryButtonClass =
+export const primaryButtonClass =
   "min-h-14 w-full rounded-[var(--radius-control)] bg-[var(--color-primary)] px-4 text-lg font-semibold text-[var(--color-on-primary)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)] focus-visible:ring-offset-2 disabled:opacity-70";
 
-const OTHER_NOTE_MAX_LENGTH = 200;
-const amountInputProps = { type: "text", inputMode: "decimal", autoComplete: "off" } as const;
+export const OTHER_NOTE_MAX_LENGTH = 200;
+export const amountInputProps = { type: "text", inputMode: "decimal", autoComplete: "off" } as const;
 
-type SummaryState =
+export type SummaryState =
   | { status: "invalid"; tooLarge: boolean }
   | { status: "ready"; shareCents: number; remainderCents: number };
 
-function computeSummary(
+export function computeSummary(
   workKind: WorkKind,
   gross: ParseTlResult,
   fuel: ParseTlResult,
@@ -494,6 +496,12 @@ export function WorkEntryForm({
         <p className="text-lg font-medium text-[var(--color-text)]">
           {saved.status === "pending" ? TEXT.statusPending : TEXT.statusNotRequired}
         </p>
+        <Link
+          href={workEntryDetailHref(mode, saved.id, vehicleId)}
+          className="text-base font-medium text-[var(--color-primary)] underline"
+        >
+          {TEXT.openEntry}
+        </Link>
         <button type="button" onClick={() => setSaved(null)} className={secondaryButtonClass}>
           {TEXT.newEntry}
         </button>

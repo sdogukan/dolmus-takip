@@ -6,6 +6,7 @@ import {
   formatDuration,
   formatWorkDate,
   istanbulToday,
+  istanbulWallClock,
 } from "./work-time";
 
 const base = { date: "2026-09-14", startTime: "08:00", endTime: "17:30", endsNextDay: false };
@@ -146,5 +147,22 @@ describe("formatDuration", () => {
     expect(formatDuration(480)).toBe("8 saat");
     expect(formatDuration(45)).toBe("45 dakika");
     expect(formatDuration(1440)).toBe("24 saat");
+  });
+});
+
+describe("istanbulWallClock", () => {
+  it("UTC anını İstanbul tarih ve saatine çevirir (UTC+3)", () => {
+    expect(istanbulWallClock("2026-09-14T05:00:00.000Z")).toEqual({ date: "2026-09-14", time: "08:00" });
+  });
+
+  it("gece yarısını aşan bitişi ertesi güne yazar", () => {
+    expect(istanbulWallClock("2026-09-14T22:30:00.000Z")).toEqual({ date: "2026-09-15", time: "01:30" });
+  });
+
+  it("evaluateWorkTime çıktısını geri okur", () => {
+    const time = evaluateWorkTime({ date: "2026-09-14", startTime: "22:00", endTime: "06:15", endsNextDay: true });
+    if (!time.ok) throw new Error("beklenmeyen hata");
+    expect(istanbulWallClock(time.startsAt)).toEqual({ date: "2026-09-14", time: "22:00" });
+    expect(istanbulWallClock(time.endsAt)).toEqual({ date: "2026-09-15", time: "06:15" });
   });
 });

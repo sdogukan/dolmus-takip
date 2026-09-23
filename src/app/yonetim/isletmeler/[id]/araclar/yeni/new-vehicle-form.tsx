@@ -269,11 +269,15 @@ export function NewVehicleForm({
     // Bellekteki çift VARSA (sayfa yenilenmedi) AYNEN o gönderilir; YOKSA
     // (sayfa yenilendi, dosya üstü notu) ekip üyesinin az önce yeniden
     // yazdığı şifreler gönderilir.
-    const { owner: ownerPw, driver: driverPw } = submittedPasswords ?? {
-      owner: ownerPassword,
-      driver: driverPassword,
-    };
-    await sendCreateRequest(draft, ownerPw, driverPw);
+    // C5 düzeltmesi — gönderilecek çift, `handleSubmit`teki gibi, GÖNDERMEDEN
+    // ÖNCE bellekte kaydedilir: aksi halde bu retry'ın yanıtı kaybolursa
+    // (`sendCreateRequest` ağ/parse hatasında `pending: true` yazıp döner)
+    // bellekte hâlâ önceki (veya hiç) çift kalır, kilit VE "yeniden gir"
+    // metni yanlış görünür ve bir SONRAKİ deneme aynı requestId'yi FARKLI
+    // bir şifreyle gönderebilir.
+    const pair = submittedPasswords ?? { owner: ownerPassword, driver: driverPassword };
+    setSubmittedPasswords(pair);
+    await sendCreateRequest(draft, pair.owner, pair.driver);
     setIsFetching(false);
   }
 

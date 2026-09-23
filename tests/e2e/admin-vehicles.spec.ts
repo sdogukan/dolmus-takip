@@ -270,6 +270,121 @@ test.describe("Araç oluşturma (/yonetim/isletmeler/:id/araclar/yeni)", () => {
     await expect(page.getByRole("alert").filter({ hasText: "Plaka veya şifre yanlış." })).toBeVisible();
   });
 
+  test("sayfa yenilendikten sonra retry'ın yanıtı da kaybolursa şifre alanları kilitli kalır, yeniden gir metni çıkmaz; sonraki retry aynı şifreleri gönderir (C5)", async ({
+    page,
+  }) => {
+    // C5 review bulgusu — bellekteki gönderilmiş çift ESKİDEN yalnız
+    // `handleSubmit`te kuruluyordu; sayfa yenilendikten sonraki bir
+    // "Tekrar kontrol et" bu çifti KAYDETMEDEN gönderiyordu. O retry'ın
+    // yanıtı da kaybolursa (`route.fetch` + `route.abort` — istek sunucuya
+    // ULAŞIR, araç gerçekten oluşur, ama yanıt tarayıcıya hiç DÖNMEZ)
+    // bellekte hâlâ hiçbir çift yoktu: alanlar YANLIŞLIKLA açılıyor,
+    // "yeniden gir" metni tekrar çıkıyor ve bir SONRAKİ deneme aynı
+    // requestId'yi FARKLI bir şifreyle gönderebiliyordu.
+    await loginAsAdmin(page);
+    const businessId = await createBusinessViaUi(page, `C5 Regresyon ${Date.now()}`, "Fatma Sahip");
+    const plate = uniqueRawPlate("CVR");
+    const ownerPassword = "sahip-c5-reg-12";
+    const driverPassword = "sofor-c5-reg-34";
+
+    await page.goto(`/yonetim/isletmeler/${businessId}/araclar/yeni`);
+    await fillNewVehicleForm(page, { plate, ownerPassword, driverPassword });
+
+    // 1) İlk gönderim — yanıt hiç dönmeden kopar.
+    await page.route("**/api/v1/admin/vehicles", async (route) => {
+      await route.abort();
+    });
+    await page.getByRole("button", { name: "Aracı kaydet" }).click();
+    await expect(page.getByText("Kaydın sonucu kontrol ediliyor.")).toBeVisible();
+
+    // 2) Sayfa yenilenir — bellekteki çift kaybolur, alanlar BOŞ döner.
+    await page.unroute("**/api/v1/admin/vehicles");
+    await page.reload();
+    await expect(page.getByText("Kaydın sonucu kontrol ediliyor.")).toBeVisible();
+    const ownerPasswordInput = page.getByLabel("Sahip şifresi");
+    const driverPasswordInput = page.getByLabel("Şoför şifresi");
+    await expect(ownerPasswordInput).toHaveValue("");
+    await expect(driverPasswordInput).toHaveValue("");
+
+    // Karakter karakter yazılır — `fill()` C4 tipi hataları GİZLERDİ.
+    await ownerPasswordInput.pressSequentially(ownerPassword);
+    await driverPasswordInput.pressSequentially(driverPassword);
+
+    const seenBodies: { requestId: string; ownerPassword: string; driverPassword: string }[] = [];
+    let retryCallCount = 0;
+    await page.route("**/api/v1/admin/vehicles", async (route) => {
+      const body = route.request().postDataJSON() as {
+        requestId: string;
+        ownerPassword: string;
+        driverPassword: string;
+      };
+      seenBodies.push(body);
+      retryCallCount += 1;
+      if (retryCallCount === 1) {
+        // İstek SUNUCUYA ulaşır (araç gerçekten oluşturulur, makbuz
+        // yazılır) ama yanıt tarayıcıya hiç DÖNMEZ.
+        await route.fetch();
+        await route.abort();
+        return;
+      }
+      await route.continue();
+    });
+
+    const retryButton = page.getByRole("button", { name: "Tekrar kontrol et" });
+    await expect(retryButton).toBeEnabled();
+    await retryButton.click();
+
+    // Kaybolan retry'dan sonra: hâlâ "ambiguous", ama bu sefer bellekte
+    // ÇİFT VAR (C5 düzeltmesi) — alanlar kilitli kalmalı, "yeniden gir"
+    // metni ÇIKMAMALI.
+    await expect(page.getByText("Kaydın sonucu kontrol ediliyor.")).toBeVisible();
+    await expect(page.getByText("Devam etmek için sahip ve şoför şifresini tekrar gir.")).toHaveCount(0);
+    await expect(ownerPasswordInput).toBeDisabled();
+    await expect(driverPasswordInput).toBeDisabled();
+    await expect(ownerPasswordInput).toHaveValue(ownerPassword);
+    await expect(driverPasswordInput).toHaveValue(driverPassword);
+
+    // Bir sonraki retry GEÇER — aynı requestId + aynı şifre replay (201).
+    await expect(retryButton).toBeEnabled();
+    await retryButton.click();
+    await page.waitForURL(/\/yonetim\/araclar\/[0-9a-f-]{36}$/);
+    const vehicleId = page.url().split("/").pop()!;
+
+    expect(seenBodies).toHaveLength(2);
+    const [lostBody, replayBody] = seenBodies as [
+      (typeof seenBodies)[number],
+      (typeof seenBodies)[number],
+    ];
+    expect(lostBody.requestId).toBe(replayBody.requestId);
+    expect(lostBody.ownerPassword).toBe(replayBody.ownerPassword);
+    expect(lostBody.driverPassword).toBe(replayBody.driverPassword);
+    expect(replayBody.ownerPassword).toBe(ownerPassword);
+    expect(replayBody.driverPassword).toBe(driverPassword);
+
+    // Kaybolan retry ile aracı GERÇEKTEN oluşturmuştu — replay ikinci bir
+    // araç DOĞURMADI, işletmede TEK araç var.
+    await page.goto(`/yonetim/isletmeler/${businessId}`);
+    await expect(page.getByRole("heading", { name: "Araçlar (1)" })).toBeVisible();
+    await expect(page.locator(`a[href="/yonetim/araclar/${vehicleId}"]`)).toBeVisible();
+
+    await page.getByRole("button", { name: "Çıkış" }).click();
+    await page.waitForURL("**/yonetim/giris");
+
+    // Aracın oluşturulduğu TAM şifrelerle giriş BAŞARILI olur.
+    await page.goto("/giris");
+    await page.getByLabel("Plaka").fill(plate);
+    await page.getByLabel("Şifre").fill(ownerPassword);
+    await page.getByRole("button", { name: "Giriş yap", exact: true }).click();
+    await page.waitForURL("**/sahip");
+    await page.getByRole("button", { name: "Çıkış" }).click();
+
+    await page.goto("/giris");
+    await page.getByLabel("Plaka").fill(plate);
+    await page.getByLabel("Şifre").fill(driverPassword);
+    await page.getByRole("button", { name: "Giriş yap", exact: true }).click();
+    await page.waitForURL("**/sofor");
+  });
+
   test("gönderim belirsizken (sayfa yenilenmeden) şifre alanları kilitlenir; aynı şifrelerle yeniden denenir", async ({
     page,
   }) => {

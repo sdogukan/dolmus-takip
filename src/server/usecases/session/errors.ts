@@ -122,3 +122,30 @@ export class VehicleCredentialVersionChangedError extends Error {
     this.name = "VehicleCredentialVersionChangedError";
   }
 }
+
+/**
+ * `createPlatformSession` oturum INSERT'iyle AYNI transaction içinde hesabın
+ * artık pasif olduğunu görürse fırlatılır (giriş/pasifleştirme yarışı —
+ * `VehicleSessionTargetInactiveError` karşılığı). `../auth/platform-login.ts`
+ * bunu genel 401 `INVALID_CREDENTIALS`e ÇEVİRİR; bu yüzden `SessionError`
+ * DEĞİLDİR.
+ */
+export class PlatformSessionTargetInactiveError extends Error {
+  constructor(message = "Ekip hesabı artık pasif; oturum açılamaz.") {
+    super(message);
+    this.name = "PlatformSessionTargetInactiveError";
+  }
+}
+
+/**
+ * `createPlatformSession`e verilen `expectedCredentialVersion`, transaction
+ * içinde yeniden okunan güncel sürümden farklıysa (giriş/parola sıfırlama
+ * yarışı — `VehicleCredentialVersionChangedError` karşılığı) fırlatılır.
+ * `SessionError` DEĞİLDİR; `platformLogin` genel 401'e çevirir.
+ */
+export class PlatformCredentialVersionChangedError extends Error {
+  constructor(message = "Credential sürümü değişti; oturum açılamaz.") {
+    super(message);
+    this.name = "PlatformCredentialVersionChangedError";
+  }
+}

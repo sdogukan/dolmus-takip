@@ -5,7 +5,9 @@
  * `platform_users`, `actor_credential_id` → `vehicle_credentials` →
  * `vehicles`. `sessions` ASLA join edilmez ve `actor_session_id` yanıta
  * girmez (oturum temizliği aktör izini silmez). Tüm join'ler LEFT'tir:
- * CLI'den yazılan `business_id` NULL satırlar da listelenir.
+ * CLI'den yazılan `business_id` NULL satırlar da listelenir. `targetUser`
+ * yalnız `entity_type = 'platform_user'` satırlarında `entity_id` üzerinden
+ * çözülür (hedef pasifleşse de satır kalır — hesaplar silinmez).
  */
 import { and, desc, eq, or, sql, type SQL } from "drizzle-orm";
 import { alias } from "drizzle-orm/sqlite-core";
@@ -34,6 +36,7 @@ export interface AuditEntry {
   business: { id: string; name: string } | null;
   vehicle: { id: string; plateNormalized: string } | null;
   actor: AuditActor;
+  targetUser: { id: string; username: string } | null;
   onBehalfOf: { kind: "owner" | "driver"; fullName: string } | null;
   before: Record<string, unknown> | null;
   after: Record<string, unknown> | null;
@@ -54,6 +57,7 @@ export interface AuditPage {
 
 export function listAdminAudit(db: AppDatabase, options: AuditListOptions): AuditPage {
   const credentialVehicle = alias(vehicles, "credential_vehicle");
+  const targetPlatformUser = alias(platformUsers, "target_platform_user");
   const conditions: SQL[] = [];
   if (options.vehicleId) conditions.push(eq(adminAudit.vehicleId, options.vehicleId));
   else if (options.businessId) conditions.push(eq(adminAudit.businessId, options.businessId));
@@ -85,6 +89,8 @@ export function listAdminAudit(db: AppDatabase, options: AuditListOptions): Audi
       vehicleId: vehicles.id,
       vehiclePlate: vehicles.plateNormalized,
       username: platformUsers.username,
+      targetUserId: targetPlatformUser.id,
+      targetUsername: targetPlatformUser.username,
       credentialPlate: credentialVehicle.plateNormalized,
       onBehalfOfKind: adminAudit.onBehalfOfKind,
       onBehalfOfFullName: people.fullName,
@@ -93,6 +99,13 @@ export function listAdminAudit(db: AppDatabase, options: AuditListOptions): Audi
     .leftJoin(businesses, eq(adminAudit.businessId, businesses.id))
     .leftJoin(vehicles, eq(adminAudit.vehicleId, vehicles.id))
     .leftJoin(platformUsers, eq(adminAudit.actorPlatformUserId, platformUsers.id))
+    .leftJoin(
+      targetPlatformUser,
+      and(
+        eq(adminAudit.entityType, "platform_user"),
+        eq(adminAudit.entityId, targetPlatformUser.id),
+      ),
+    )
     .leftJoin(vehicleCredentials, eq(adminAudit.actorCredentialId, vehicleCredentials.id))
     .leftJoin(credentialVehicle, eq(vehicleCredentials.vehicleId, credentialVehicle.id))
     .leftJoin(people, eq(adminAudit.onBehalfOfPersonId, people.id))
@@ -128,6 +141,10 @@ export function listAdminAudit(db: AppDatabase, options: AuditListOptions): Audi
       business: row.businessId && row.businessName ? { id: row.businessId, name: row.businessName } : null,
       vehicle: row.vehicleId && row.vehiclePlate ? { id: row.vehicleId, plateNormalized: row.vehiclePlate } : null,
       actor,
+      targetUser:
+        row.targetUserId && row.targetUsername
+          ? { id: row.targetUserId, username: row.targetUsername }
+          : null,
       // Ortak parola dürüstlüğü: araç credential'ı kişi adıyla gösterilmez;
       // "adına" yalnız ekip aktörleri için anlamlıdır.
       onBehalfOf:

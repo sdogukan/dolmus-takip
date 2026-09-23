@@ -337,6 +337,13 @@ export const platformUsers = sqliteTable(
     platformRole: text("platform_role", { enum: PLATFORM_ROLES }).notNull(),
     active: integer("active", { mode: "boolean" }).notNull().default(true),
     credentialVersion: integer("credential_version").notNull().default(1),
+    // Ekip hesabı yönetimi (S2.6): ad-soyad CLI ile açılan satırlarda yoktur
+    // (nullable); `version` PATCH'in iyimser kilididir (credential_version'dan
+    // AYRI — rol/aktiflik/ad değişimi oturumları iptal etmez). CHECK YOK:
+    // SQLite'ta CHECK eklemek FK'li bir tabloyu yeniden oluşturmayı gerektirir
+    // (`businesses.version` — 0002 — ile AYNI gerekçe); yalnız kod artırır.
+    fullName: text("full_name"),
+    version: integer("version").notNull().default(1),
   },
   (t) => [
     check(

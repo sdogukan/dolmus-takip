@@ -441,3 +441,35 @@ export const TEAM_USER_MESSAGES = {
   passwordTooLong: "Şifre en fazla 200 karakter olabilir.",
   noChange: "Değişiklik yok.",
 } as const;
+
+/** T3.1 — şoförün günlük kayıt formu (`../app/sofor/work-entry-form.tsx`,
+ * kural: `./work-time.ts`). Bu paket kayıt YAZMAZ; "Kaydedildi" metni
+ * bilerek burada YOKTUR. */
+export const WORK_ENTRY_MESSAGES = {
+  dateLabel: "Çalışılan gün",
+  personLabel: "Kim çalıştı?",
+  personPlaceholder: "Adını seç",
+  personLoading: "Şoförler yükleniyor…",
+  personEmpty: "Bu araçta seçilebilir şoför yok. Araç sahibinden şoför eklemesini iste.",
+  personRequired: "Adını seç.",
+  personUnavailable:
+    "Bu kişi artık bu araçta seçilemiyor. Liste yenilendi; adını yeniden seç.",
+  retry: "Tekrar dene",
+  startLabel: "Başlangıç saati",
+  endLabel: "Bitiş saati",
+  nextDayLabel: "Bitiş ertesi gün",
+  endsOn: (date: string, time: string): string => `Bitiş: ${date} ${time}`,
+  duration: (text: string): string => `Süre: ${text}`,
+  submit: "Kontrol et",
+  submitting: "Kontrol ediliyor…",
+  dateInvalid: "Geçerli bir tarih gir.",
+  startRequired: "Başlangıç saatini gir.",
+  endRequired: "Bitiş saatini gir.",
+  timesEqual: "Başlangıç ve bitiş saati aynı olamaz.",
+  endBeforeStart:
+    "Bitiş saati başlangıçtan önce. Ertesi gün bitiyorsa “Bitiş ertesi gün” kutusunu işaretle.",
+  durationTooLong: "Süre 24 saati geçemez.",
+  notSavedYet:
+    "Bilgiler geçerli. Kayıt henüz kaydedilmiyor; kaydetme bir sonraki aşamada açılacak.",
+  connectionFailed: "Bağlantı yok. Henüz kaydedilmedi.",
+} as const;

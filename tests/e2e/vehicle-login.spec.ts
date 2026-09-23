@@ -121,9 +121,10 @@ test.describe("Araç girişi (/giris)", () => {
 
     await page.waitForURL("**/sofor");
     await expect(page.getByText(OWNER_PLATE, { exact: false })).toBeVisible();
-    await expect(
-      page.getByText("Şoför girişi başarılı. Günlük kayıt formu bir sonraki aşamada"),
-    ).toBeVisible();
+    // T3.1 — yer tutucu metin yerine günlük kayıt formu açılır.
+    await expect(page.getByRole("heading", { name: "Günlük kayıt" })).toBeVisible();
+    await expect(page.getByLabel("Kim çalıştı?")).toBeVisible();
+    await expect(page.getByText("Günlük kayıt formu bir sonraki aşamada")).toHaveCount(0);
   });
 
   test("şoför şifresiyle /sahip'e gidince /sofor'a yönlenir", async ({ page }) => {

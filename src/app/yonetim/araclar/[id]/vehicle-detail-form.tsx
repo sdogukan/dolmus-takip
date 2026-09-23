@@ -11,6 +11,7 @@
  * durumuna yazması. Plaka bu ekranda DÜZENLENEMEZ (T2.2 sözleşmesi) —
  * yalnız salt okunur gösterilir; şifre YOKTUR/gösterilmez (sıfırlama T2.3).
  */
+import Link from "next/link";
 import { useRef, useState, type FormEvent } from "react";
 import type { ClientStateScope } from "../../../../lib/client-state";
 import { useStoredDraft } from "../../../../lib/use-stored-draft";
@@ -189,6 +190,12 @@ export function VehicleDetailForm({
         <p className="text-base text-[var(--color-text-secondary)]">
           {detail.business.name} · Sahip: {detail.owner.fullName}
         </p>
+        <Link
+          href={`/yonetim/araclar/${vehicleId}/soforler`}
+          className="self-start text-base font-medium text-[var(--color-primary)] underline"
+        >
+          Şoförler
+        </Link>
       </div>
 
       <InfoSection

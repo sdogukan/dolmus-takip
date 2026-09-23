@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getAppDb } from "../../server/data/app-db";
 import { readPageSession } from "../../server/auth/page-session";
@@ -63,6 +64,14 @@ export default async function SahipPage() {
           açılacak.
         </p>
       </div>
+      <nav aria-label="Sahip bağlantıları">
+        <Link
+          href="/sahip/soforler"
+          className="inline-flex min-h-[var(--control-min-height)] items-center rounded-[var(--radius-control)] border border-[var(--color-input-border)] px-4 text-base font-medium text-[var(--color-text)]"
+        >
+          Şoförlerim
+        </Link>
+      </nav>
     </main>
   );
 }

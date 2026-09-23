@@ -21,6 +21,7 @@ import { TEAM_USER_MESSAGES as TEXT, getErrorMessage } from "../../../../lib/mes
 import {
   TEAM_ROLES,
   TEAM_SESSION_ENDED_HREF,
+  buildInfoPatchBody,
   buildUpdateUserBody,
   classifyTeamError,
   diffTeamUser,
@@ -30,6 +31,7 @@ import {
   teamRoleLabel,
   teamUserUrl,
   validateTeamFullName,
+  type InfoChanges,
   type TeamErrorOutcome,
   type TeamRole,
   type TeamUser,
@@ -46,6 +48,8 @@ interface InfoDraft {
   platformRole: TeamRole;
   pending: boolean;
   baseVersion: number;
+  /** Gönderimde bir kez hesaplanıp dondurulan fark; yeniden deneme YALNIZ bunu yollar. */
+  changes: InfoChanges;
 }
 
 interface ActiveDraft {
@@ -67,6 +71,7 @@ function emptyInfo(user: TeamUser): InfoDraft {
     platformRole: user.platformRole,
     pending: false,
     baseVersion: user.version,
+    changes: {},
   };
 }
 
@@ -221,8 +226,8 @@ function InfoSection({
 
   async function run(body: InfoDraft): Promise<void> {
     setBanner(null);
-    const changes = diffTeamUser(user, body);
-    const outcome = await sendPatch(user, csrfToken, body.requestId, body.baseVersion, changes);
+    // Gövde yalnız dondurulmuş taslaktan kurulur; `user` ile yeniden fark alınmaz.
+    const outcome = await sendTeamRequest<TeamUser>(teamUserUrl(user.id), "PATCH", csrfToken, buildInfoPatchBody(body));
     if (outcome.kind === "ambiguous") {
       onDraftChange({ ...body, pending: true });
       return;
@@ -231,7 +236,7 @@ function InfoSection({
       onDraftChange(emptyInfo(outcome.user));
       onSaved(outcome.user);
       // Kendi yetkisini indiren yönetici: sayfa sunucuda taze rolle yeniden çizilir.
-      if (isSelf && changes.platformRole !== undefined) router.refresh();
+      if (isSelf && body.changes.platformRole !== undefined) router.refresh();
       return;
     }
     onDraftChange({ ...body, pending: false });
@@ -257,7 +262,7 @@ function InfoSection({
       fullNameRef.current?.focus();
       return;
     }
-    const sent = { ...effective, pending: true };
+    const sent = { ...effective, changes: diffTeamUser(user, effective), pending: true };
     onDraftChange(sent);
     setIsFetching(true);
     await run(sent);
@@ -275,6 +280,7 @@ function InfoSection({
       ...next,
       requestId: hadKnownResult ? crypto.randomUUID() : effective.requestId,
       pending: false,
+      changes: {},
     });
   }
 

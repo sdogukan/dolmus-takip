@@ -120,6 +120,22 @@ export function buildUpdateUserBody(
   return { requestId, version, ...changes };
 }
 
+/** Bilgi formunun gönderimde dondurulan değişiklik kümesi (yalnız gizli olmayan alanlar). */
+export interface InfoChanges {
+  fullName?: string;
+  platformRole?: TeamRole;
+}
+
+/**
+ * Bilgi PATCH gövdesi YALNIZ dondurulmuş taslaktan kurulur: sonucu belirsiz istek
+ * yeniden yüklemeden sonra da aynı anahtarlar ve değerlerle gider (sunucu bu
+ * alanların özetini alır; sunucudaki güncel kayıtla yeniden fark almak
+ * 409 REQUEST_ID_REUSED üretir).
+ */
+export function buildInfoPatchBody(frozen: { requestId: string; baseVersion: number; changes: InfoChanges }) {
+  return buildUpdateUserBody(frozen.requestId, frozen.baseVersion, frozen.changes);
+}
+
 export function buildResetPasswordBody(requestId: string, newPassword: string) {
   return { requestId, newPassword };
 }

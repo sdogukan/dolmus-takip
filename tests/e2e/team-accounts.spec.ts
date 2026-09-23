@@ -208,6 +208,50 @@ test.describe("Ekip hesapları (/yonetim/ekip)", () => {
     await expect(page.getByLabel("Ad soyad")).toHaveAttribute("aria-invalid", "true");
   });
 
+  test("yanıtı kaybolan kayıt yeniden yüklemeden sonra AYNI gövdeyle tekrarlanır: 200 tekrar yanıtı, sürüm bir artar, denetim satırları tekildir", async ({
+    page,
+  }) => {
+    await loginAsAdmin(page);
+    const userId = await createAccountViaApi(page, uniqueUsername("e2e.kayip"), "kayip-sifre-1", "support", "Kayıp Önce");
+    await openDetail(page, userId);
+
+    // İstek sunucuya ulaşıp işlenir, yanıt istemciye dönmez → sonucu belirsiz.
+    const patchUrl = new RegExp(`/api/v1/admin/users/${userId}$`);
+    const sentBodies: string[] = [];
+    await page.route(patchUrl, async (route) => {
+      if (route.request().method() !== "PATCH") return route.fallback();
+      sentBodies.push(route.request().postData() ?? "");
+      await route.fetch();
+      await route.abort("connectionreset");
+    });
+    await fillUntilEnabled(page, "Ad soyad", "Kayıp Sonra", "Bilgiyi kaydet");
+    await page.getByRole("radio", { name: "Yönetici" }).check();
+    await page.getByRole("button", { name: "Bilgiyi kaydet" }).click();
+    await expect(page.getByRole("button", { name: "Tekrar kontrol et" })).toBeVisible();
+    expect(sentBodies).toHaveLength(1);
+
+    await page.unroute(patchUrl);
+    await page.reload();
+    await page.waitForLoadState("networkidle");
+    await expect(page.getByText("Kayıp Sonra · Yönetici")).toBeVisible();
+
+    const replay = page.waitForResponse((r) => patchUrl.test(r.url()) && r.request().method() === "PATCH");
+    await page.getByRole("button", { name: "Tekrar kontrol et" }).click();
+    const response = await replay;
+    expect(response.status()).toBe(200);
+    expect(response.request().postData()).toBe(sentBodies[0]);
+    await expect(page.getByText("Bu işlem başka bir denemeyle çakıştı.")).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Tekrar kontrol et" })).toHaveCount(0);
+
+    const check = await apiRequest(page, "GET", `/api/v1/admin/users/${userId}`);
+    expect((JSON.parse(check.text) as { user: { version: number } }).user.version).toBe(2);
+
+    const audit = await apiRequest(page, "GET", "/api/v1/admin/audit?limit=100");
+    const entries = (JSON.parse(audit.text) as { entries: { action: string; targetUser: { id: string } | null }[] }).entries;
+    const actions = entries.filter((e) => e.targetUser?.id === userId && e.action !== "platform_user.create").map((e) => e.action);
+    expect(actions.sort()).toEqual(["platform_user.role_change", "platform_user.update"]);
+  });
+
   test("bayat sekme sessizce ezmez: sürüm çatışması metni gösterilir, 'Güncel halini aç' sunucu değerini yükler", async ({
     page,
   }) => {

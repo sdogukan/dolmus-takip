@@ -3,6 +3,7 @@ import { TEAM_USER_MESSAGES } from "./messages";
 import {
   TEAM_SESSION_ENDED_HREF,
   buildCreateUserBody,
+  buildInfoPatchBody,
   buildResetPasswordBody,
   buildUpdateUserBody,
   classifyTeamError,
@@ -116,6 +117,40 @@ describe("güncelleme", () => {
 
   it("gövde taslağın sürümünü ve yalnız verilen alanları taşır", () => {
     expect(buildUpdateUserBody("req-2", 3, { active: false })).toEqual({ requestId: "req-2", version: 3, active: false });
+  });
+});
+
+describe("bilgi PATCH gövdesi (dondurulmuş taslak)", () => {
+  it("yalnız dondurulmuş değişiklikleri, taslağın requestId ve sürümüyle taşır", () => {
+    expect(buildInfoPatchBody({ requestId: "req-9", baseVersion: 4, changes: { platformRole: "admin" } })).toEqual({
+      requestId: "req-9",
+      version: 4,
+      platformRole: "admin",
+    });
+  });
+
+  it("adı olmayan hesapta yalnız yetki değişirse fullName anahtarı gitmez", () => {
+    const changes = diffTeamUser({ fullName: null, platformRole: "support" }, { fullName: "", platformRole: "admin" });
+    expect(Object.keys(buildInfoPatchBody({ requestId: "r", baseVersion: 1, changes }))).toEqual([
+      "requestId",
+      "version",
+      "platformRole",
+    ]);
+  });
+
+  it("gövde sunucudaki güncel kayda bağlı değildir: yeniden yüklemeden sonra da aynıdır", () => {
+    const serverBefore = { fullName: "Eski", platformRole: "support" as const };
+    const serverAfter = { fullName: "Yeni", platformRole: "admin" as const };
+    const frozen = {
+      requestId: "req-1",
+      baseVersion: 2,
+      changes: diffTeamUser(serverBefore, { fullName: "Yeni", platformRole: "admin" }),
+    };
+    const first = buildInfoPatchBody(frozen);
+    // Kayıt işlendi; canlı fark artık boş — dondurulmuş gövde değişmez.
+    expect(diffTeamUser(serverAfter, { fullName: "Yeni", platformRole: "admin" })).toEqual({});
+    expect(buildInfoPatchBody(frozen)).toEqual(first);
+    expect(first).toEqual({ requestId: "req-1", version: 2, fullName: "Yeni", platformRole: "admin" });
   });
 });
 

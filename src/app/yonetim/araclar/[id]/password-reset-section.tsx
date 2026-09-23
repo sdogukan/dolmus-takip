@@ -84,10 +84,17 @@ interface Banner {
  * `error.message`'ı BASILMAZ, kod → Türkçe metin `../../../../lib/
  * messages.ts`'ten). */
 function bannerFor(status: number, code: string | undefined): Banner {
+  // 409 REQUEST_ID_REUSED bu bölümde AYNI requestId'yi FARKLI şifreyle tekrar
+  // göndermek demektir: ilk girilen şifreyle sıfırlama muhtemelen ZATEN
+  // tamamlanmıştır. `../../../../lib/messages.ts`'in genel ("sayfayı yenile")
+  // metni burada YANILTICIDIR — `new-vehicle-form.tsx` ile AYNI gerekçeyle
+  // form-özgü metin kullanılır.
   const message =
     status >= 500
       ? "Bağlantı kurulamadı. Tekrar dene."
-      : (code ? getErrorMessage(code) : undefined) ?? "Bağlantı kurulamadı. Tekrar dene.";
+      : code === "REQUEST_ID_REUSED"
+        ? "Bu erişimin şifresi önceki denemede ilk girdiğin şifreyle zaten sıfırlanmış olabilir. Şimdi yeni bir şifre belirle."
+        : (code ? getErrorMessage(code) : undefined) ?? "Bağlantı kurulamadı. Tekrar dene.";
   return { message, code };
 }
 
@@ -207,9 +214,14 @@ export function PasswordResetSection({
       return;
     }
 
-    persist({ ...body, access, pending: false });
-    // Buradan sonraki her dal KESİN bir sonuçtur (pending: false yazıldı) —
-    // bellekteki gönderilmiş çift artık geçersiz.
+    // Buradan sonraki her dal KESİN bir sonuçtur: sunucu bu requestId'ye bir
+    // yanıt verdi (ve bir makbuz tutuyor olabilir). Taslağa HEMEN yeni bir
+    // requestId yazılır — sayfa yenilenirse bellekteki `hadKnownResult`
+    // durumu kaybolur, aynı requestId taslakta kalırsa sonraki her gönderim
+    // yalnız 409 alırdı. Belirsiz dallar (yukarıdaki iki `catch`) bunu
+    // YAPMAZ: orada aynı requestId tekrar gönderilmelidir.
+    persist({ requestId: randomRequestId(), access, pending: false });
+    // Bellekteki gönderilmiş çift de artık geçersiz.
     setSubmitted(null);
 
     if (response.status === 422) {

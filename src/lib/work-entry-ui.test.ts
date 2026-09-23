@@ -3,8 +3,10 @@ import {
   buildWorkEntryBody,
   classifyWorkEntryResponse,
   emptyWorkEntryDraft,
+  hasEarlierAttempt,
   isWorkEntryDraftDirty,
   selectableFromDriversResponse,
+  shouldReleaseAfterError,
   workEntryDraftName,
   workEntryErrorMessage,
   type WorkEntryDraft,
@@ -91,6 +93,7 @@ describe("workEntryDraftName / emptyWorkEntryDraft / isWorkEntryDraftDirty", () 
       workType: "",
       pending: false,
       frozenBody: null,
+      attemptSent: false,
     });
     expect(isWorkEntryDraftDirty(draft, "2026-09-14")).toBe(false);
   });
@@ -263,5 +266,47 @@ describe("workEntryErrorMessage", () => {
 
   it("bilinmeyen kodda sunucu metni basılmaz, genel metin döner", () => {
     expect(workEntryErrorMessage(400, "BILINMEYEN")).toBe("Bağlantı yok. Henüz kaydedilmedi.");
+  });
+});
+
+describe("shouldReleaseAfterError", () => {
+  it("ilk denemede her kesin hata formu serbest bırakır", () => {
+    for (const status of [401, 403, 404, 409, 413, 415, 422, 429]) {
+      expect(shouldReleaseAfterError({ status }, false)).toBe(true);
+    }
+  });
+
+  it("daha önceki denemeden sonra yalnız 422 ve 409 REQUEST_ID_REUSED bırakır", () => {
+    expect(shouldReleaseAfterError({ status: 422, code: "VALIDATION_ERROR" }, true)).toBe(true);
+    expect(shouldReleaseAfterError({ status: 409, code: "REQUEST_ID_REUSED" }, true)).toBe(true);
+  });
+
+  it("daha önceki denemeden sonra 401, 403 (her kod), 404 ve diğerleri taslağı bekleyen tutar", () => {
+    expect(shouldReleaseAfterError({ status: 401, code: "SESSION_REVOKED" }, true)).toBe(false);
+    expect(shouldReleaseAfterError({ status: 403, code: "FORBIDDEN" }, true)).toBe(false);
+    expect(shouldReleaseAfterError({ status: 403, code: "TARGET_INACTIVE_FOR_WRITE" }, true)).toBe(false);
+    expect(shouldReleaseAfterError({ status: 403 }, true)).toBe(false);
+    expect(shouldReleaseAfterError({ status: 404, code: "NOT_FOUND" }, true)).toBe(false);
+    expect(shouldReleaseAfterError({ status: 409, code: "TARGET_INACTIVE_FOR_WRITE" }, true)).toBe(false);
+    expect(shouldReleaseAfterError({ status: 409 }, true)).toBe(false);
+    for (const status of [400, 413, 415, 429]) {
+      expect(shouldReleaseAfterError({ status }, true)).toBe(false);
+    }
+  });
+});
+
+describe("hasEarlierAttempt", () => {
+  it("bekleyen olmayan taslakta daha önceki deneme yoktur", () => {
+    expect(hasEarlierAttempt(filled({ pending: false, attemptSent: true }))).toBe(false);
+  });
+
+  it("bekleyen ve işaretli taslak daha önceki denemeyi taşır", () => {
+    expect(hasEarlierAttempt(filled({ pending: true, attemptSent: true, frozenBody: "{}" }))).toBe(true);
+  });
+
+  it("işaretten önce yazılmış bekleyen taslak (alan yok) gönderilmiş sayılır", () => {
+    const legacy = { ...filled({ pending: true, frozenBody: "{}" }) } as Partial<WorkEntryDraft>;
+    delete legacy.attemptSent;
+    expect(hasEarlierAttempt(legacy as WorkEntryDraft)).toBe(true);
   });
 });

@@ -66,6 +66,11 @@ export interface WorkEntryDraft {
   pending: boolean;
   /** İlk gönderimde dondurulan gövde (JSON metni); yalnız `pending` iken dolu. */
   frozenBody: string | null;
+  /**
+   * Mevcut `requestId` ile bir istek sunucuya gitmiş OLABİLİR (ilk gönderim
+   * dondurulurken yazılır; yenilemeden ve başka sekmeden sonra da okunur).
+   */
+  attemptSent: boolean;
 }
 
 /** Boş taslak; `today` sunucudan gelen bugün (hydration'da kaymaz). */
@@ -85,7 +90,17 @@ export function emptyWorkEntryDraft(today: string, newId: () => string): WorkEnt
     otherNote: "",
     pending: false,
     frozenBody: null,
+    attemptSent: false,
   };
+}
+
+/**
+ * Bu gönderim, aynı `requestId` ile yapılmış daha önceki bir denemenin
+ * ardından mı? İşaretten önce yazılmış bekleyen taslaklar (alan yok) gönderilmiş
+ * sayılır: güvenli yön "serbest bırakma"dır.
+ */
+export function hasEarlierAttempt(draft: WorkEntryDraft): boolean {
+  return draft.pending && draft.attemptSent !== false;
 }
 
 /** Kullanıcının girdiği ama henüz gönderilmemiş bir şey var mı. */
@@ -228,6 +243,21 @@ function savedEntryFromBody(body: Record<string, unknown> | null): SavedWorkEntr
     shareCents: entry.shareCents,
     personName: person.fullName,
   };
+}
+
+/**
+ * Kesin hata formu serbest bırakır mı (yeni `requestId`, dondurulmuş gövde
+ * silinir)? İlk denemede her kesin hata bırakır. Daha önce ulaşmış olabilecek
+ * bir denemeden sonra yalnız bu `requestId` altında hiçbir şey saklanmadığını
+ * KANITLAYAN yanıtlar bırakır: 422 ve 409 REQUEST_ID_REUSED. 401/403/404 gibi
+ * geri kalanı (makbuz aramasından önce de dönebilir) taslağı bekleyen tutar.
+ */
+export function shouldReleaseAfterError(
+  outcome: { status: number; code?: string },
+  earlierAttempt: boolean,
+): boolean {
+  if (!earlierAttempt) return true;
+  return outcome.status === 422 || (outcome.status === 409 && outcome.code === "REQUEST_ID_REUSED");
 }
 
 /** Kesin hata → form mesajı; sunucunun `error.message`'ı BASILMAZ. */

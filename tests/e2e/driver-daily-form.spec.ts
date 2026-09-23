@@ -291,6 +291,66 @@ test.describe("Şoför günlük kayıt formu (/sofor)", () => {
     expect(posts[1]).toBe(posts[0]);
   });
 
+  test("belirsiz sonuçtan sonra tekrarda 401 ve 404 taslağı bekleyen tutar; requestId ve gövde aynı kalır, tek kayıtla biter", async ({
+    page,
+  }) => {
+    await openSeedForm(page);
+    const posts = capturePosts(page);
+    const ids: string[] = [];
+    const answers: Array<{ status: number; body: unknown } | "drop" | "pass"> = [
+      "drop",
+      { status: 401, body: { error: { code: "SESSION_REVOKED", message: "x" } } },
+      { status: 404, body: { error: { code: "NOT_FOUND", message: "x" } } },
+    ];
+    await page.route(WORK_ENTRIES_URL, async (route) => {
+      const answer = answers.shift() ?? "pass";
+      if (answer === "drop") {
+        const response = await route.fetch();
+        const json = (await response.json()) as { workEntry?: { id: string } };
+        if (json.workEntry) ids.push(json.workEntry.id);
+        await route.abort("failed"); // sunucu yazdı, yanıt tarayıcıya ulaşmadı
+        return;
+      }
+      if (answer === "pass") {
+        const response = await route.fetch();
+        const json = (await response.json()) as { workEntry?: { id: string } };
+        if (json.workEntry) ids.push(json.workEntry.id);
+        await route.fulfill({ response });
+        return;
+      }
+      await route.fulfill({
+        status: answer.status,
+        contentType: "application/json",
+        body: JSON.stringify(answer.body),
+      });
+    });
+    await fillValidForm(page, "2026-08-08");
+    await page.getByRole("button", { name: "Kaydet", exact: true }).click();
+    await expect(page.getByText(UNKNOWN_RESULT)).toBeVisible();
+
+    const retry = page.getByRole("button", { name: "Kaydı tekrar dene" });
+    await retry.click();
+    await expect(page.getByRole("alert").filter({ hasText: SESSION_ENDED })).toBeVisible();
+    await expect(page.getByLabel("Hasılat")).toBeDisabled();
+    await expect(retry).toBeVisible();
+
+    // İşaret depolamada: yenileme sonrası da 404 taslağı serbest bırakmaz.
+    await page.reload();
+    await expect(page.getByRole("option", { name: "Hüseyin Ak" })).toBeAttached();
+    await expect(page.getByText(UNKNOWN_RESULT)).toBeVisible();
+    await retry.click();
+    await expect(page.getByLabel("Hasılat")).toBeDisabled();
+    await expect(retry).toBeVisible();
+    await expect(page.getByText("Kaydedildi", { exact: true })).toHaveCount(0);
+
+    await retry.click();
+    await expect(page.getByText("Kaydedildi", { exact: true })).toBeVisible();
+    expect(posts).toHaveLength(4);
+    expect(new Set(posts).size).toBe(1);
+    expect(ids).toHaveLength(2);
+    expect(ids[1]).toBe(ids[0]);
+  });
+
   test("kesin hatalar formu serbest bırakır: 422 alan hatası, 403 ve 409 kendi metniyle; 'Kaydedildi' yok", async ({
     page,
   }) => {

@@ -15,8 +15,9 @@
  * siler. Sonuç belirsizse (ağ hatası, okunamayan gövde, 5xx) alanlar kilitlenir;
  * "tekrar dene" ve sayfa yenilemesi sonrası aynı `requestId` ile dondurulmuş
  * gövde BAYTI BAYTINA yeniden yollanır — gövde asla form durumundan yeniden
- * kurulmaz ve o yolda şoför listesi TAZE okunmaz. Kesin hatalar (401/403/409/
- * 422) formu serbest bırakır ve yeni `requestId` üretir.
+ * kurulmaz ve o yolda şoför listesi TAZE okunmaz. İlk denemede kesin hatalar formu serbest
+ * bırakır ve yeni `requestId` üretir; belirsiz bir denemeden sonra yalnız 422 ve
+ * 409 REQUEST_ID_REUSED bırakır, 401/403/404 vb. taslağı bekleyen tutar.
  *
  * Liste durumları AYRIDIR: loading / loaded / empty / error. Ağ hatası,
  * 401/403 veya 5xx "boş liste" metnini ASLA göstermez; yalnız `200` +
@@ -42,8 +43,10 @@ import {
   buildWorkEntryBody,
   classifyWorkEntryResponse,
   emptyWorkEntryDraft,
+  hasEarlierAttempt,
   isWorkEntryDraftDirty,
   selectableFromDriversResponse,
+  shouldReleaseAfterError,
   workEntryDraftName,
   workEntryErrorMessage,
   type SavedWorkEntry,
@@ -350,7 +353,7 @@ export function WorkEntryForm({
   }
 
   /** Dondurulmuş gövdeyi yollar ve sonucu işler; çağıran gövdeyi ÖNCEDEN taslağa dondurmuştur. */
-  async function send(frozenBody: string): Promise<void> {
+  async function send(frozenBody: string, earlierAttempt: boolean): Promise<void> {
     setSubmitting(true);
     setFormMessage(null);
     const outcome = await postWorkEntry(frozenBody, csrfToken, targetVehicleId);
@@ -364,9 +367,12 @@ export function WorkEntryForm({
       setSaved(outcome.entry);
       return;
     }
-    // Kesin hata: form serbest kalır, sonraki kayıt yeni requestId ile gider.
-    update({ pending: false, frozenBody: null, requestId: randomRequestId() });
     setFormMessage(workEntryErrorMessage(outcome.status, outcome.code));
+    // Daha önce ulaşmış olabilecek denemede kayıt yokluğu kanıtlanmadıysa taslak
+    // bekleyen kalır: aynı requestId ve dondurulmuş gövde korunur.
+    if (!shouldReleaseAfterError(outcome, earlierAttempt)) return;
+    // Kesin hata: form serbest kalır, sonraki kayıt yeni requestId ile gider.
+    update({ pending: false, frozenBody: null, attemptSent: false, requestId: randomRequestId() });
     if (outcome.status === 422) {
       setServerFields(outcome.fields);
       if (outcome.fields.workerPersonId) {
@@ -382,7 +388,7 @@ export function WorkEntryForm({
     if (submitting || disabled) return;
     if (draft.pending && draft.frozenBody !== null) {
       // Belirsiz sonuç: dondurulmuş gövde aynen, aynı requestId ile; liste okunmaz.
-      await send(draft.frozenBody);
+      await send(draft.frozenBody, hasEarlierAttempt(draft));
       return;
     }
     setSubmitted(true);
@@ -434,8 +440,10 @@ export function WorkEntryForm({
     }
     const frozenBody = JSON.stringify(body);
     // Gövde fetch'ten ÖNCE dondurulur; yenileme/yeniden deneme bunu yollar.
-    update({ pending: true, frozenBody, requestId: body.requestId });
-    await send(frozenBody);
+    // `attemptSent` fetch'ten ÖNCE yazılır: ilk istek uçarken yenileme veya başka
+    // sekmeden yapılan tekrar, onu görülmemiş bir deneme olarak ele alır.
+    update({ pending: true, frozenBody, requestId: body.requestId, attemptSent: true });
+    await send(frozenBody, false);
   }
 
   function chooseWorkType(next: WorkKind): void {

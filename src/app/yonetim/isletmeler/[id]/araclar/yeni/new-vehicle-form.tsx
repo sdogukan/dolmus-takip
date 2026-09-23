@@ -106,6 +106,15 @@ export function NewVehicleForm({
   const [driverPassword, setDriverPassword] = useState("");
   const [showOwnerPassword, setShowOwnerPassword] = useState(false);
   const [showDriverPassword, setShowDriverPassword] = useState(false);
+  // C4 düzeltmesi — bu oturumda GÖNDERİLMİŞ şifre çifti (yalnız bellekte,
+  // dosya üstü notu — persist()/draft'a asla yazılmaz). `handleSubmit`te
+  // KURULUR, başarıda ve HER kesin (ambiguous olmayan) yanıtta TEMİZLENİR.
+  // Kilit ve "Tekrar kontrol et" bu çiftin VARLIĞINA bakar — girdi
+  // DEĞERİNE değil (bkz. aşağıdaki `ownerPasswordLocked` notu).
+  const [submittedPasswords, setSubmittedPasswords] = useState<{
+    owner: string;
+    driver: string;
+  } | null>(null);
 
   const [isFetching, setIsFetching] = useState(false);
   const phase: "idle" | "submitting" | "ambiguous" = isFetching
@@ -177,6 +186,7 @@ export function NewVehicleForm({
       // Kaydedilmiş şifreler ekranda BİR DAHA gösterilmez — temizlenir.
       setOwnerPassword("");
       setDriverPassword("");
+      setSubmittedPasswords(null);
       if (typeof vehicleId === "string") {
         router.push(`/yonetim/araclar/${vehicleId}`);
       } else {
@@ -186,6 +196,11 @@ export function NewVehicleForm({
     }
 
     persist({ ...body, pending: false });
+    // Buradan sonraki her dal KESİN bir sonuçtur (pending: false yazıldı) —
+    // bellekteki gönderilmiş çift artık geçersiz: bir sonraki deneme ya yeni
+    // bir `handleSubmit` ya da (sayfa yenilenmeden) hâlâ dolu input
+    // state'inden okur.
+    setSubmittedPasswords(null);
 
     if (response.status === 422) {
       const fields = responseBody?.error?.fields ?? {};
@@ -240,6 +255,9 @@ export function NewVehicleForm({
     setFieldErrors({});
     setFormError(null);
     setIsFetching(true);
+    // C4 düzeltmesi — az önce gönderilen çift, sonucu bilinene kadar
+    // bellekte SAKLANIR (dosya üstü notu); kilit ve retry bunu okur.
+    setSubmittedPasswords({ owner: ownerPassword, driver: driverPassword });
     const sent = { ...draft, pending: true };
     persist(sent);
     await sendCreateRequest(sent, ownerPassword, driverPassword);
@@ -248,7 +266,14 @@ export function NewVehicleForm({
 
   async function handleRetryCheck(): Promise<void> {
     setIsFetching(true);
-    await sendCreateRequest(draft, ownerPassword, driverPassword);
+    // Bellekteki çift VARSA (sayfa yenilenmedi) AYNEN o gönderilir; YOKSA
+    // (sayfa yenilendi, dosya üstü notu) ekip üyesinin az önce yeniden
+    // yazdığı şifreler gönderilir.
+    const { owner: ownerPw, driver: driverPw } = submittedPasswords ?? {
+      owner: ownerPassword,
+      driver: driverPassword,
+    };
+    await sendCreateRequest(draft, ownerPw, driverPw);
     setIsFetching(false);
   }
 
@@ -300,8 +325,18 @@ export function NewVehicleForm({
   // `verifyReplayPasswords`'ün bunu 409 REQUEST_ID_REUSED'e düşürmesine —
   // yol açar; sayfa yenilenip alan BOŞ döndüğünde (dosya üstü notu) İSE
   // yeniden girilebilir KALMALIDIR.
-  const ownerPasswordLocked = phase === "submitting" || (phase === "ambiguous" && ownerPassword !== "");
-  const driverPasswordLocked = phase === "submitting" || (phase === "ambiguous" && driverPassword !== "");
+  //
+  // C4 KÖK NEDEN düzeltmesi (review) — kilit ESKİDEN girdinin ANLIK
+  // DEĞERİNE bakıyordu (`ownerPassword !== ""`): sayfa yenilenip alan BOŞ
+  // döndüğünde ekip üyesinin yazdığı İLK karakter değeri boş-olmayan yapıp
+  // alanı ANINDA kilitliyordu — geri kalan karakterler hiç yazılamıyor,
+  // "Tekrar kontrol et" 1 karakterlik şifreyle aracı oluşturuyordu. Kilit
+  // artık bellekteki GÖNDERİLMİŞ çiftin VARLIĞINA bakar: sayfa
+  // yenilenmediyse (çift bellekte) kilitli, yenilendiyse (çift yok) girdi
+  // uzunluğundan bağımsız DÜZENLENEBİLİR.
+  const hasSubmittedPasswords = submittedPasswords !== null;
+  const ownerPasswordLocked = phase === "submitting" || (phase === "ambiguous" && hasSubmittedPasswords);
+  const driverPasswordLocked = phase === "submitting" || (phase === "ambiguous" && hasSubmittedPasswords);
 
   return (
     <div className="flex flex-col gap-8">
@@ -335,7 +370,13 @@ export function NewVehicleForm({
             role="status"
             className="flex flex-col gap-3 rounded-[var(--radius-control)] bg-[var(--color-warning-surface)] px-3 py-2 text-base text-[var(--color-warning)]"
           >
-            <p>Kaydın sonucu kontrol ediliyor. Devam etmek için sahip ve şoför şifresini tekrar gir.</p>
+            {/* I7 — yeniden girme isteği YALNIZ şifreler bellekte YOKKEN (sayfa
+                yenilendiğinde) gösterilir; bellekteki çift varken (aşağıdaki
+                alanlar zaten dolu ve kilitli) tekrar girmesi gerekmez. */}
+            <p>
+              Kaydın sonucu kontrol ediliyor.
+              {!hasSubmittedPasswords && " Devam etmek için sahip ve şoför şifresini tekrar gir."}
+            </p>
           </div>
         )}
 

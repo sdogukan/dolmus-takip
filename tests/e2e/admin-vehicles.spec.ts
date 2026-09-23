@@ -199,6 +199,77 @@ test.describe("Araç oluşturma (/yonetim/isletmeler/:id/araclar/yeni)", () => {
     await page.waitForURL(/\/yonetim\/araclar\/[0-9a-f-]{36}$/);
   });
 
+  test("sayfa yenilendikten sonra şifreler karakter karakter tam yazılabilir; kısaltılmış şifreyle giriş başarısız olur (C4)", async ({
+    page,
+  }) => {
+    // C4 review bulgusu — kilit ESKİDEN girdinin ANLIK DEĞERİNE bakıyordu:
+    // sayfa yenilenip alanlar BOŞ döndüğünde ekip üyesinin yazdığı İLK
+    // karakter değeri boş-olmayan yapıp alanı ANINDA kilitliyordu; geri
+    // kalan karakterler hiç yazılamıyor, "Tekrar kontrol et" 1 karakterlik
+    // şifreyle aracı oluşturuyordu. Kilit artık bellekteki GÖNDERİLMİŞ
+    // çiftin varlığına bakar; sayfa yenilendiğinde bu çift YOKTUR. `fill()`
+    // DEĞİL `pressSequentially()` kullanılır — `fill()` tüm değeri TEK
+    // olayda yazıp bu hatayı GİZLERDİ.
+    await loginAsAdmin(page);
+    const businessId = await createBusinessViaUi(page, `C4 Regresyon ${Date.now()}`, "Cem Sahip");
+    const plate = uniqueRawPlate("CDR");
+    const ownerPassword = "sahip-c4-reg-12";
+    const driverPassword = "sofor-c4-reg-34";
+
+    await page.goto(`/yonetim/isletmeler/${businessId}/araclar/yeni`);
+    await fillNewVehicleForm(page, { plate, ownerPassword, driverPassword });
+
+    await page.route("**/api/v1/admin/vehicles", async (route) => {
+      await route.abort();
+    });
+    await page.getByRole("button", { name: "Aracı kaydet" }).click();
+    await expect(page.getByText("Kaydın sonucu kontrol ediliyor.")).toBeVisible();
+
+    // Sayfa yenilenir — bellekteki gönderilmiş çift kaybolur, alanlar BOŞ
+    // ve DÜZENLENEBİLİR döner (dosya üstü notu).
+    await page.unroute("**/api/v1/admin/vehicles");
+    await page.reload();
+    await expect(page.getByText("Kaydın sonucu kontrol ediliyor.")).toBeVisible();
+    const ownerPasswordInput = page.getByLabel("Sahip şifresi");
+    const driverPasswordInput = page.getByLabel("Şoför şifresi");
+    await expect(ownerPasswordInput).toHaveValue("");
+    await expect(driverPasswordInput).toHaveValue("");
+    await expect(ownerPasswordInput).toBeEnabled();
+    await expect(driverPasswordInput).toBeEnabled();
+
+    // Karakter karakter yazılır — `fill()` bu regresyonu GİZLERDİ.
+    await ownerPasswordInput.pressSequentially(ownerPassword);
+    await driverPasswordInput.pressSequentially(driverPassword);
+    await expect(ownerPasswordInput).toHaveValue(ownerPassword);
+    await expect(driverPasswordInput).toHaveValue(driverPassword);
+    await expect(ownerPasswordInput).toBeEnabled();
+    await expect(driverPasswordInput).toBeEnabled();
+
+    const retryButton = page.getByRole("button", { name: "Tekrar kontrol et" });
+    await expect(retryButton).toBeEnabled();
+    await retryButton.click();
+    await page.waitForURL(/\/yonetim\/araclar\/[0-9a-f-]{36}$/);
+
+    await page.getByRole("button", { name: "Çıkış" }).click();
+    await page.waitForURL("**/yonetim/giris");
+
+    // Aracın oluşturulduğu tam şifreyle giriş BAŞARILI olur.
+    await page.goto("/giris");
+    await page.getByLabel("Plaka").fill(plate);
+    await page.getByLabel("Şifre").fill(ownerPassword);
+    await page.getByRole("button", { name: "Giriş yap", exact: true }).click();
+    await page.waitForURL("**/sahip");
+    await page.getByRole("button", { name: "Çıkış" }).click();
+
+    // Şifrenin yalnız İLK karakteriyle giriş BAŞARISIZ olur — C4 önceden
+    // tam bu kısaltılmış şifreyle aracı oluşturuyordu.
+    await page.goto("/giris");
+    await page.getByLabel("Plaka").fill(plate);
+    await page.getByLabel("Şifre").fill(ownerPassword.charAt(0));
+    await page.getByRole("button", { name: "Giriş yap", exact: true }).click();
+    await expect(page.getByRole("alert").filter({ hasText: "Plaka veya şifre yanlış." })).toBeVisible();
+  });
+
   test("gönderim belirsizken (sayfa yenilenmeden) şifre alanları kilitlenir; aynı şifrelerle yeniden denenir", async ({
     page,
   }) => {

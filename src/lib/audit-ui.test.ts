@@ -8,7 +8,46 @@ import {
   isCreationAction,
 } from "./audit-ui";
 
+const WRITTEN_ACTIONS = [
+  "business.create",
+  "business.update",
+  "business.owner_assign",
+  "business.deactivate",
+  "business.reactivate",
+  "person.create",
+  "person.rename",
+  "person.deactivate",
+  "person.reactivate",
+  "vehicle.create",
+  "vehicle.update",
+  "vehicle.deactivate",
+  "vehicle.reactivate",
+  "vehicle.reset_password",
+  "vehicle_driver.create",
+  "vehicle_driver.activate",
+  "vehicle_driver.deactivate",
+  "platform_user.bootstrap",
+  "platform_user.reset_password",
+];
+
 describe("auditActionLabel", () => {
+  it("yazılan 19 işlemin hepsi ham koddan farklı bir etiket taşır", () => {
+    expect(WRITTEN_ACTIONS).toHaveLength(19);
+    for (const code of WRITTEN_ACTIONS) {
+      expect(auditActionLabel(code), code).not.toBe(code);
+    }
+  });
+
+  it("işletme/araç durum değişikliği etiketleri kişi etiketlerinden ayrışır", () => {
+    const labels = ["business", "vehicle", "person"].flatMap((prefix) => [
+      auditActionLabel(`${prefix}.deactivate`),
+      auditActionLabel(`${prefix}.reactivate`),
+    ]);
+    expect(new Set(labels).size).toBe(6);
+    expect(auditActionLabel("business.deactivate")).toBe("İşletme pasifleştirildi");
+    expect(auditActionLabel("vehicle.reactivate")).toBe("Araç yeniden aktifleştirildi");
+  });
+
   it("bilinen kodu Türkçe etikete çevirir", () => {
     expect(auditActionLabel("business.update")).toBe("İşletme bilgisi değişti");
     expect(auditActionLabel("vehicle.reset_password")).toBe("Araç şifresi sıfırlandı");
@@ -26,6 +65,9 @@ describe("isCreationAction", () => {
     expect(isCreationAction("platform_user.bootstrap")).toBe(true);
     expect(isCreationAction("platform_user.reset_password")).toBe(false);
     expect(isCreationAction("business.update")).toBe(false);
+    for (const code of ["business.deactivate", "business.reactivate", "vehicle.deactivate", "vehicle.reactivate"]) {
+      expect(isCreationAction(code), code).toBe(false);
+    }
   });
 });
 

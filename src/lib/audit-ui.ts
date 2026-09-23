@@ -50,6 +50,7 @@ const ACTION_LABELS: Record<string, string> = {
   "vehicle_driver.activate": "Şoför ataması aktifleştirildi",
   "vehicle_driver.deactivate": "Şoför ataması pasifleştirildi",
   "vehicle_driver.set": "Şoför ataması değişti",
+  "work_entry.create": "Çalışma kaydı oluşturuldu",
   "platform_user.bootstrap": "İlk yönetici hesabı oluşturuldu",
   "platform_user.create": "Ekip hesabı açıldı",
   "platform_user.update": "Ekip hesabı bilgisi değişti",

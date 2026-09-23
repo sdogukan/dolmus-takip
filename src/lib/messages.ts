@@ -462,8 +462,8 @@ export const WORK_ENTRY_MESSAGES = {
   nextDayLabel: "Bitiş ertesi gün",
   endsOn: (date: string, time: string): string => `Bitiş: ${date} ${time}`,
   duration: (text: string): string => `Süre: ${text}`,
-  submit: "Kontrol et",
-  submitting: "Kontrol ediliyor…",
+  submit: "Kaydet",
+  submitting: "Kaydediliyor…",
   dateInvalid: "Geçerli bir tarih gir.",
   startRequired: "Başlangıç saatini gir.",
   endRequired: "Bitiş saatini gir.",
@@ -471,8 +471,6 @@ export const WORK_ENTRY_MESSAGES = {
   endBeforeStart:
     "Bitiş saati başlangıçtan önce. Ertesi gün bitiyorsa “Bitiş ertesi gün” kutusunu işaretle.",
   durationTooLong: "Süre 24 saati geçemez.",
-  notSavedYet:
-    "Bilgiler geçerli. Kayıt henüz kaydedilmiyor; kaydetme bir sonraki aşamada açılacak.",
   connectionFailed: "Bağlantı yok. Henüz kaydedilmedi.",
   // T3.2 — para girdileri ve otomatik pay (`./money.ts`, `./work-calculation.ts`).
   grossLabel: "Hasılat (TL)",
@@ -514,6 +512,19 @@ export const WORK_ENTRY_MESSAGES = {
   staffOwnerNoShareNote: "Sahibin çalışmasında şoför payı ayrılmaz.",
   managedPersonPlaceholder: "Şoförü seç",
   managedPersonRequired: "Şoförü seç.",
+  // T3.4 — kaydetme sonucu.
+  saved: "Kaydedildi",
+  statusPending: "Henüz doğrulanmadı",
+  statusNotRequired: "Onay gerekmiyor",
+  savedPerson: (name: string, date: string, duration: string): string =>
+    `${name} · ${date} · ${duration}`,
+  savedRemainder: "Teslim edilecek tutar",
+  savedOwnerRemainder: "Giderlerden sonra kalan",
+  unknownResult:
+    "Kaydın gönderilip gönderilmediği bilinmiyor. Alanlar kilitlendi; tekrar dene, aynı kayıt yalnız bir kez oluşur.",
+  submitRetry: "Kaydı tekrar dene",
+  requestIdReused: "Bu kayıt başka bir denemeyle çakıştı. Bilgileri kontrol edip yeniden kaydet.",
+  newEntry: "Başka bir çalışma kaydı gir",
   ownerPersonEmpty: "Bu araçta seçilebilir şoför yok. Şoförlerim ekranından şoför ekle.",
   staffPersonEmpty: "Bu araçta seçilebilir şoför yok. Şoförler ekranından şoför ekle.",
 } as const;

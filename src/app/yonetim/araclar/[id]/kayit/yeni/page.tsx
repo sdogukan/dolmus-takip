@@ -23,7 +23,7 @@ import { WorkEntryForm } from "../../../../../_components/work-entry-form";
  * page.tsx` İLE AYNI oturum/rol denetimi ve hedef türetme: hedef YALNIZ URL'deki
  * araç kimliğinden SUNUCUDA çözülür (bilinmeyen araç → 404); sahip adı sunucudan
  * gelir. Pasif araç/işletmede okuma serbest, yazma yoktur: form kilitlenir.
- * Form kayıt YAZMAZ (kaydetme sonraki aşamada).
+ * Form kaydı yazar (T3.4).
  */
 export const metadata: Metadata = {
   title: "Çalışma kaydı — Dolmuş Takip",
@@ -102,6 +102,9 @@ export default async function VehicleWorkEntryPage({
           ownerName={detail.owner.fullName}
           targetVehicleId={vehicleId}
           disabled={inactive}
+          vehicleId={vehicleId}
+          scopeKey={computeScopeKey(context)}
+          csrfToken={context.csrfToken}
         />
       </UnsavedChangesProvider>
     </main>

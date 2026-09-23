@@ -9,6 +9,7 @@
  */
 import { clientStateKey, type ClientStateScope, type StorageLike } from "./client-state";
 import { driversDraftName } from "./drivers-ui";
+import { workEntryDraftName } from "./work-entry-ui";
 
 export function vehicleDetailDraftName(vehicleId: string): string {
   return `arac-${vehicleId}`;
@@ -18,13 +19,14 @@ export function vehicleResetDraftName(vehicleId: string): string {
   return `arac-sifre-${vehicleId}`;
 }
 
-/** Bir aracın üç formunun (bilgi/aktiflik, şifre sıfırlama, şoförler)
- * taslak adları. */
+/** Bir aracın dört formunun (bilgi/aktiflik, şifre sıfırlama, şoförler,
+ * çalışma kaydı) taslak adları. */
 export function vehicleDraftNames(vehicleId: string): string[] {
   return [
     vehicleDetailDraftName(vehicleId),
     vehicleResetDraftName(vehicleId),
     driversDraftName(vehicleId),
+    workEntryDraftName(vehicleId),
   ];
 }
 

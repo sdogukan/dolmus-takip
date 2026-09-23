@@ -452,6 +452,7 @@ export const WORK_ENTRY_MESSAGES = {
   personLoading: "Şoförler yükleniyor…",
   personEmpty: "Bu araçta seçilebilir şoför yok. Araç sahibinden şoför eklemesini iste.",
   personRequired: "Adını seç.",
+  workTypeInvalid: "Kayıt türünü seç.",
   personUnavailable:
     "Bu kişi artık bu araçta seçilemiyor. Liste yenilendi; adını yeniden seç.",
   retry: "Tekrar dene",

@@ -18,7 +18,9 @@ import { useStoredDraft } from "../../../../lib/use-stored-draft";
 import { getErrorMessage } from "../../../../lib/messages";
 import { formatPlateForDisplay } from "../../../../lib/plate";
 import { isDraftStale } from "../../../../lib/draft-version";
+import { vehicleDetailDraftName } from "../../../../lib/support-target";
 import { ConfirmDialog } from "../../../_components/confirm-dialog";
+import { useUnsavedChanges } from "../../../_components/unsaved-changes";
 import { PasswordResetSection } from "./password-reset-section";
 
 export interface VehicleDetail {
@@ -163,7 +165,7 @@ export function VehicleDetailForm({
   csrfToken: string;
   scopeKey: string;
 }) {
-  const draftName = `arac-${vehicleId}`;
+  const draftName = vehicleDetailDraftName(vehicleId);
   const scope: ClientStateScope = { scopeKey };
   const [detail, setDetail] = useState<VehicleDetail>(initialDetail);
   const [draft, persistDraft] = useStoredDraft<DetailDraft>(scope, draftName, () =>
@@ -347,6 +349,7 @@ function InfoSection({
     effective.year.trim() !== (detail.vehicle.year !== null ? String(detail.vehicle.year) : "") ||
     effective.routeStop.trim() !== (detail.vehicle.routeStop ?? "") ||
     effective.note.trim() !== (detail.vehicle.note ?? "");
+  useUnsavedChanges("arac-bilgi", hasChange);
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-3">

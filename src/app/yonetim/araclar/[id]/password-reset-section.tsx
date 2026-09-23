@@ -36,6 +36,8 @@ import type { ClientStateScope } from "../../../../lib/client-state";
 import { useStoredDraft } from "../../../../lib/use-stored-draft";
 import { getErrorMessage } from "../../../../lib/messages";
 import { formatPlateForDisplay } from "../../../../lib/plate";
+import { vehicleResetDraftName } from "../../../../lib/support-target";
+import { useUnsavedChanges } from "../../../_components/unsaved-changes";
 import type { VehicleDetail } from "./vehicle-detail-form";
 
 export type VehicleAccessRole = "owner" | "driver";
@@ -110,7 +112,7 @@ export function PasswordResetSection({
   detail: VehicleDetail;
 }) {
   const scope: ClientStateScope = { scopeKey };
-  const draftName = `arac-sifre-${vehicleId}`;
+  const draftName = vehicleResetDraftName(vehicleId);
   const [draft, persist] = useStoredDraft<ResetDraft>(scope, draftName, emptyDraft);
 
   // Gizli alan — dosya üstü notu: taslakta ASLA saklanmaz.
@@ -269,6 +271,9 @@ export function PasswordResetSection({
   const passwordLocked = phase === "submitting" || (phase === "ambiguous" && hasSubmittedPair);
   const canRetry = phase === "ambiguous" && newPassword.trim() !== "";
   const canSubmit = phase === "idle" && draft.access !== null && !inactive;
+  // Bellekteki yeni şifre de kirli sayılır (taslakta saklanmasa bile yazılmış
+  // değerdir); pasif hedefte form hiç gösterilmez.
+  useUnsavedChanges("arac-sifre", !inactive && (draft.access !== null || newPassword !== ""));
 
   return (
     <div id="sifre-sifirlama" className="flex flex-col gap-3 border-t border-[var(--color-divider)] pt-6">

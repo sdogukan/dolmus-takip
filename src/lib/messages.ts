@@ -319,3 +319,61 @@ export const DRIVER_SCREEN_MESSAGES = {
     "Ortak şoför şifresi hâlâ geçerli. Erişimi tamamen kesmek için ekipten şifre sıfırlama isteyin.",
   emptyActiveList: "Bu araç için şoför eklenmemiş.",
 } as const;
+
+/** Yönetim ana ekranı araması (`../app/yonetim/admin-search.tsx`). */
+export const ADMIN_SEARCH_MESSAGES = {
+  label: "Plaka veya işletme ara",
+  activeLabel: "Durum",
+  activeAll: "Hepsi",
+  activeOnly: "Aktif",
+  inactiveOnly: "Pasif",
+  loading: "Yükleniyor…",
+  noResults: "Sonuç yok.",
+  noBusinesses: "Henüz işletme yok.",
+  loadMore: "Daha fazla göster",
+  loadingMore: "Yükleniyor…",
+  retry: "Tekrar dene",
+  activeBadge: "Aktif",
+  inactiveBadge: "Pasif",
+  businessInactive: "İşletme pasif",
+  openSupport: "Destek ekranını aç",
+  openVehicle: "Araç bilgisi",
+  resultCount: (count: number, more: boolean): string =>
+    `${count}${more ? "+" : ""} sonuç listelendi.`,
+} as const;
+
+/** Destek ekranı ve sabit hedef başlığı. */
+export const SUPPORT_MESSAGES = {
+  targetRegion: "Destek hedefi",
+  business: (name: string): string => `Destek: ${name}`,
+  vehicleOwner: (plate: string, owner: string): string => `Araç: ${plate} · Sahip: ${owner}`,
+  actor: (username: string, roleLabel: string): string => `İşlemi yapan: ${username} (${roleLabel})`,
+  changeTarget: "Hedefi değiştir",
+  leaveTitle: "Değişiklikleri bırakıp çık?",
+  leaveDescription: "Kaydedilmemiş değişiklikler silinir ve yönetim ana ekranına dönülür.",
+  leaveConfirm: "Bırakıp çık",
+  inactiveTarget: "Araç veya işletme pasif; bilgiler okunabilir, değişiklik yapılamaz.",
+  pageTitle: "Destek",
+  linkDrivers: "Şoförler",
+  linkVehicle: "Araç bilgisi",
+  linkAudit: "Bu aracın işlem geçmişi",
+} as const;
+
+/** İşlem geçmişi ekranı (`../app/yonetim/islem-gecmisi/audit-history.tsx`). */
+export const AUDIT_MESSAGES = {
+  title: "İşlem geçmişi",
+  filterPrefix: "Filtre",
+  clearFilter: "Filtreyi kaldır",
+  loading: "Yükleniyor…",
+  empty: "Henüz işlem kaydı yok.",
+  loadMore: "Daha fazla göster",
+  loadingMore: "Yükleniyor…",
+  retry: "Tekrar dene",
+  noPreviousValue: "Önceki değer yok (yeni kayıt).",
+  before: "Önce",
+  after: "Sonra",
+  onBehalfOf: (name: string): string => `Sahip adına: ${name}`,
+  actorPrefix: "İşlemi yapan",
+  resultCount: (count: number, more: boolean): string =>
+    `${count}${more ? "+" : ""} kayıt listelendi.`,
+} as const;

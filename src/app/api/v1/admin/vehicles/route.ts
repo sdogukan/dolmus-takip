@@ -14,8 +14,18 @@ import { z } from "zod";
 import { scopeSafeObject } from "../../../../../server/auth/scope";
 import { withProtectedRoute } from "../../../../../server/http/handler";
 import { jsonErrorResponse, jsonSuccessResponse } from "../../../../../server/http/errors";
-import { createVehicle, listVehicles } from "../../../../../server/usecases/admin-vehicles";
+import { createVehicle, listVehiclesPage } from "../../../../../server/usecases/admin-vehicles";
 import { fieldErrorsFromZodIssues, mapMutationErrorToResponse, parseJsonBody } from "./_http";
+import { fieldErrorsFromZodIssues as listFieldErrors } from "../_http";
+import {
+  DEFAULT_LIST_LIMIT,
+  LIST_QUERY_FIELD_MESSAGES,
+  listQuerySchema,
+  pickSearchParams,
+} from "../_list-query";
+
+// Araç imleci plakadan (benzersiz) oluşur → tek bileşen.
+const getVehiclesQuerySchema = listQuerySchema(1);
 
 // scopeSafeObject: role/personId/businessId/ownerId gövdede ASLA kabul
 // edilmez — hedef işletme `businessRef` adıyla taşınır (T2.1
@@ -38,8 +48,24 @@ const postVehicleBodySchema = scopeSafeObject({
 
 export const GET = withProtectedRoute({ permission: "vehicle.manage", target: "none" })(
   (ctx) => {
-    const vehiclesList = listVehicles(ctx.db);
-    return jsonSuccessResponse(200, { vehicles: vehiclesList }, { requestId: ctx.requestId });
+    const parsed = getVehiclesQuerySchema.safeParse(
+      pickSearchParams(ctx.request, ["q", "active", "cursor", "limit"]),
+    );
+    if (!parsed.success) {
+      return jsonErrorResponse(422, "VALIDATION_ERROR", "Geçersiz sorgu parametresi.", {
+        fields: listFieldErrors(parsed.error, LIST_QUERY_FIELD_MESSAGES),
+        requestId: ctx.requestId,
+      });
+    }
+    const page = listVehiclesPage(ctx.db, {
+      ...parsed.data,
+      limit: parsed.data.limit ?? DEFAULT_LIST_LIMIT,
+    });
+    return jsonSuccessResponse(
+      200,
+      { vehicles: page.items, nextCursor: page.nextCursor },
+      { requestId: ctx.requestId },
+    );
   },
 );
 

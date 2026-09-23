@@ -19,9 +19,9 @@ import { UnsavedChangesProvider } from "../../../../_components/unsaved-changes"
  * URL'deki araç kimliğinden SUNUCUDA türetilir; sorgu parametresinden işletme
  * kimliği alınmaz.
  *
- * Yalnız GERÇEKTEN var olan işler bağlanır (M1 dürüstlük kuralı): günlük
- * kayıt, teslim onayı ve raporlar bu sürümde yoktur, bağlantı/düğme olarak
- * SUNULMAZ.
+ * Yalnız GERÇEKTEN var olan işler bağlanır (M1 dürüstlük kuralı): çalışma
+ * kaydı formu vardır ve bağlanır; teslim onayı ve raporlar bu sürümde
+ * yoktur, bağlantı/düğme olarak SUNULMAZ.
  */
 export const metadata: Metadata = {
   title: "Destek — Dolmuş Takip",
@@ -93,6 +93,9 @@ export default async function VehicleSupportPage({
         </p>
       )}
       <nav aria-label={SUPPORT_MESSAGES.pageTitle} className="flex flex-col gap-3">
+        <Link href={`/yonetim/araclar/${vehicleId}/kayit/yeni`} className={linkClass}>
+          {SUPPORT_MESSAGES.linkWorkEntry}
+        </Link>
         <Link href={`/yonetim/araclar/${vehicleId}/soforler`} className={linkClass}>
           {SUPPORT_MESSAGES.linkDrivers}
         </Link>

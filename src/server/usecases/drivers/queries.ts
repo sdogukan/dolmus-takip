@@ -2,7 +2,8 @@
  * Şoför sorguları — T2.4. Her okuma `scoped.ts` süzgeçlerinden geçer
  * (işletme + araç); URL'den gelen bir `personId` tek başına ERİŞİM VERMEZ.
  *
- * "Seçilebilir şoför" kuralı TEK YERDE yaşar: `listSelectableDrivers` —
+ * "Seçilebilir şoför" kuralı TEK YERDE yaşar: `selectableDriverWhere`
+ * (`listSelectableDrivers` ve `findSelectableDriver` paylaşır) —
  * araçta AKTİF atama + AKTİF kişi, araç/işletme sahibi HARİÇ.
  */
 import { and, asc, eq, inArray, sql } from "drizzle-orm";
@@ -75,6 +76,16 @@ function requireVehicleId(scope: Scope): string {
   return scope.vehicleId;
 }
 
+/** "Seçilebilir şoför" koşulu — liste ve tekil doğrulama AYNI kuralı paylaşır. */
+function selectableDriverWhere(scope: Scope) {
+  return and(
+    scopedVehicleDriversFilter(scope),
+    eq(vehicleDrivers.active, true),
+    eq(people.active, true),
+    NOT_OWNER_PERSON,
+  );
+}
+
 /** Araçta işe girebilecek şoförler: aktif atama + aktif kişi, sahip hariç. */
 export function listSelectableDrivers(db: AppDatabase, scope: Scope): SelectableDriver[] {
   requireVehicleId(scope);
@@ -85,16 +96,28 @@ export function listSelectableDrivers(db: AppDatabase, scope: Scope): Selectable
       people,
       and(eq(people.businessId, vehicleDrivers.businessId), eq(people.id, vehicleDrivers.personId)),
     )
-    .where(
-      and(
-        scopedVehicleDriversFilter(scope),
-        eq(vehicleDrivers.active, true),
-        eq(people.active, true),
-        NOT_OWNER_PERSON,
-      ),
-    )
+    .where(selectableDriverWhere(scope))
     .orderBy(asc(people.fullName), asc(people.id))
     .all();
+}
+
+/** `listSelectableDrivers` kuralıyla TEK kişi; seçilebilir değilse `undefined`
+ * (yok, başka işletme, pasif, atama pasif veya sahip kişi — ayırt edilmez). */
+export function findSelectableDriver(
+  db: AppDatabase,
+  scope: Scope,
+  personId: string,
+): SelectableDriver | undefined {
+  requireVehicleId(scope);
+  return db
+    .select({ personId: people.id, fullName: people.fullName })
+    .from(vehicleDrivers)
+    .innerJoin(
+      people,
+      and(eq(people.businessId, vehicleDrivers.businessId), eq(people.id, vehicleDrivers.personId)),
+    )
+    .where(and(selectableDriverWhere(scope), eq(people.id, personId)))
+    .get();
 }
 
 /** Yönetim listesi: aktif/pasif tüm atamalar + atanabilir aday kişiler. */

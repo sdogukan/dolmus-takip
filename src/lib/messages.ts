@@ -357,6 +357,7 @@ export const SUPPORT_MESSAGES = {
   linkDrivers: "Şoförler",
   linkVehicle: "Araç bilgisi",
   linkAudit: "Bu aracın işlem geçmişi",
+  linkWorkEntry: "+ Çalışma kaydı gir",
 } as const;
 
 /** İşlem geçmişi ekranı (`../app/yonetim/islem-gecmisi/audit-history.tsx`). */
@@ -452,6 +453,7 @@ export const WORK_ENTRY_MESSAGES = {
   personLoading: "Şoförler yükleniyor…",
   personEmpty: "Bu araçta seçilebilir şoför yok. Araç sahibinden şoför eklemesini iste.",
   personRequired: "Adını seç.",
+  workTypeInvalid: "Kayıt türünü seç.",
   personUnavailable:
     "Bu kişi artık bu araçta seçilemiyor. Liste yenilendi; adını yeniden seç.",
   retry: "Tekrar dene",
@@ -497,4 +499,21 @@ export const WORK_ENTRY_MESSAGES = {
   remainderLabel: "Teslim edilecek tutar",
   remainderNegative:
     "Giderler hasılatı ve payı aşıyor; teslim edilecek tutar eksi görünür. Tutarları kontrol et.",
+  // Sahip / ekip ekranı: açık kayıt türü seçimi (önceden seçili değil).
+  enterLink: "+ Çalışma kaydı gir",
+  pageTitle: "Çalışma kaydı",
+  workTypeLabel: "Kayıt türü",
+  ownerWorked: "Kendim çalıştım",
+  staffOwnerWorked: "Sahip çalıştı",
+  onBehalfOfDriver: "Şoför adına",
+  ownerEmployee: (name: string): string => `Çalışan: ${name} · Mal sahibi`,
+  ownerShareLabel: "Şoför payı",
+  onBehalfShareLabel: "Şoför payı (%20)",
+  ownerRemainderLabel: "Giderlerden sonra kalan",
+  ownerNoShareNote: "Kendi çalışmanda şoför payı ayrılmaz.",
+  staffOwnerNoShareNote: "Sahibin çalışmasında şoför payı ayrılmaz.",
+  managedPersonPlaceholder: "Şoförü seç",
+  managedPersonRequired: "Şoförü seç.",
+  ownerPersonEmpty: "Bu araçta seçilebilir şoför yok. Şoförlerim ekranından şoför ekle.",
+  staffPersonEmpty: "Bu araçta seçilebilir şoför yok. Şoförler ekranından şoför ekle.",
 } as const;

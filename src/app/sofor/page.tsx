@@ -5,7 +5,7 @@ import { readPageSession } from "../../server/auth/page-session";
 import { readVehiclePlateForDisplay } from "../../server/auth/vehicle-plate";
 import { istanbulToday } from "../../lib/work-time";
 import { VehiclePageHeader } from "../_components/vehicle-page-header";
-import { WorkEntryForm } from "./work-entry-form";
+import { WorkEntryForm } from "../_components/work-entry-form";
 
 /**
  * /sofor — şoför ana ekranı (DESIGN.md §1/§2.2). T1.2 ADIM 2/2, S1.2;
@@ -16,7 +16,7 @@ import { WorkEntryForm } from "./work-entry-form";
  * (redirect); rol uyuşmuyorsa rolüne uygun sayfaya yönlendirir (şoför
  * şifresi /sahip'i AÇMAZ)." MILESTONES M1 — "çalışan rapor/günlük kayıt
  * varmış gibi boş yer tutucu ekran sunulmaz". T3.1: günlük kayıt formu
- * (`./work-entry-form.tsx`) burada açılır; kayıt YAZMAZ (T3.4'te yazılır).
+ * (`../_components/work-entry-form.tsx`) burada açılır; kayıt YAZMAZ (T3.4'te yazılır).
  */
 export const metadata: Metadata = {
   title: "Şoför — Dolmuş Takip",

@@ -4,6 +4,7 @@ import {
   SEED_TEST_PASSWORDS,
   SEED_USERNAMES,
 } from "../../scripts/db-seed-dev";
+import { PLATFORM_ROLE_LABELS } from "../../src/lib/messages";
 
 /**
  * Ekip girişi uçtan uca testleri (Chromium + WebKit) — T1.3 ADIM 2/2,
@@ -43,8 +44,11 @@ test.describe("Ekip girişi (/yonetim/giris)", () => {
     await submitTeamLogin(page);
 
     await page.waitForURL("**/yonetim");
-    await expect(page.getByText(SEED_USERNAMES.admin, { exact: false })).toBeVisible();
-    await expect(page.getByText("Yönetici", { exact: false })).toBeVisible();
+    // Kimlik yalnız üst başlıkta aranır: paylaşılan E2E DB'sindeki işletme/
+    // araç bağlantıları aynı alt dizgiyi içerebilir.
+    await expect(page.locator("header")).toContainText(
+      `${SEED_USERNAMES.admin} · ${PLATFORM_ROLE_LABELS.admin}`,
+    );
     // T2.1, S2.1 — M1'in dürüst yer tutucu metni yerini GERÇEK işe
     // (işletme açma + mevcut liste) bıraktı (bkz. `../../src/app/yonetim/
     // page.tsx` üst notu).
@@ -56,8 +60,9 @@ test.describe("Ekip girişi (/yonetim/giris)", () => {
     await submitTeamLogin(page);
 
     await page.waitForURL("**/yonetim");
-    await expect(page.getByText(SEED_USERNAMES.support, { exact: false })).toBeVisible();
-    await expect(page.getByText("Destek", { exact: false })).toBeVisible();
+    await expect(page.locator("header")).toContainText(
+      `${SEED_USERNAMES.support} · ${PLATFORM_ROLE_LABELS.support}`,
+    );
   });
 
   test("pasif hesap → genel hata, form korunur", async ({ page }) => {

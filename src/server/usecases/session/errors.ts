@@ -87,3 +87,21 @@ export class PlatformUserNotFoundError extends Error {
     this.name = "PlatformUserNotFoundError";
   }
 }
+
+/**
+ * T2.2 — `createVehicleSession`in aracın/işletmenin GÜNCEL aktifliğini
+ * `sessions` INSERT'iyle AYNI transaction içinde yeniden denetlediğinde
+ * (giriş/pasifleştirme yarışını kapatmak için — bkz. o dosyanın üst notu)
+ * fırlatılır. `../auth/vehicle-login.ts` bunu YAKALAR ve diğer TÜM
+ * başarısız giriş nedenleriyle (bilinmeyen plaka, yanlış parola) AYNI genel
+ * 401 `INVALID_CREDENTIALS` yanıtına ÇEVİRİR — ARCH §6 "Kullanıcı/plaka
+ * tahmini" ilkesi (hangi durumun gerçekleştiği asla ayırt edilemez) burada
+ * da geçerlidir; bu yüzden bu sınıf `SessionError` DEĞİLDİR (o, `resolveSession`in
+ * 401 ZARFINA doğrudan giden ayrı bir aile — bkz. dosya üstü not).
+ */
+export class VehicleSessionTargetInactiveError extends Error {
+  constructor(message = "Araç veya işletme artık pasif; oturum açılamaz.") {
+    super(message);
+    this.name = "VehicleSessionTargetInactiveError";
+  }
+}

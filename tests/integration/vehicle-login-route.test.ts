@@ -722,6 +722,83 @@ describe("POST /api/v1/auth/vehicle-login (T1.2 ADIM 1/2)", () => {
   });
 
   // -------------------------------------------------------------------
+  // T2.2 risk notu — giriş/pasifleştirme yarışı: parola doğrulaması
+  // (Argon2, asenkron) BAŞLADIKTAN SONRA ama `createVehicleSession`in
+  // `sessions` INSERT'i tamamlanmadan ÖNCE araç/işletme pasifleşirse,
+  // eski (erken okunmuş) aktiflik bilgisine güvenilirse artık pasif bir
+  // hedef için YENİ, İPTAL EDİLMEMİŞ bir oturum açılırdı. `argon2.verify`
+  // casusunun (dosya üstü not — GEÇİŞLİ, sonucu DEĞİŞTİRMEZ) TAM OLARAK
+  // bu ARA ANDA (gerçek Argon2 hesaplaması TAMAMLANDIKTAN, ama
+  // `vehicleLogin`in devam etmesinden HEMEN ÖNCE) aracı/işletmeyi
+  // pasifleştirmesiyle GERÇEK yarış birebir üretilir.
+  // -------------------------------------------------------------------
+  describe("POST /api/v1/auth/vehicle-login — giriş/pasifleştirme yarışı (T2.2)", () => {
+    it("Argon2 doğrulaması sırasında araç pasifleşirse 401 INVALID_CREDENTIALS döner ve oturum AÇILMAZ", async () => {
+      vi.mocked(argon2.verify).mockImplementationOnce(async (digest, password) => {
+        const actual = await vi.importActual<typeof import("argon2")>("argon2");
+        const matched = await actual.verify(digest, password);
+        const lockerSqlite = openDatabaseConnection(dbPath);
+        try {
+          lockerSqlite
+            .prepare("UPDATE vehicles SET active = 0 WHERE id = ?")
+            .run(SEED_IDS.vehicleA1);
+        } finally {
+          lockerSqlite.close();
+        }
+        return matched;
+      });
+
+      const response = await vehicleLoginRoute(
+        loginRequest({
+          plate: SEED_RAW_PLATES.vehicleA1,
+          password: SEED_TEST_PASSWORDS.owner,
+        }),
+      );
+      expect(response.status).toBe(401);
+      const body = await response.json();
+      expect(body.error.code).toBe("INVALID_CREDENTIALS");
+      expect(body.error.message).toBe("Plaka veya şifre yanlış.");
+
+      const sqlite = openDatabaseConnection(dbPath);
+      try {
+        const count = sqlite
+          .prepare(
+            "SELECT COUNT(*) c FROM sessions s JOIN vehicle_credentials vc ON vc.id = s.credential_id WHERE vc.vehicle_id = ?",
+          )
+          .get(SEED_IDS.vehicleA1) as { c: number };
+        expect(count.c).toBe(0);
+      } finally {
+        sqlite.close();
+      }
+    });
+
+    it("Argon2 doğrulaması sırasında işletme pasifleşirse 401 INVALID_CREDENTIALS döner ve oturum AÇILMAZ", async () => {
+      vi.mocked(argon2.verify).mockImplementationOnce(async (digest, password) => {
+        const actual = await vi.importActual<typeof import("argon2")>("argon2");
+        const matched = await actual.verify(digest, password);
+        const lockerSqlite = openDatabaseConnection(dbPath);
+        try {
+          lockerSqlite
+            .prepare("UPDATE businesses SET active = 0 WHERE id = ?")
+            .run(SEED_IDS.businessA);
+        } finally {
+          lockerSqlite.close();
+        }
+        return matched;
+      });
+
+      const response = await vehicleLoginRoute(
+        loginRequest({
+          plate: SEED_RAW_PLATES.vehicleA1,
+          password: SEED_TEST_PASSWORDS.owner,
+        }),
+      );
+      expect(response.status).toBe(401);
+      expect((await response.json()).error.code).toBe("INVALID_CREDENTIALS");
+    });
+  });
+
+  // -------------------------------------------------------------------
   // T1.2 EK DÜZELTME — docs/DECISIONS.md "T1.2 uygulama kararları":
   // Set-Cookie'nin Secure bayrağı APP_ORIGIN'in şemasından türetilir,
   // NODE_ENV'DEN BAĞIMSIZDIR (`../../src/server/auth/cookie.ts`

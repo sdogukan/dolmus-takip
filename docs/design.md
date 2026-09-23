@@ -31,13 +31,13 @@ _All three implemented (src/app/page.tsx, giris, yonetim/giris)._
 | 7 | Sahip — Şoförlerim (planned) | /sahip/soforler |
 | 8 | Ekip — işletme/araç bulma (implemented: business list) | /yonetim |
 | 9 | Ekip — işletme oluşturma (implemented) | /yonetim/isletmeler/yeni |
-| 10 | Ekip — işletme düzenleme (implemented) | /yonetim/isletmeler/:id |
-| 11 | Ekip — araç oluşturma / düzenleme (planned) | /yonetim/isletmeler/:id/araclar/yeni; /yonetim/araclar/:id |
+| 10 | Ekip — işletme düzenleme (implemented; lists the business's vehicles with links and '+ Araç ekle') | /yonetim/isletmeler/:id |
+| 11 | Ekip — araç oluşturma / düzenleme ve pasife alma (implemented) | /yonetim/isletmeler/:id/araclar/yeni; /yonetim/araclar/:id |
 | 12 | Ekip — müşteriye destek alanı (planned) | /yonetim/araclar/:id/destek |
 | 13 | Ekip — işlem geçmişi (planned) | /yonetim/islem-gecmisi |
 | 14 | Yönetici — ekip hesapları (planned) | /yonetim/ekip |
 
-_URLs are DESIGN §1 proposals; implemented routes verified in src/app. Hiding a button never replaces server authorization._
+_URLs are DESIGN §1 proposals; implemented routes verified in src/app. Hiding a button never replaces server authorization. '+ Araç ekle' is shown only for an active business with an owner; the server rejects the other cases with 422 anyway. Vehicle sessions opening either vehicle page are redirected to /sahip or /sofor._
 
 ## Wireframes
 
@@ -436,7 +436,7 @@ Ortak şoför şifresi
 [             Aracı kaydet          ]
 ```
 
-_Derived from DESIGN §2.9 table row 'Araç açma / düzenleme' and vehicles columns; layout approved by the product owner (T2.2/T2.3 planned)._
+_Conflict between the approved wireframe (value kept unchanged) and the code written for this task. new-vehicle-form.tsx labels the password inputs 'Sahip şifresi' / 'Şoför şifresi' instead of the approved 'Mal sahibi şifresi' / 'Ortak şoför şifresi', and adds an optional free-text 'Not' field (vehicles.note) that the wireframe does not show; plate, 'Marka / model', 'Yıl', 'Hat / durak notu' and 'Aracı kaydet' match. The edit screen at /yonetim/araclar/:id (vehicle-detail-form.tsx: 'Araç bilgisi' section with 'Bilgiyi kaydet', 'Aktiflik' section with 'Aracı pasifleştir' / 'Aracı yeniden aktifleştir' behind a confirm dialog; plate not editable) is not drawn in the approved wireframe. Keep the approved wireframe and change the screens, or update the wireframe to the implemented screens?_
 
 ### Araç oluşturma / düzenleme — notes
 

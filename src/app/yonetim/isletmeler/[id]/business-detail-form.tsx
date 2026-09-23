@@ -21,6 +21,7 @@
  * mantığı YAZILMAZ, tek `setDetail(fresh)` üçünü de besler.
  */
 import { useRef, useState, type FormEvent } from "react";
+import Link from "next/link";
 import type { ClientStateScope } from "../../../../lib/client-state";
 import { useStoredDraft } from "../../../../lib/use-stored-draft";
 import { getErrorMessage } from "../../../../lib/messages";
@@ -241,7 +242,7 @@ export function BusinessDetailForm({
         />
       )}
 
-      <VehiclesSection detail={detail} />
+      <VehiclesSection businessId={businessId} detail={detail} />
 
       <ActiveSection
         businessId={businessId}
@@ -708,26 +709,44 @@ function OwnerAssignSection({
 }
 
 // ---------------------------------------------------------------------------
-// Araçlar (salt okunur) — pasifleştirme onayının "etkilenen plakalar"ı da
-// buradan gelir.
+// Araçlar — pasifleştirme onayının "etkilenen plakalar"ı da buradan gelir.
+// "+ Araç ekle" yalnız aktif VE sahipli işletmede gösterilir (sunucu zaten
+// pasif/sahipsiz işletme için POST /admin/vehicles'ı 422 ile reddeder — bu,
+// yalnız erken geri bildirim, tek geçerli denetim DEĞİLDİR).
 // ---------------------------------------------------------------------------
 
-function VehiclesSection({ detail }: { detail: BusinessDetail }) {
+function VehiclesSection({ businessId, detail }: { businessId: string; detail: BusinessDetail }) {
+  const canAddVehicle = detail.business.active && detail.owner !== null;
   return (
     <div className="flex flex-col gap-2">
-      <h2 className="text-xl font-semibold text-[var(--color-text)]">
-        Araçlar ({detail.vehicles.length})
-      </h2>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="text-xl font-semibold text-[var(--color-text)]">
+          Araçlar ({detail.vehicles.length})
+        </h2>
+        {canAddVehicle && (
+          <Link
+            href={`/yonetim/isletmeler/${businessId}/araclar/yeni`}
+            className="min-h-[var(--control-min-height)] flex items-center rounded-[var(--radius-control)] bg-[var(--color-primary)] px-4 text-base font-semibold text-[var(--color-on-primary)] focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--color-primary)]"
+          >
+            + Araç ekle
+          </Link>
+        )}
+      </div>
       {detail.vehicles.length === 0 ? (
         <p className="text-base text-[var(--color-text-secondary)]">Bu işletmede araç yok.</p>
       ) : (
         <ul className="flex flex-col gap-1">
           {detail.vehicles.map((vehicle) => (
-            <li key={vehicle.id} className="flex items-center justify-between text-base text-[var(--color-text)]">
-              <span>{vehicle.plateNormalized}</span>
-              <span className="text-[var(--color-text-secondary)]">
-                {vehicle.active ? "Aktif" : "Pasif"}
-              </span>
+            <li key={vehicle.id}>
+              <Link
+                href={`/yonetim/araclar/${vehicle.id}`}
+                className="flex items-center justify-between gap-4 rounded-[var(--radius-control)] px-2 py-1 text-base text-[var(--color-text)] hover:bg-[var(--color-page)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]"
+              >
+                <span>{vehicle.plateNormalized}</span>
+                <span className="text-[var(--color-text-secondary)]">
+                  {vehicle.active ? "Aktif" : "Pasif"}
+                </span>
+              </Link>
             </li>
           ))}
         </ul>

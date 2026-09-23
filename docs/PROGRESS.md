@@ -24,7 +24,7 @@ Ajan betiği: scratchpad/task-uygula.js (args: task, story, milestone, steps?, e
 
 ## M2 — Araç ve şoför yönetimi
 - [x] T2.1 (S2.1) İşletme ve mal sahibi tanımlama — 2026-09-18, backend (business_owners, admin/businesses API, 1047 satır entegrasyon testi (26 test)) + frontend (/yonetim liste + "İşletme aç", /yonetim/isletmeler/yeni, /yonetim/isletmeler/:id: ad/sahip düzeltme, sahip atama, onaylı pasifleştirme/yeniden aktifleştirme), 258 birim testi, 6 yeni E2E (tests/e2e/admin-businesses.spec.ts) + platform-login.spec.ts'in ana ekran doğrulaması güncellendi; 45/45 E2E (chromium) yeşil, webkit bu ortamda eksik sistem bağımlılığından koşulamadı
-- [ ] T2.2 (S2.2) Araç oluşturma, düzenleme, aktiflik
+- [x] T2.2 (S2.2) Araç oluşturma, düzenleme, aktiflik — 2026-09-23, backend (vehicle_credentials, admin/vehicles API, createVehicle/updateVehicle usecase'leri, 684 satır entegrasyon testi) + frontend (/yonetim/isletmeler/:id/araclar/yeni: bağlı işletme/sahip başlığı, ayrı etiketli sahip/şoför şifresi + Göster/Gizle, /yonetim/araclar/:id: salt okunur plaka, marka/model/yıl/hat-durak/not düzenleme, onaylı pasifleştirme/yeniden aktifleştirme; işletme sayfasına "+ Araç ekle" ve araç satırı bağlantıları), tests/e2e/admin-vehicles.spec.ts (10 yeni E2E: oluşturma/plaka çakışması/eşit şifre/belirsiz sonuç/yetkisiz-oturumsuz erişim/depolama sızıntısı yok + düzenleme/sürüm çakışması/pasifleştirme/404/yetkisiz erişim), lint/typecheck temiz
 - [ ] T2.3 (S2.3) Araç şifrelerini belirleme ve sıfırlama
 - [ ] T2.4 (S2.4) Şoförlerim, sabit kişi, araç atamaları (+F3 uyarısı)
 - [ ] T2.5 (S2.5) Yönetimde müşteri hedefi ve işlem geçmişi

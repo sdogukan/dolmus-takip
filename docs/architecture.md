@@ -111,15 +111,15 @@ _Release build/verify implemented (T6.1); backup/restore/deploy planned for M6._
 
 - Caddy — TLS, HTTPS redirect, request size limit, maintenance response; exposes 80/443, proxies to localhost
 - Next.js app (single Node 24 process, 127.0.0.1:3000) — pages, /api/v1, sessions, authorization, calculations, reports
-- Identity/authorization module (src/server/auth, usecases/auth, usecases/session, usecases/access) — sessions, cookies, CSRF/origin, permissions matrix, scope, rate limit, Argon2 queue
+- Identity/authorization module (src/server/auth, usecases/auth, usecases/session, usecases/access) — sessions, cookies, CSRF/origin, permissions matrix, scope, rate limit, Argon2 queue; vehicle credential hashing + owner≠driver rule (auth/vehicle-password.ts)
 - Receipts module (src/server/usecases/receipts) — request_id idempotency receipts for every mutation
-- Admin module (src/server/usecases/admin-businesses; planned vehicles/users/audit) — businesses, owners, vehicles, passwords, team accounts, support; full audit
+- Admin module (src/server/usecases/admin-businesses, admin-vehicles; planned users/audit) — businesses, owners, vehicles (create/edit/deactivate implemented), passwords, team accounts, support; full audit
 - Work/delivery module (planned, M3–M4) — create, edit, confirm, correct-and-confirm, version conflicts
 - Report module (planned, M5) — period filters and SQL aggregates within authorized scope
 - Data access (src/server/data: Drizzle + better-sqlite3) — parameterized queries, transactions, migrations, scoped filters
 - systemd jobs — app/Caddy services, 30 s health timer, nightly backup preparation, cleanup
 
-_ARCHITECTURE §2 component table mapped onto the actual src/server layout from code; planned modules marked._
+_ARCHITECTURE §2 component table mapped onto the actual src/server layout from code; planned modules marked. T2.2 added usecases/admin-vehicles (createVehicle, updateVehicle, listVehicles, getVehicleDetail) and auth/vehicle-password.ts (Argon2id m=19456/t=2/p=1 through the hash queue, always outside the write transaction; passwordsAreDistinct shared with the planned T2.3 reset)._
 
 ### Database tables
 
@@ -355,7 +355,8 @@ _SQLite has no native TTL; expiry is enforced by checks at request time and clea
 | GET | /api/v1/health/ready | DB + schema readiness (planned) | Localhost only |
 | GET / POST | /api/v1/admin/businesses | List / create business with owner (implemented) | Staff (business.manage) |
 | GET / PATCH | /api/v1/admin/businesses/:businessId | Read / edit name, owner, active (implemented) | Staff (business.manage) |
-| GET / POST / PATCH | /api/v1/admin/vehicles; /api/v1/admin/vehicles/:id | Vehicle create/edit/deactivate (planned T2.2) | Staff |
+| GET / POST | /api/v1/admin/vehicles | List all vehicles incl. inactive / create vehicle with plate, optional info and owner + driver passwords (implemented T2.2) | Staff (vehicle.manage) |
+| GET / PATCH | /api/v1/admin/vehicles/:vehicleId | Read / edit brand-model, year, route stop, note, active (implemented T2.2); plate, business and owner not editable | Staff (vehicle.manage) |
 | POST | /api/v1/admin/vehicles/:id/reset-password | Reset owner or driver password (planned T2.3) | Staff |
 | GET / POST / PATCH | /api/v1/admin/users; /api/v1/admin/users/:id | Team accounts (planned T2.6) | Platform admin |
 | POST | /api/v1/admin/users/:id/reset-password | Team password reset + session revoke (planned) | Platform admin |
@@ -371,7 +372,7 @@ _SQLite has no native TTL; expiry is enforced by checks at request time and clea
 | GET | /api/v1/work-entries/:id/history | Versions and confirmations (planned) | Owner/staff |
 | GET | /api/v1/reports/summary; /reports/people; /reports/vehicles | Period totals and breakdowns (planned M5) | Owner/staff |
 
-_Status codes: 201 create, 200 update, 401/403/404/409/413/415/422/429/503; envelope { error: { code, message, fields? }, request_id }. Staff target on customer endpoints via X-Target-Vehicle header (403 for vehicle sessions). Cents travel as decimal integer strings._
+_Status codes: 201 create, 200 update, 401/403/404/409/413/415/422/429/503; envelope { error: { code, message, fields? }, request_id }. Staff target on customer endpoints via X-Target-Vehicle header (403 for vehicle sessions). Cents travel as decimal integer strings. Vehicle endpoints (T2.2): POST writes vehicle + both vehicle_credentials + admin_audit + receipt in one BEGIN IMMEDIATE transaction; Argon2 hashing runs before it (429 HASH_QUEUE_FULL possible); the request hash excludes passwords, so a replay with the same request_id re-verifies both passwords against the stored hashes and returns 409 REQUEST_ID_REUSED on mismatch; duplicate plate (normalized) or identical owner/driver passwords → 422 fields; PATCH is optimistic on vehicles.version (409 VERSION_CONFLICT), same-value PATCH → 422, active:false revokes the vehicle's sessions in the same transaction and reactivation does not restore them; unknown vehicle → 404 TARGET_VEHICLE_NOT_FOUND; vehicle sessions get 403._
 
 ## Cache Strategy
 

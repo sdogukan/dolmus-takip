@@ -59,6 +59,7 @@ import {
   createVehicleSession,
   type CreateVehicleSessionResult,
 } from "../session/create-vehicle-session";
+import { VehicleSessionTargetInactiveError } from "../session/errors";
 
 // ---------------------------------------------------------------------------
 // Girdi şeması — "role/personId vb. yasak" `scopeSafeObject` KENDİSİ
@@ -316,7 +317,22 @@ export async function vehicleLogin(
     return { ok: false, kind: "invalid_credentials" };
   }
 
-  const session = await createVehicleSession(db, matched.credentialId, clock);
+  let session: CreateVehicleSessionResult;
+  try {
+    session = await createVehicleSession(db, matched.credentialId, clock);
+  } catch (error) {
+    if (error instanceof VehicleSessionTargetInactiveError) {
+      // T2.2 risk notu — giriş/pasifleştirme yarışı: parola BAŞARIYLA
+      // eşleşti ama araç/işletme, oturum INSERT'i anında (`../session/
+      // create-vehicle-session.ts`in atomik yeniden denetimi) artık
+      // pasif. ARCH §6 "Kullanıcı/plaka tahmini" ilkesiyle AYNI genel
+      // yanıt (hangi durumun gerçekleştiği istemciye ASLA sızdırılmaz);
+      // bu, YANLIŞ PAROLA değildir, bu yüzden hız sınırı sayacı
+      // ARTIRILMAZ (yalnız GERÇEK başarısız denemeler sayılır).
+      return { ok: false, kind: "invalid_credentials" };
+    }
+    throw error;
+  }
   const { businessId, vehicleId } = session.context;
   if (!businessId || !vehicleId) {
     // Savunma amaçlı bütünlük denetimi — `createVehicleSession` bir araç

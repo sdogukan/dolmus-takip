@@ -25,6 +25,7 @@ import {
   SessionMissingError,
   SessionRevokedError,
   VehicleCredentialNotFoundError,
+  VehicleSessionTargetInactiveError,
 } from "../../src/server/usecases/session/errors";
 import { resolveSession } from "../../src/server/usecases/session/resolve-session";
 import {
@@ -400,8 +401,17 @@ describe("oturum kullanım durumları (T1.4 ADIM 1/2)", () => {
   });
 
   describe("resolveSession — aktiflik (businesses/vehicles/platform_users)", () => {
-    it("pasif araç (seed: vehicleB2) için SessionRevokedError fırlatır", async () => {
-      const created = await createVehicleSession(db, SEED_IDS.credB2Owner);
+    it("araç SONRADAN pasifleşince SessionRevokedError fırlatır", async () => {
+      // T2.2 — `createVehicleSession` artık aracın/işletmenin GÜNCEL
+      // aktifliğini kendisi de denetler (bkz. aşağıdaki "createVehicleSession
+      // — hedef pasifse" bloğu); bu test SPESİFİK olarak `resolveSession`in
+      // KENDİ (oluşturmadan SONRAKİ) denetimini sınadığından, oturum ÖNCE
+      // aktifken kurulur, SONRA araç pasifleştirilir (işletme testinin
+      // hemen altındaki AYNI desen).
+      const created = await createVehicleSession(db, SEED_IDS.credA1Owner);
+      sqlite
+        .prepare("UPDATE vehicles SET active = 0 WHERE id = ?")
+        .run(SEED_IDS.vehicleA1);
       await expect(resolveSession(db, created.token)).rejects.toThrow(
         SessionRevokedError,
       );
@@ -428,18 +438,54 @@ describe("oturum kullanım durumları (T1.4 ADIM 1/2)", () => {
     });
 
     it("yeniden aktifleştirme, ÖNCEDEN İPTAL EDİLMİŞ (revoked_at dolu) oturumu diriltmez", async () => {
-      const created = await createVehicleSession(db, SEED_IDS.credB2Owner);
-      // Pasif araç zaten SessionRevokedError veriyor; oturumu AYRICA açıkça
-      // iptal edelim (ör. admin pasifleştirme akışının yapacağı gibi).
+      const created = await createVehicleSession(db, SEED_IDS.credA1Owner);
+      // Aracı pasifleştirip oturumu AYRICA açıkça iptal edelim (admin
+      // pasifleştirme akışının yapacağı gibi).
+      sqlite
+        .prepare("UPDATE vehicles SET active = 0 WHERE id = ?")
+        .run(SEED_IDS.vehicleA1);
       await revokeSession(db, created.context.sessionId);
       // Aracı yeniden aktifleştir.
       sqlite
         .prepare("UPDATE vehicles SET active = 1 WHERE id = ?")
-        .run(SEED_IDS.vehicleB2);
+        .run(SEED_IDS.vehicleA1);
       // revoked_at hâlâ dolu olduğundan oturum yine de kullanılamaz.
       await expect(resolveSession(db, created.token)).rejects.toThrow(
         SessionRevokedError,
       );
+    });
+  });
+
+  describe("createVehicleSession — hedef pasifse (T2.2 giriş/pasifleştirme yarışı)", () => {
+    it("araç pasifse VehicleSessionTargetInactiveError fırlatır ve HİÇBİR oturum satırı yazılmaz", async () => {
+      sqlite
+        .prepare("UPDATE vehicles SET active = 0 WHERE id = ?")
+        .run(SEED_IDS.vehicleA1);
+      await expect(createVehicleSession(db, SEED_IDS.credA1Owner)).rejects.toThrow(
+        VehicleSessionTargetInactiveError,
+      );
+      const count = sqlite
+        .prepare("SELECT COUNT(*) c FROM sessions WHERE credential_id = ?")
+        .get(SEED_IDS.credA1Owner) as { c: number };
+      expect(count.c).toBe(0);
+    });
+
+    it("işletme pasifse VehicleSessionTargetInactiveError fırlatır ve HİÇBİR oturum satırı yazılmaz", async () => {
+      sqlite
+        .prepare("UPDATE businesses SET active = 0 WHERE id = ?")
+        .run(SEED_IDS.businessA);
+      await expect(createVehicleSession(db, SEED_IDS.credA1Owner)).rejects.toThrow(
+        VehicleSessionTargetInactiveError,
+      );
+      const count = sqlite
+        .prepare("SELECT COUNT(*) c FROM sessions WHERE credential_id = ?")
+        .get(SEED_IDS.credA1Owner) as { c: number };
+      expect(count.c).toBe(0);
+    });
+
+    it("araç VE işletme aktifken normal şekilde oturum üretir (regresyon)", async () => {
+      const created = await createVehicleSession(db, SEED_IDS.credA2Owner);
+      expect(created.context.vehicleId).toBe(SEED_IDS.vehicleA2);
     });
   });
 

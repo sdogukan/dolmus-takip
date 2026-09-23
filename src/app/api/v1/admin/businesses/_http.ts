@@ -4,17 +4,27 @@
  * (hiçbir HTTP metodu export ETMEZ), bu yüzden Next.js App Router bunu bir
  * uç olarak ELE ALMAZ (bkz. `../../../../_components` ile AYNI "_" önek
  * deseni).
+ *
+ * T2.2 — alana özgü OLMAYAN kısımlar (JSON gövde ayrıştırma, oturum/
+ * kapsam/makbuz/hash-kuyruğu/DB-kilidi hata zarfı) `../_http.ts`'e
+ * ÇIKARILDI (`./vehicles/_http.ts` AYNI kısımları KOPYALAMADAN kullanır);
+ * bu dosyada yalnız İŞLETME'YE ÖZGÜ hata sınıfları ve alan mesajları
+ * kalır — durum kodu/kod/mesaj davranışı BİREBİR AYNI (bkz. `tests/
+ * integration/admin-businesses-routes.test.ts`).
  */
 import type { z } from "zod";
-import { extractTransientSqliteLockError } from "../../../../../server/data/db";
 import { jsonErrorResponse } from "../../../../../server/http/errors";
-import { ScopeTargetInactiveError } from "../../../../../server/data/scoped";
-import { RequestIdReusedError } from "../../../../../server/usecases/receipts/errors";
-import { SessionError } from "../../../../../server/usecases/session/errors";
 import {
   BusinessValidationError,
   BusinessVersionConflictError,
 } from "../../../../../server/usecases/admin-businesses";
+import {
+  fieldErrorsFromZodIssues as fieldErrorsFromZodIssuesGeneric,
+  mapKnownAdminMutationErrorToResponse,
+  parseJsonBody,
+} from "../_http";
+
+export { parseJsonBody };
 
 /**
  * `createBusinessWithOwner`/`updateBusiness`'in FIRLATABİLECEĞİ bilinen
@@ -23,15 +33,6 @@ import {
  * genel 500).
  */
 export function mapMutationErrorToResponse(error: unknown, requestId: string): Response | undefined {
-  if (error instanceof SessionError) {
-    return jsonErrorResponse(401, error.code, error.message, { requestId });
-  }
-  if (error instanceof ScopeTargetInactiveError) {
-    return jsonErrorResponse(error.status, error.code, error.message, { requestId });
-  }
-  if (error instanceof RequestIdReusedError) {
-    return jsonErrorResponse(error.status, error.code, error.message, { requestId });
-  }
   if (error instanceof BusinessVersionConflictError) {
     return jsonErrorResponse(error.status, error.code, error.message, { requestId });
   }
@@ -41,22 +42,7 @@ export function mapMutationErrorToResponse(error: unknown, requestId: string): R
       requestId,
     });
   }
-  const lockError = extractTransientSqliteLockError(error);
-  if (lockError) {
-    // Ayrıntı (SQL/hata mesajı) istemciye DÖNMEZ — yalnız sunucu logu (bkz.
-    // `../../auth/logout/route.ts` aynı ilke). Transaction geri alındığı
-    // için makbuz yazılmamıştır; aynı requestId ile tekrar deneme geçerlidir.
-    console.error(
-      `[admin/businesses] veritabanı kilitli (request_id=${requestId}): ${lockError.message}`,
-    );
-    return jsonErrorResponse(
-      503,
-      "SERVICE_UNAVAILABLE",
-      "Sunucu şu anda hazır değil. Az sonra tekrar deneyin.",
-      { requestId },
-    );
-  }
-  return undefined;
+  return mapKnownAdminMutationErrorToResponse(error, requestId);
 }
 
 /** Bilinen alan yolları (dot-join) → Türkçe alan hata metni. Bilinmeyen bir
@@ -76,23 +62,5 @@ const FIELD_MESSAGES: Record<string, string> = {
 };
 
 export function fieldErrorsFromZodIssues(error: z.ZodError): Record<string, string> {
-  const fields: Record<string, string> = {};
-  for (const issue of error.issues) {
-    const key = issue.path.join(".");
-    if (fields[key] === undefined) {
-      fields[key] = FIELD_MESSAGES[key] ?? "Geçersiz değer.";
-    }
-  }
-  if (Object.keys(fields).length === 0) {
-    fields[""] = "Geçersiz gövde.";
-  }
-  return fields;
-}
-
-export function parseJsonBody(bodyText: string): { ok: true; value: unknown } | { ok: false } {
-  try {
-    return { ok: true, value: bodyText.length > 0 ? JSON.parse(bodyText) : {} };
-  } catch {
-    return { ok: false };
-  }
+  return fieldErrorsFromZodIssuesGeneric(error, FIELD_MESSAGES);
 }

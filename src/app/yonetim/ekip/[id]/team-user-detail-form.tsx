@@ -14,7 +14,7 @@
  * metni oradan gelir). Taslakta yalnız gizli OLMAYAN alanlar saklanır.
  */
 import { useRouter } from "next/navigation";
-import { useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import type { ClientStateScope } from "../../../../lib/client-state";
 import { isDraftStale } from "../../../../lib/draft-version";
 import { TEAM_USER_MESSAGES as TEXT, getErrorMessage } from "../../../../lib/messages";
@@ -203,6 +203,7 @@ function InfoSection({
   const [fieldErrors, setFieldErrors] = useState<{ fullName?: string; platformRole?: string }>({});
   const [banner, setBanner] = useState<{ message: string; conflict: boolean } | null>(null);
   const fullNameRef = useRef<HTMLInputElement>(null);
+  const focusFullNameWhenIdle = useRef(false);
 
   // Bayat taslak içerikle güvenilmez; sonucu belirsiz (pending) taslak asla
   // atılmaz. Yeniden render'da depoya yazılmaz — yalnız bu render için taze
@@ -210,6 +211,13 @@ function InfoSection({
   const stale = isDraftStale({ baseVersion: draft.baseVersion, currentVersion: user.version, pending: draft.pending });
   const effective = stale ? emptyInfo(user) : draft;
   const phase: "idle" | "submitting" | "ambiguous" = isFetching ? "submitting" : effective.pending ? "ambiguous" : "idle";
+
+  useEffect(() => {
+    // Sunucu alan hatası gönderim sürerken gelir ve alan o sırada devre dışıdır.
+    if (phase !== "idle" || !focusFullNameWhenIdle.current) return;
+    focusFullNameWhenIdle.current = false;
+    fullNameRef.current?.focus();
+  }, [phase]);
 
   async function run(body: InfoDraft): Promise<void> {
     setBanner(null);
@@ -234,7 +242,7 @@ function InfoSection({
     const fields = pickFieldErrors(outcome, ["fullName", "platformRole"] as const);
     if (fields) {
       setFieldErrors(fields);
-      if (fields.fullName) fullNameRef.current?.focus();
+      if (fields.fullName) focusFullNameWhenIdle.current = true;
       return;
     }
     setBanner({ message: teamBannerMessage(outcome, REQUEST_ID_REUSED_MESSAGE), conflict: isConflict(outcome) });

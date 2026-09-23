@@ -13,7 +13,7 @@
  * şifreyi kayıtlı özete karşı doğrular.
  */
 import { useRouter } from "next/navigation";
-import { useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent, type RefObject } from "react";
 import type { ClientStateScope } from "../../../../lib/client-state";
 import { TEAM_USER_MESSAGES as TEXT } from "../../../../lib/messages";
 import {
@@ -68,6 +68,14 @@ export function NewTeamUserForm({ csrfToken, scopeKey }: { csrfToken: string; sc
   const usernameRef = useRef<HTMLInputElement>(null);
   const fullNameRef = useRef<HTMLInputElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
+  // Sunucu alan hatası gönderim sürerken gelir ve alanlar o sırada devre dışıdır;
+  // odak, form tekrar açılınca verilir.
+  const focusWhenIdle = useRef<RefObject<HTMLInputElement | null> | null>(null);
+  useEffect(() => {
+    if (phase !== "idle" || !focusWhenIdle.current) return;
+    focusWhenIdle.current.current?.focus();
+    focusWhenIdle.current = null;
+  }, [phase]);
 
   async function send(body: Draft, sentPassword: string): Promise<void> {
     setBanner(null);
@@ -100,7 +108,7 @@ export function NewTeamUserForm({ csrfToken, scopeKey }: { csrfToken: string; sc
     const fields = pickFieldErrors(outcome, ["username", "fullName", "password"] as const);
     if (fields) {
       setFieldErrors(fields);
-      (fields.username ? usernameRef : fields.fullName ? fullNameRef : passwordRef).current?.focus();
+      focusWhenIdle.current = fields.username ? usernameRef : fields.fullName ? fullNameRef : passwordRef;
       return;
     }
     setBanner(teamBannerMessage(outcome, TEXT.requestIdReusedCreate));

@@ -15,7 +15,7 @@
  * sonra girişe (`?oturum=bitti`) gönderilir.
  */
 import { useRouter } from "next/navigation";
-import { useRef, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import type { ClientStateScope } from "../../../../lib/client-state";
 import { TEAM_USER_MESSAGES as TEXT } from "../../../../lib/messages";
 import {
@@ -69,6 +69,13 @@ export function TeamUserPasswordResetSection({
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
+  const focusPasswordWhenIdle = useRef(false);
+  useEffect(() => {
+    // Sunucu alan hatası gönderim sürerken gelir ve alan o sırada devre dışıdır.
+    if (phase !== "idle" || !focusPasswordWhenIdle.current) return;
+    focusPasswordWhenIdle.current = false;
+    passwordRef.current?.focus();
+  }, [phase]);
 
   function hadKnownResult(): boolean {
     return passwordError !== null || banner !== null;
@@ -111,7 +118,7 @@ export function TeamUserPasswordResetSection({
     const fields = pickFieldErrors(outcome, ["newPassword"] as const);
     if (fields?.newPassword) {
       setPasswordError(fields.newPassword);
-      passwordRef.current?.focus();
+      focusPasswordWhenIdle.current = true;
       return;
     }
     setBanner({

@@ -11,11 +11,10 @@
  * Parse/doğrulama/hash kilit DIŞINDA yapılır; transaction gövdesi senkrondur.
  */
 import crypto from "node:crypto";
-import { and, eq } from "drizzle-orm";
 import { systemClock, type Clock } from "../../auth/session";
 import type { Scope } from "../../auth/scope";
 import { withImmediateTransaction, type AppDatabase } from "../../data/db";
-import { adminAudit, people, workEntries, workEntryRevisions } from "../../data/schema";
+import { adminAudit, workEntries, workEntryRevisions } from "../../data/schema";
 import { hashRequestPayload } from "../admin-businesses/request-hash";
 import { recordReceipt } from "../receipts/record-receipt";
 import { resolveReceipt } from "../receipts/resolve-receipt";
@@ -26,6 +25,7 @@ import {
   type PrepareWorkEntryCreateResult,
   type WorkEntryCreateInput,
 } from "./prepare-create";
+import { readWorkEntryView, type WorkEntryView } from "./queries";
 import { workEntrySubjectSchema } from "./subject";
 
 export const WORK_ENTRY_CREATE_OPERATION = "work_entry.create";
@@ -34,27 +34,6 @@ export interface CreateWorkEntryParams {
   requestId: string;
   /** Ham gövde (istemcinin gönderdiği nesne); doğrulama use case'te yapılır. */
   body: unknown;
-}
-
-/** API sözleşmesi: tüm kuruş alanları ondalık tam sayı METNİ. */
-export interface WorkEntryView {
-  id: string;
-  version: number;
-  status: "pending" | "confirmed" | "not_required";
-  workKind: "owner" | "driver";
-  workDate: string;
-  startsAt: string;
-  endsAt: string;
-  durationMinutes: number;
-  grossCents: string;
-  fuelCents: string;
-  otherExpenseCents: string;
-  shareCents: string;
-  remainderCents: string;
-  otherExpenseNote: string | null;
-  shareBps: number;
-  calculationVersion: number;
-  person: { id: string; fullName: string };
 }
 
 export type CreateWorkEntryResult =
@@ -83,53 +62,6 @@ function computeRequestHash(body: unknown): string | undefined {
     otherExpenseCents: input.data.otherExpenseCents.toString(),
     otherExpenseNote: input.data.otherExpenseNote,
   });
-}
-
-/** Kapsam süzgeçli okuma: başka işletme/araç kaydı ASLA dönmez. */
-function readWorkEntryView(
-  db: AppDatabase,
-  scope: Scope,
-  entryId: string,
-): WorkEntryView | undefined {
-  if (!scope.vehicleId) {
-    throw new Error("createWorkEntry: scope.vehicleId eksik (programlama hatası).");
-  }
-  const row = db
-    .select({ entry: workEntries, fullName: people.fullName })
-    .from(workEntries)
-    .innerJoin(
-      people,
-      and(eq(people.businessId, workEntries.businessId), eq(people.id, workEntries.personId)),
-    )
-    .where(
-      and(
-        eq(workEntries.businessId, scope.businessId),
-        eq(workEntries.vehicleId, scope.vehicleId),
-        eq(workEntries.id, entryId),
-      ),
-    )
-    .get();
-  if (!row) return undefined;
-  const e = row.entry;
-  return {
-    id: e.id,
-    version: e.version,
-    status: e.status,
-    workKind: e.workKind,
-    workDate: e.workDate,
-    startsAt: e.startsAt,
-    endsAt: e.endsAt,
-    durationMinutes: e.durationMinutes,
-    grossCents: String(e.grossCents),
-    fuelCents: String(e.fuelCents),
-    otherExpenseCents: String(e.otherExpenseCents),
-    shareCents: String(e.shareCents),
-    remainderCents: String(e.remainderCents),
-    otherExpenseNote: e.otherExpenseNote,
-    shareBps: e.shareBps,
-    calculationVersion: e.calculationVersion,
-    person: { id: e.personId, fullName: row.fullName },
-  };
 }
 
 function insertEntryWithRevision(

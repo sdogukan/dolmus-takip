@@ -1,9 +1,11 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getAppDb } from "../../server/data/app-db";
 import { readPageSession } from "../../server/auth/page-session";
 import { computeScopeKey } from "../../server/auth/scope";
 import { readVehiclePlateForDisplay } from "../../server/auth/vehicle-plate";
+import { WORK_ENTRY_MESSAGES } from "../../lib/messages";
 import { istanbulToday } from "../../lib/work-time";
 import { VehiclePageHeader } from "../_components/vehicle-page-header";
 import { WorkEntryForm } from "../_components/work-entry-form";
@@ -61,6 +63,12 @@ export default async function SoforPage() {
         scopeKey={computeScopeKey(context)}
         csrfToken={context.csrfToken}
       />
+      <Link
+        href="/sofor/kayitlar"
+        className="inline-flex min-h-[var(--control-min-height)] items-center rounded-[var(--radius-control)] border border-[var(--color-input-border)] px-4 text-base font-medium text-[var(--color-text)]"
+      >
+        {WORK_ENTRY_MESSAGES.listLink}
+      </Link>
     </main>
   );
 }

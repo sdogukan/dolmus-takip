@@ -10,7 +10,7 @@ import { WORK_ENTRY_MESSAGES as TEXT } from "../../../lib/messages";
 import { scopeSafeObject } from "../../auth/scope";
 
 /** Kişi kimliği için kaba üst sınır (kimlikler UUID'dir). */
-const WORKER_PERSON_ID_MAX_LENGTH = 64;
+export const WORKER_PERSON_ID_MAX_LENGTH = 64;
 
 export const WORK_TYPES = ["owner", "driver"] as const;
 export type WorkType = (typeof WORK_TYPES)[number];

@@ -27,6 +27,7 @@ const WRITTEN_ACTIONS = [
   "vehicle_driver.activate",
   "vehicle_driver.deactivate",
   "work_entry.create",
+  "work_entry.update",
   "platform_user.bootstrap",
   "platform_user.reset_password",
   "platform_user.create",
@@ -37,8 +38,8 @@ const WRITTEN_ACTIONS = [
 ];
 
 describe("auditActionLabel", () => {
-  it("yazılan 25 işlemin hepsi ham koddan farklı bir etiket taşır", () => {
-    expect(WRITTEN_ACTIONS).toHaveLength(25);
+  it("yazılan 26 işlemin hepsi ham koddan farklı bir etiket taşır", () => {
+    expect(WRITTEN_ACTIONS).toHaveLength(26);
     for (const code of WRITTEN_ACTIONS) {
       expect(auditActionLabel(code), code).not.toBe(code);
     }

@@ -9,7 +9,7 @@
  */
 import { clientStateKey, type ClientStateScope, type StorageLike } from "./client-state";
 import { driversDraftName } from "./drivers-ui";
-import { workEntryDraftName } from "./work-entry-ui";
+import { workEntryDraftName, workEntryEditDraftPrefix } from "./work-entry-ui";
 
 export function vehicleDetailDraftName(vehicleId: string): string {
   return `arac-${vehicleId}`;
@@ -20,7 +20,7 @@ export function vehicleResetDraftName(vehicleId: string): string {
 }
 
 /** Bir aracın dört formunun (bilgi/aktiflik, şifre sıfırlama, şoförler,
- * çalışma kaydı) taslak adları. */
+ * çalışma kaydı) taslak adları; kayıt düzenleme taslakları ayrıca önekle silinir. */
 export function vehicleDraftNames(vehicleId: string): string[] {
   return [
     vehicleDetailDraftName(vehicleId),
@@ -28,6 +28,22 @@ export function vehicleDraftNames(vehicleId: string): string[] {
     driversDraftName(vehicleId),
     workEntryDraftName(vehicleId),
   ];
+}
+
+/** Bu aracın kayıt düzenleme taslakları (kayıt başına bir tane) — adları önceden
+ * bilinmediğinden anahtar önekiyle bulunur. */
+function entryEditDraftKeys(storage: StorageLike, scope: ClientStateScope, vehicleId: string): string[] {
+  const prefix = clientStateKey(scope, workEntryEditDraftPrefix(vehicleId));
+  const keys: string[] = [];
+  try {
+    for (let index = 0; index < storage.length; index += 1) {
+      const key = storage.key(index);
+      if (key !== null && key.startsWith(prefix)) keys.push(key);
+    }
+  } catch {
+    // En iyi çaba — bulunamayan anahtar en fazla TTL'e kadar yaşar.
+  }
+  return keys;
 }
 
 /** Yalnız bu aracın taslaklarını siler; başka araç/kapsam anahtarlarına
@@ -38,9 +54,13 @@ export function clearVehicleDrafts(
   scope: ClientStateScope,
   vehicleId: string,
 ): void {
-  for (const name of vehicleDraftNames(vehicleId)) {
+  const keys = [
+    ...vehicleDraftNames(vehicleId).map((name) => clientStateKey(scope, name)),
+    ...entryEditDraftKeys(storage, scope, vehicleId),
+  ];
+  for (const key of keys) {
     try {
-      storage.removeItem(clientStateKey(scope, name));
+      storage.removeItem(key);
     } catch {
       // En iyi çaba — kalan anahtar en fazla TTL'e kadar yaşar.
     }

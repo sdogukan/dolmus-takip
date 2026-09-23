@@ -16,6 +16,7 @@ import type { ClientStateScope } from "../../../../lib/client-state";
 import { useStoredDraft } from "../../../../lib/use-stored-draft";
 import { getErrorMessage } from "../../../../lib/messages";
 import { formatPlateForDisplay } from "../../../../lib/plate";
+import { isDraftStale } from "../../../../lib/draft-version";
 import { ConfirmDialog } from "../../../_components/confirm-dialog";
 
 interface VehicleDetail {
@@ -113,6 +114,14 @@ function ErrorBanner({ banner }: { banner: Banner }) {
   );
 }
 
+/**
+ * `baseVersion` — bu taslağın alan değerlerinin (veya `active.target`ın)
+ * DAYANDIĞI `vehicles.version`; PATCH HER ZAMAN bunu gönderir, o anki
+ * `detail.vehicle.version`'ı DEĞİL (review bulgusu C1). `isDraftStale`
+ * (`../../../../lib/draft-version.ts`) bunu `detail.vehicle.version`'la
+ * karşılaştırarak taslağın hâlâ geçerli mi yoksa arada başka bir sekme/
+ * ekip üyesinin kaydettiği daha yeni bir sürüme mi bayatladığını saptar.
+ */
 interface DetailDraft {
   info: {
     requestId: string;
@@ -121,9 +130,9 @@ interface DetailDraft {
     routeStop: string;
     note: string;
     pending: boolean;
-    version?: number;
+    baseVersion: number;
   };
-  active: { requestId: string; target: boolean; pending: boolean; version?: number } | null;
+  active: { requestId: string; target: boolean; pending: boolean; baseVersion: number } | null;
 }
 
 function emptyDraft(detail: VehicleDetail): DetailDraft {
@@ -135,6 +144,7 @@ function emptyDraft(detail: VehicleDetail): DetailDraft {
       routeStop: detail.vehicle.routeStop ?? "",
       note: detail.vehicle.note ?? "",
       pending: false,
+      baseVersion: detail.vehicle.version,
     },
     active: null,
   };
@@ -238,11 +248,25 @@ function InfoSection({
   const routeStopRef = useRef<HTMLInputElement>(null);
   const noteRef = useRef<HTMLTextAreaElement>(null);
 
+  // Bayat taslak (başka bir sekme/ekip üyesi arada kaydetmiş) İÇERİKLE
+  // GÜVENİLMEZ — `!draft.pending` koruması sayesinde sonucu belirsiz
+  // (ambiguous) bir taslak asla atılmaz (dondurulmuş gövde/sürüm "Tekrar
+  // kontrol et" için gerekir). Yeniden render'da localStorage'a HİÇBİR ŞEY
+  // YAZILMAZ — `effective` yalnız bu render için TAZE sunucu değerlerini
+  // KULLANIR; taslak, kullanıcı bir alanı değiştirdiğinde veya gönderdiğinde
+  // (ilk aşağıdaki iki fonksiyon) GERÇEKTEN üzerine yazılır.
+  const stale = isDraftStale({
+    baseVersion: draft.baseVersion,
+    currentVersion: detail.vehicle.version,
+    pending: draft.pending,
+  });
+  const effective = stale ? emptyDraft(detail).info : draft;
+
   async function run(body: DetailDraft["info"]): Promise<void> {
     setBanner(null);
     const outcome = await patchVehicle(vehicleId, csrfToken, {
       requestId: body.requestId,
-      version: body.version ?? detail.vehicle.version,
+      version: body.baseVersion,
       brandModel: body.brandModel.trim() || null,
       year: body.year.trim() ? Number(body.year) : null,
       routeStop: body.routeStop.trim() || null,
@@ -257,7 +281,7 @@ function InfoSection({
       onSaved(outcome.detail);
       return;
     }
-    onDraftChange({ ...body, pending: false, version: undefined });
+    onDraftChange({ ...body, pending: false });
     if (outcome.status === 422 && outcome.fields) {
       const nextErrors = {
         brandModel: outcome.fields.brandModel,
@@ -282,7 +306,7 @@ function InfoSection({
     if (phase !== "idle") return;
     setFieldErrors({});
     setIsFetching(true);
-    const sent = { ...draft, pending: true, version: detail.vehicle.version };
+    const sent = { ...effective, pending: true };
     onDraftChange(sent);
     await run(sent);
     setIsFetching(false);
@@ -295,19 +319,19 @@ function InfoSection({
       setBanner(null);
     }
     onDraftChange({
-      ...draft,
+      ...effective,
       [field]: value,
-      requestId: hadKnownError ? randomRequestId() : draft.requestId,
+      requestId: hadKnownError ? randomRequestId() : effective.requestId,
       pending: false,
     });
   }
 
   const disabled = phase !== "idle";
   const hasChange =
-    draft.brandModel.trim() !== (detail.vehicle.brandModel ?? "") ||
-    draft.year.trim() !== (detail.vehicle.year !== null ? String(detail.vehicle.year) : "") ||
-    draft.routeStop.trim() !== (detail.vehicle.routeStop ?? "") ||
-    draft.note.trim() !== (detail.vehicle.note ?? "");
+    effective.brandModel.trim() !== (detail.vehicle.brandModel ?? "") ||
+    effective.year.trim() !== (detail.vehicle.year !== null ? String(detail.vehicle.year) : "") ||
+    effective.routeStop.trim() !== (detail.vehicle.routeStop ?? "") ||
+    effective.note.trim() !== (detail.vehicle.note ?? "");
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-3">
@@ -320,7 +344,7 @@ function InfoSection({
             type="button"
             onClick={async () => {
               setIsFetching(true);
-              await run(draft);
+              await run(effective);
               setIsFetching(false);
             }}
             className="min-h-[var(--control-min-height)] self-start rounded-[var(--radius-control)] border border-[var(--color-input-border)] px-4 text-base font-medium text-[var(--color-text)]"
@@ -338,7 +362,7 @@ function InfoSection({
           ref={brandModelRef}
           id="vehicle-brand-model-edit"
           type="text"
-          value={draft.brandModel}
+          value={effective.brandModel}
           disabled={disabled}
           onChange={(event) => handleChange("brandModel", event.target.value)}
           aria-invalid={fieldErrors.brandModel ? true : undefined}
@@ -361,7 +385,7 @@ function InfoSection({
           id="vehicle-year-edit"
           type="number"
           inputMode="numeric"
-          value={draft.year}
+          value={effective.year}
           disabled={disabled}
           onChange={(event) => handleChange("year", event.target.value)}
           aria-invalid={fieldErrors.year ? true : undefined}
@@ -383,7 +407,7 @@ function InfoSection({
           ref={routeStopRef}
           id="vehicle-route-stop-edit"
           type="text"
-          value={draft.routeStop}
+          value={effective.routeStop}
           disabled={disabled}
           onChange={(event) => handleChange("routeStop", event.target.value)}
           aria-invalid={fieldErrors.routeStop ? true : undefined}
@@ -405,7 +429,7 @@ function InfoSection({
           ref={noteRef}
           id="vehicle-note-edit"
           rows={3}
-          value={draft.note}
+          value={effective.note}
           disabled={disabled}
           onChange={(event) => handleChange("note", event.target.value)}
           aria-invalid={fieldErrors.note ? true : undefined}
@@ -452,9 +476,24 @@ function ActiveSection({
   onSaved: (detail: VehicleDetail) => void;
 }) {
   const [isFetching, setIsFetching] = useState(false);
+  // Aynı bayatlık kuralı Info bölümüyle PAYLAŞILIR (risk notu — "aktiflik
+  // taslağının bayat bir hedef taşıyıp taşımadığı" denetimi): `target`
+  // (aktif/pasif) her `startAction` tıklamasında TAZE hesaplandığından
+  // normalde bayat İÇERİK taşımaz, ama sonucu belirsiz (pending) bir
+  // deneme dondurduğu `baseVersion`, dialog açıkken (henüz pending
+  // OLMADAN) arada başka bir mini-formun sürümü artırmasıyla bayatlayabilir
+  // — bu durumda dialog KENDİLİĞİNDEN kapanır (aşağıdaki `open` denetimi).
+  const stale =
+    draft !== null &&
+    isDraftStale({
+      baseVersion: draft.baseVersion,
+      currentVersion: detail.vehicle.version,
+      pending: draft.pending,
+    });
+  const effective = stale ? null : draft;
   const phase: "idle" | "submitting" | "ambiguous" = isFetching
     ? "submitting"
-    : draft?.pending
+    : effective?.pending
       ? "ambiguous"
       : "idle";
   const [banner, setBanner] = useState<Banner | null>(null);
@@ -464,7 +503,7 @@ function ActiveSection({
     setBanner(null);
     const outcome = await patchVehicle(vehicleId, csrfToken, {
       requestId: body.requestId,
-      version: body.version ?? detail.vehicle.version,
+      version: body.baseVersion,
       active: body.target,
     });
     if (outcome.kind === "ambiguous") {
@@ -476,7 +515,7 @@ function ActiveSection({
       onSaved(outcome.detail);
       return;
     }
-    onDraftChange({ ...body, pending: false, version: undefined });
+    onDraftChange({ ...body, pending: false });
     setBanner(bannerFor(outcome));
   }
 
@@ -485,9 +524,10 @@ function ActiveSection({
       requestId: randomRequestId(),
       target,
       pending: false,
+      baseVersion: detail.vehicle.version,
     };
     if (target) {
-      const sent = { ...body, pending: true, version: detail.vehicle.version };
+      const sent = { ...body, pending: true };
       onDraftChange(sent);
       setIsFetching(true);
       await run(sent);
@@ -500,8 +540,8 @@ function ActiveSection({
 
   async function confirmDeactivate(): Promise<void> {
     setDialogOpen(false);
-    if (!draft) return;
-    const sent = { ...draft, pending: true, version: detail.vehicle.version };
+    if (!effective) return;
+    const sent = { ...effective, pending: true };
     onDraftChange(sent);
     setIsFetching(true);
     await run(sent);
@@ -514,14 +554,14 @@ function ActiveSection({
     <div className="flex flex-col gap-3 border-t border-[var(--color-divider)] pt-6">
       <h2 className="text-xl font-semibold text-[var(--color-text)]">Aktiflik</h2>
       {banner && <ErrorBanner banner={banner} />}
-      {phase === "ambiguous" && draft && (
+      {phase === "ambiguous" && effective && (
         <div role="status" className="flex flex-col gap-3 rounded-[var(--radius-control)] bg-[var(--color-warning-surface)] px-3 py-2 text-base text-[var(--color-warning)]">
           <p>Kaydın sonucu kontrol ediliyor.</p>
           <button
             type="button"
             onClick={async () => {
               setIsFetching(true);
-              await run(draft);
+              await run(effective);
               setIsFetching(false);
             }}
             className="min-h-[var(--control-min-height)] self-start rounded-[var(--radius-control)] border border-[var(--color-input-border)] px-4 text-base font-medium text-[var(--color-text)]"
@@ -542,7 +582,7 @@ function ActiveSection({
             onClick={() => startAction(false)}
             className="min-h-[var(--control-min-height)] self-start rounded-[var(--radius-control)] bg-[var(--color-error)] px-4 text-base font-semibold text-white disabled:opacity-70"
           >
-            {phase === "submitting" && draft?.target === false ? "Pasifleştiriliyor…" : "Aracı pasifleştir"}
+            {phase === "submitting" && effective?.target === false ? "Pasifleştiriliyor…" : "Aracı pasifleştir"}
           </button>
         </>
       ) : (
@@ -557,13 +597,13 @@ function ActiveSection({
             onClick={() => startAction(true)}
             className="min-h-[var(--control-min-height)] self-start rounded-[var(--radius-control)] bg-[var(--color-primary)] px-4 text-base font-semibold text-[var(--color-on-primary)] disabled:opacity-70"
           >
-            {phase === "submitting" && draft?.target === true ? "Aktifleştiriliyor…" : "Aracı yeniden aktifleştir"}
+            {phase === "submitting" && effective?.target === true ? "Aktifleştiriliyor…" : "Aracı yeniden aktifleştir"}
           </button>
         </>
       )}
 
       <ConfirmDialog
-        open={dialogOpen}
+        open={dialogOpen && effective !== null}
         title="Aracı pasifleştir"
         description={
           <div className="flex flex-col gap-2">

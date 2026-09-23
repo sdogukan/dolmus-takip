@@ -199,6 +199,103 @@ test.describe("Araç oluşturma (/yonetim/isletmeler/:id/araclar/yeni)", () => {
     await page.waitForURL(/\/yonetim\/araclar\/[0-9a-f-]{36}$/);
   });
 
+  test("gönderim belirsizken (sayfa yenilenmeden) şifre alanları kilitlenir; aynı şifrelerle yeniden denenir", async ({
+    page,
+  }) => {
+    // C2 (istemci yarısı) review bulgusu — sayfa YENİLENMEDEN, "ambiguous"
+    // durumdayken şifre alanları hâlâ DOLU (bellekte); bu alanlar
+    // düzenlenebilir kalırsa "Tekrar kontrol et" YANLIŞLIKLA farklı bir
+    // şifreyle aynı requestId'yi gönderebilir (409 REQUEST_ID_REUSED).
+    await loginAsAdmin(page);
+    const businessId = await createBusinessViaUi(page, `Kilit ${Date.now()}`, "Derya Sahip");
+    const plate = uniqueRawPlate("KLT");
+
+    await page.goto(`/yonetim/isletmeler/${businessId}/araclar/yeni`);
+    await fillNewVehicleForm(page, {
+      plate,
+      ownerPassword: "sahip-klt-1",
+      driverPassword: "sofor-klt-1",
+    });
+
+    await page.route("**/api/v1/admin/vehicles", async (route) => {
+      await route.abort();
+    });
+    await page.getByRole("button", { name: "Aracı kaydet" }).click();
+    await expect(page.getByText("Kaydın sonucu kontrol ediliyor.")).toBeVisible();
+
+    // Bellekteki ORİJİNAL şifreler görünür kalır ama artık KİLİTLİDİR.
+    const ownerPasswordInput = page.getByLabel("Sahip şifresi");
+    const driverPasswordInput = page.getByLabel("Şoför şifresi");
+    await expect(ownerPasswordInput).toHaveValue("sahip-klt-1");
+    await expect(driverPasswordInput).toHaveValue("sofor-klt-1");
+    await expect(ownerPasswordInput).toBeDisabled();
+    await expect(driverPasswordInput).toBeDisabled();
+
+    await page.unroute("**/api/v1/admin/vehicles");
+    // Yeniden yazmaya gerek yok — kilitli alanlar zaten doğru değeri taşır.
+    await page.getByRole("button", { name: "Tekrar kontrol et" }).click();
+
+    await page.waitForURL(/\/yonetim\/araclar\/[0-9a-f-]{36}$/);
+  });
+
+  test("409 REQUEST_ID_REUSED 'zaten oluşturulmuş olabilir' metnini işletme bağlantısıyla gösterir; sonraki gönderim yeni requestId kullanır", async ({
+    page,
+  }) => {
+    // C3 review bulgusu — requestId rotasyonu yalnız 422 alan hatasına
+    // değil, 409/403/429 gibi alan dışı (banner) kesin sonuçlara da bağlı
+    // olmalı; aksi halde aynı requestId 24 saatlik taslakta kalır ve HER
+    // sonraki gönderim yine 409'a düşer.
+    await loginAsAdmin(page);
+    const businessId = await createBusinessViaUi(page, `Tekrar Kullanım ${Date.now()}`, "Emre Sahip");
+    const plate = uniqueRawPlate("RID");
+
+    await page.goto(`/yonetim/isletmeler/${businessId}/araclar/yeni`);
+    await fillNewVehicleForm(page, {
+      plate,
+      ownerPassword: "sahip-rid-1",
+      driverPassword: "sofor-rid-1",
+    });
+
+    const seenRequestIds: string[] = [];
+    let callCount = 0;
+    await page.route("**/api/v1/admin/vehicles", async (route) => {
+      const body = route.request().postDataJSON() as { requestId: string };
+      seenRequestIds.push(body.requestId);
+      callCount += 1;
+      if (callCount === 1) {
+        await route.fulfill({
+          status: 409,
+          contentType: "application/json",
+          body: JSON.stringify({
+            error: {
+              code: "REQUEST_ID_REUSED",
+              message: "Bu istek kimliği farklı bir işlem türü için zaten kullanılmış.",
+            },
+          }),
+        });
+        return;
+      }
+      await route.continue();
+    });
+
+    await page.getByRole("button", { name: "Aracı kaydet" }).click();
+    await expect(
+      page.getByRole("alert").filter({ hasText: "Bu araç zaten oluşturulmuş olabilir." }),
+    ).toBeVisible();
+    await expect(page.getByRole("link", { name: "İşletmeye dön" })).toHaveAttribute(
+      "href",
+      `/yonetim/isletmeler/${businessId}`,
+    );
+
+    // Bir alanı değiştirip tekrar gönderir — YENİ bir requestId kullanılmalı.
+    await page.getByLabel("Marka / model").fill("Renault Kangoo");
+    await page.getByRole("button", { name: "Aracı kaydet" }).click();
+    await page.waitForURL(/\/yonetim\/araclar\/[0-9a-f-]{36}$/);
+
+    expect(seenRequestIds).toHaveLength(2);
+    expect(seenRequestIds[0]).not.toBe(seenRequestIds[1]);
+  });
+
   test("araç (owner/driver) oturumu araç ekleme sayfasını açamaz", async ({ page }) => {
     await page.goto("/giris");
     await page.getByLabel("Plaka").fill(SEED_RAW_PLATES.vehicleA1);
@@ -328,6 +425,57 @@ test.describe("Araç detayı (/yonetim/araclar/:id)", () => {
       page.getByRole("alert").filter({ hasText: "Bu kayıt değişmiş. Güncel halini açıp tekrar kontrol et." }),
     ).toBeVisible();
     await expect(page.getByLabel("Not", { exact: true })).toHaveValue("Bu sekmeden değişiklik");
+  });
+
+  test("bayat taslak: ikinci bir tarayıcı bağlamı araya kaydedince, taslağı gönderilmeden bırakılan ilk bağlam sayfa yenilenince güncel sunucu değerlerini gösterir", async ({
+    page,
+    browser,
+  }) => {
+    // C1 review bulgusu — taslak, hangi `version`'a dayandığı bilgisi
+    // OLMADAN saklanıyordu; PATCH'in TAZE `detail.vehicle.version`'ı
+    // göndermesi bayat alan değerleriyle iyimser sürüm denetimini
+    // ATLATIYORDU (başka bir ekip üyesinin değişikliği SESSİZCE üzerine
+    // yazılıyordu). Burada gerçekten AYRI bir tarayıcı bağlamı (kendi
+    // localStorage'ı, kendi oturumu) kullanılır — `iki sekmeden eski
+    // sürümle kaydetme` testinin AKSİNE, ilk bağlamın taslağı GÖNDERİLMEDEN
+    // (yalnız yazılıp) sayfa YENİLENİR.
+    await loginAsAdmin(page);
+    const businessId = await createBusinessViaUi(page, `Bayat Taslak ${Date.now()}`, "Deniz Sahip");
+    const vehicleId = await createVehicleViaUi(page, businessId, {
+      plate: uniqueRawPlate("BYT"),
+      ownerPassword: "sahip-byt-1",
+      driverPassword: "sofor-byt-1",
+    });
+
+    // İlk bağlam — bir alanı değiştirir ama GÖNDERMEZ (taslak version 1
+    // tabanıyla localStorage'a yazılır).
+    await page.goto(`/yonetim/araclar/${vehicleId}`);
+    await page.getByLabel("Marka / model").fill("Fiat Doblo");
+    await expect(page.getByLabel("Marka / model")).toHaveValue("Fiat Doblo");
+
+    // İkinci, TAMAMEN AYRI bir tarayıcı bağlamı — aynı araç için AYRI bir
+    // alanı kaydeder (version 1 -> 2).
+    const secondContext = await browser.newContext();
+    try {
+      const secondPage = await secondContext.newPage();
+      await loginAsAdmin(secondPage);
+      await secondPage.goto(`/yonetim/araclar/${vehicleId}`);
+      await secondPage.getByLabel("Not", { exact: true }).fill("İkinci bağlamdan not");
+      await secondPage.getByRole("button", { name: "Bilgiyi kaydet" }).click();
+      await expect(secondPage.getByRole("button", { name: "Bilgiyi kaydet" })).toBeDisabled();
+    } finally {
+      await secondContext.close();
+    }
+
+    // İlk bağlam sayfayı yeniler — bayat taslak (version 1, "Fiat Doblo")
+    // artık sunucunun version 2'siyle uyuşmuyor: taslak atılır, GÜNCEL
+    // sunucu değerleri (ikinci bağlamın notu dahil) gösterilir; ilk
+    // bağlamın hiç göndermediği "Fiat Doblo" hiçbir yerde KALICI OLMAZ.
+    await page.reload();
+    await expect(page.getByLabel("Not", { exact: true })).toHaveValue("İkinci bağlamdan not");
+    await expect(page.getByLabel("Marka / model")).not.toHaveValue("Fiat Doblo");
+    await expect(page.getByLabel("Marka / model")).toHaveValue("");
+    await expect(page.getByRole("button", { name: "Bilgiyi kaydet" })).toBeDisabled();
   });
 
   test("pasifleştirme: ConfirmDialog sonrası giriş reddedilir, araç işletme sayfasından hâlâ açılabilir", async ({

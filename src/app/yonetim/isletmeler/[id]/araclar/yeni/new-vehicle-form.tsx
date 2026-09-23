@@ -26,6 +26,7 @@
  */
 import { useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import type { ClientStateScope } from "../../../../../../lib/client-state";
 import { useStoredDraft } from "../../../../../../lib/use-stored-draft";
 import { getErrorMessage } from "../../../../../../lib/messages";
@@ -74,6 +75,14 @@ interface CreateErrorBody {
   error?: { code?: string; message?: string; fields?: Record<string, string> };
 }
 
+/** Alan-dışı (409/403/429/5xx/ağ) bir hatayı ekran metnine çevirir — sunucunun
+ * `error.message`'ı BASILMAZ (sözleşme). `code` yalnız `REQUEST_ID_REUSED`
+ * için (aşağıdaki bağlantıyı göstermek üzere) SAKLANIR. */
+interface FormBanner {
+  message: string;
+  code?: string;
+}
+
 export function NewVehicleForm({
   businessId,
   businessName,
@@ -104,7 +113,7 @@ export function NewVehicleForm({
     : draft.pending
       ? "ambiguous"
       : "idle";
-  const [formError, setFormError] = useState<string | null>(null);
+  const [formError, setFormError] = useState<FormBanner | null>(null);
   const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
 
   const plateInputRef = useRef<HTMLInputElement>(null);
@@ -197,12 +206,26 @@ export function NewVehicleForm({
     }
 
     if (response.status >= 500) {
-      setFormError("Bağlantı kurulamadı. Tekrar dene.");
+      setFormError({ message: "Bağlantı kurulamadı. Tekrar dene." });
       return;
     }
 
     const code = responseBody?.error?.code;
-    setFormError((code ? getErrorMessage(code) : undefined) ?? "Bağlantı kurulamadı. Tekrar dene.");
+    // 409 REQUEST_ID_REUSED burada — `../../../../../../server/usecases/
+    // admin-vehicles/create-vehicle.ts` risk notu — İKİ ayrı durumu
+    // kapsayabilir: aynı requestId FARKLI içerikle (gerçek çakışma) veya
+    // AYNI içerikle ama tekrar denemede FARKLI parolalarla (bkz. dosya üstü
+    // notu). Her iki durumda da araç muhtemelen ZATEN oluşturulmuştur —
+    // `../../../../../../lib/messages.ts`'in genel ("sayfayı yenile") PATCH
+    // metni burada YANILTICIDIR (bu form yenilenince BOŞ bir taslağa döner,
+    // sürüm çakışması yoktur); işletme sayfasına bağlantı veren bu form-özgü
+    // metin KULLANILIR, genel `ERROR_CODE_MESSAGES.REQUEST_ID_REUSED` metni
+    // DEĞİL.
+    const message =
+      code === "REQUEST_ID_REUSED"
+        ? "Bu araç zaten oluşturulmuş olabilir. İşletme sayfasından kontrol et."
+        : (code ? getErrorMessage(code) : undefined) ?? "Bağlantı kurulamadı. Tekrar dene.";
+    setFormError({ message, code });
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
@@ -211,7 +234,7 @@ export function NewVehicleForm({
       return;
     }
     if (!navigator.onLine) {
-      setFormError("Bağlantı yok. Henüz kaydedilmedi.");
+      setFormError({ message: "Bağlantı yok. Henüz kaydedilmedi." });
       return;
     }
     setFieldErrors({});
@@ -229,8 +252,17 @@ export function NewVehicleForm({
     setIsFetching(false);
   }
 
+  // C3 kök neden düzeltmesi: rotasyon yalnız `fieldErrors`e (422 alan
+  // hatası) BAĞLI değildir — 409 REQUEST_ID_REUSED/403/429/5xx gibi alan
+  // dışı kesin (belirsiz OLMAYAN) sonuçlar `formError` banner'ında görünür;
+  // bu banner GÖZ ARDI edilirse aynı `requestId` 24 saatlik taslakta KALIR
+  // ve o işletme için SONRAKİ HER gönderim de 409'a düşer (review bulgusu).
+  function hadKnownResult(): boolean {
+    return Object.values(fieldErrors).some(Boolean) || formError !== null;
+  }
+
   function handleFieldChange(field: keyof Omit<Draft, "requestId" | "pending">, value: string): void {
-    const hadKnownError = Object.values(fieldErrors).some(Boolean);
+    const hadKnownError = hadKnownResult();
     const next: Draft = {
       ...draft,
       [field]: value,
@@ -239,14 +271,16 @@ export function NewVehicleForm({
     };
     if (hadKnownError) {
       setFieldErrors({});
+      setFormError(null);
     }
     persist(next);
   }
 
   function handlePasswordChange(role: "owner" | "driver", value: string): void {
-    const hadKnownError = Object.values(fieldErrors).some(Boolean);
+    const hadKnownError = hadKnownResult();
     if (hadKnownError) {
       setFieldErrors({});
+      setFormError(null);
       persist({ ...draft, requestId: randomRequestId(), pending: false });
     }
     if (role === "owner") {
@@ -258,6 +292,16 @@ export function NewVehicleForm({
 
   const disabled = phase !== "idle";
   const canRetry = phase === "ambiguous" && ownerPassword.trim() !== "" && driverPassword.trim() !== "";
+  // C2 (istemci yarısı) — belirsiz sonuçta gönderilen şifreler bu bileşenin
+  // `useState`'inde (yukarıda) HAYATTA kalır (dosya üstü notu); "Tekrar
+  // kontrol et" AYNI şifrelerle AYNI requestId'yi göndermelidir (ARCH §3.4).
+  // Alanlar hâlâ DOLU iken (sayfa yenilenmediyse) düzenlenebilir bırakmak,
+  // ekip üyesinin YANLIŞLIKLA farklı bir şifre yazıp göndermesine — ve
+  // `verifyReplayPasswords`'ün bunu 409 REQUEST_ID_REUSED'e düşürmesine —
+  // yol açar; sayfa yenilenip alan BOŞ döndüğünde (dosya üstü notu) İSE
+  // yeniden girilebilir KALMALIDIR.
+  const ownerPasswordLocked = phase === "submitting" || (phase === "ambiguous" && ownerPassword !== "");
+  const driverPasswordLocked = phase === "submitting" || (phase === "ambiguous" && driverPassword !== "");
 
   return (
     <div className="flex flex-col gap-8">
@@ -274,7 +318,15 @@ export function NewVehicleForm({
             role="alert"
             className="rounded-[var(--radius-control)] bg-[var(--color-error-surface)] px-3 py-2 text-base break-words text-[var(--color-error)]"
           >
-            {formError}
+            {formError.message}
+            {formError.code === "REQUEST_ID_REUSED" && (
+              <>
+                {" "}
+                <Link href={`/yonetim/isletmeler/${businessId}`} className="underline">
+                  İşletmeye dön
+                </Link>
+              </>
+            )}
           </p>
         )}
 
@@ -415,7 +467,7 @@ export function NewVehicleForm({
               type={showOwnerPassword ? "text" : "password"}
               autoComplete="new-password"
               value={ownerPassword}
-              disabled={phase === "submitting"}
+              disabled={ownerPasswordLocked}
               onChange={(event) => handlePasswordChange("owner", event.target.value)}
               aria-invalid={fieldErrors.ownerPassword ? true : undefined}
               aria-describedby={fieldErrors.ownerPassword ? "vehicle-owner-password-error" : undefined}
@@ -449,7 +501,7 @@ export function NewVehicleForm({
               type={showDriverPassword ? "text" : "password"}
               autoComplete="new-password"
               value={driverPassword}
-              disabled={phase === "submitting"}
+              disabled={driverPasswordLocked}
               onChange={(event) => handlePasswordChange("driver", event.target.value)}
               aria-invalid={fieldErrors.driverPassword ? true : undefined}
               aria-describedby={fieldErrors.driverPassword ? "vehicle-driver-password-error" : undefined}

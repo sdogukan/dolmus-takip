@@ -59,7 +59,10 @@ import {
   createVehicleSession,
   type CreateVehicleSessionResult,
 } from "../session/create-vehicle-session";
-import { VehicleSessionTargetInactiveError } from "../session/errors";
+import {
+  VehicleCredentialVersionChangedError,
+  VehicleSessionTargetInactiveError,
+} from "../session/errors";
 
 // ---------------------------------------------------------------------------
 // Girdi şeması — "role/personId vb. yasak" `scopeSafeObject` KENDİSİ
@@ -165,6 +168,10 @@ interface CredentialRow {
   id: string;
   role: "owner" | "driver";
   passwordHash: string;
+  /** T2.3 — Argon2 doğrulamasından ÖNCE okunur; eşleşme bulunursa bu değer
+   * `createVehicleSession`e taşınır (bkz. dosya üstü not — giriş/parola
+   * sıfırlama yarışı). */
+  credentialVersion: number;
 }
 
 async function lookupCredentials(
@@ -176,6 +183,7 @@ async function lookupCredentials(
       id: vehicleCredentials.id,
       role: vehicleCredentials.role,
       passwordHash: vehicleCredentials.passwordHash,
+      credentialVersion: vehicleCredentials.credentialVersion,
     })
     .from(vehicleCredentials)
     .where(eq(vehicleCredentials.vehicleId, vehicleId));
@@ -264,7 +272,9 @@ export async function vehicleLogin(
   const isUsableVehicle =
     vehicleRow !== undefined && vehicleRow.vehicleActive && vehicleRow.businessActive;
 
-  let matched: { role: "owner" | "driver"; credentialId: string } | null = null;
+  let matched:
+    | { role: "owner" | "driver"; credentialId: string; credentialVersion: number }
+    | null = null;
 
   try {
     if (!isUsableVehicle) {
@@ -291,7 +301,11 @@ export async function vehicleLogin(
         clock,
       );
       if (ownerMatches && ownerCredential) {
-        matched = { role: "owner", credentialId: ownerCredential.id };
+        matched = {
+          role: "owner",
+          credentialId: ownerCredential.id,
+          credentialVersion: ownerCredential.credentialVersion,
+        };
       } else {
         const driverMatches = await verifyPasswordOrDummy(
           driverCredential?.passwordHash,
@@ -299,7 +313,11 @@ export async function vehicleLogin(
           clock,
         );
         if (driverMatches && driverCredential) {
-          matched = { role: "driver", credentialId: driverCredential.id };
+          matched = {
+            role: "driver",
+            credentialId: driverCredential.id,
+            credentialVersion: driverCredential.credentialVersion,
+          };
         }
       }
     }
@@ -319,13 +337,22 @@ export async function vehicleLogin(
 
   let session: CreateVehicleSessionResult;
   try {
-    session = await createVehicleSession(db, matched.credentialId, clock);
+    session = await createVehicleSession(
+      db,
+      matched.credentialId,
+      clock,
+      matched.credentialVersion,
+    );
   } catch (error) {
-    if (error instanceof VehicleSessionTargetInactiveError) {
-      // T2.2 risk notu — giriş/pasifleştirme yarışı: parola BAŞARIYLA
-      // eşleşti ama araç/işletme, oturum INSERT'i anında (`../session/
+    if (
+      error instanceof VehicleSessionTargetInactiveError ||
+      error instanceof VehicleCredentialVersionChangedError
+    ) {
+      // T2.2/T2.3 risk notu — giriş/pasifleştirme YA DA giriş/parola
+      // sıfırlama yarışı: parola BAŞARIYLA eşleşti ama araç/işletme ya da
+      // credential_version, oturum INSERT'i anında (`../session/
       // create-vehicle-session.ts`in atomik yeniden denetimi) artık
-      // pasif. ARCH §6 "Kullanıcı/plaka tahmini" ilkesiyle AYNI genel
+      // değişmiş. ARCH §6 "Kullanıcı/plaka tahmini" ilkesiyle AYNI genel
       // yanıt (hangi durumun gerçekleştiği istemciye ASLA sızdırılmaz);
       // bu, YANLIŞ PAROLA değildir, bu yüzden hız sınırı sayacı
       // ARTIRILMAZ (yalnız GERÇEK başarısız denemeler sayılır).

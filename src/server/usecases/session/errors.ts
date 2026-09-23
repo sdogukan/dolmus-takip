@@ -105,3 +105,20 @@ export class VehicleSessionTargetInactiveError extends Error {
     this.name = "VehicleSessionTargetInactiveError";
   }
 }
+
+/**
+ * T2.3 — `createVehicleSession`e bir `expectedCredentialVersion` verildiğinde
+ * (bkz. o dosyanın üst notu — giriş/parola sıfırlama yarışı), transaction
+ * içinde YENİDEN okunan `credential_version` bu beklenen değerden FARKLIYSA
+ * fırlatılır (satır INSERT EDİLMEZ). `../auth/vehicle-login.ts` bunu
+ * `VehicleSessionTargetInactiveError` ile AYNI şekilde YAKALAR ve diğer TÜM
+ * başarısız giriş nedenleriyle AYNI genel 401 `INVALID_CREDENTIALS` yanıtına
+ * ÇEVİRİR (ARCH §6 "Kullanıcı/plaka tahmini" ilkesi burada da geçerlidir) —
+ * bu yüzden bu sınıf da `SessionError` DEĞİLDİR.
+ */
+export class VehicleCredentialVersionChangedError extends Error {
+  constructor(message = "Credential sürümü değişti; oturum açılamaz.") {
+    super(message);
+    this.name = "VehicleCredentialVersionChangedError";
+  }
+}

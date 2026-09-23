@@ -3,7 +3,8 @@
  *
  * ARCHITECTURE §4 sözleşmesi:
  * - "GET /admin/businesses: businesses [ { id, name, active, owner veya
- *   null, vehicleCount } ] — arama/sayfalama YOK (T2.5 yerini alır)."
+ *   null, vehicleCount } ]" — arama/sayfalama `listBusinessesPage` ile
+ *   (isteğe bağlı `q`/`active`/`cursor`/`limit`; `nextCursor` ekler).
  * - "GET /admin/businesses/[businessId]: business + owner (veya null) +
  *   sahipsizse seçilebilir aynı işletme kişileri [ { id, fullName, active }
  *   ] + etkilenen araçlar [ { id, plateNormalized, active } ]."
@@ -12,9 +13,11 @@
  * ÇALIŞTIRMAZ (N+1) — üç tablo TEK'er sorguyla okunup bellekte
  * eşleştirilir (Micro 3.15 — veri akışı verimliliği).
  */
-import { and, eq, sql } from "drizzle-orm";
+import { and, asc, desc, eq, or, sql, type SQL } from "drizzle-orm";
+import { foldForSearch } from "../../../lib/search-fold";
 import type { AppDatabase } from "../../data/db";
 import { businessOwners, businesses, people, vehicles } from "../../data/schema";
+import { encodeCursor, requireCursor, type ListPage, type ListPageOptions } from "../list-cursor";
 
 export interface BusinessListItem {
   id: string;
@@ -24,14 +27,40 @@ export interface BusinessListItem {
   vehicleCount: number;
 }
 
-export function listBusinesses(db: AppDatabase): BusinessListItem[] {
+/**
+ * Sıralama: `created_at DESC, id ASC` (yeni oluşturulan işletme ilk sırada).
+ * `q` işletme adı veya sahip adında Türkçe duyarlı (`foldForSearch`) alt
+ * dize eşleşmesidir; SQLite `LIKE` yalnız ASCII katladığından eşleştirme
+ * uygulama katmanında yapılır (tablo küçüktür, indeks/migration YOK).
+ * `active` ve imleç koşulları SQL'de uygulanır.
+ */
+export function listBusinessesPage(
+  db: AppDatabase,
+  options: ListPageOptions = {},
+): ListPage<BusinessListItem> {
+  const conditions: SQL[] = [];
+  if (options.active === "active") conditions.push(eq(businesses.active, true));
+  if (options.active === "inactive") conditions.push(eq(businesses.active, false));
+  if (options.cursor !== undefined) {
+    const [createdAt, id] = requireCursor(options.cursor, 2) as [string, string];
+    conditions.push(
+      or(
+        sql`${businesses.createdAt} < ${createdAt}`,
+        and(eq(businesses.createdAt, createdAt), sql`${businesses.id} > ${id}`),
+      )!,
+    );
+  }
+
   const businessRows = db
     .select({
       id: businesses.id,
       name: businesses.name,
       active: businesses.active,
+      createdAt: businesses.createdAt,
     })
     .from(businesses)
+    .where(conditions.length > 0 ? and(...conditions) : undefined)
+    .orderBy(desc(businesses.createdAt), asc(businesses.id))
     .all();
 
   const ownerRows = db
@@ -50,6 +79,22 @@ export function listBusinesses(db: AppDatabase): BusinessListItem[] {
     ownerRows.map((row) => [row.businessId, { personId: row.personId, fullName: row.fullName }]),
   );
 
+  const needle = options.q ? foldForSearch(options.q.trim()) : "";
+  const matched = needle
+    ? businessRows.filter(
+        (row) =>
+          foldForSearch(row.name).includes(needle) ||
+          foldForSearch(ownerByBusinessId.get(row.id)?.fullName ?? "").includes(needle),
+      )
+    : businessRows;
+
+  const pageRows = options.limit === undefined ? matched : matched.slice(0, options.limit);
+  const last = pageRows[pageRows.length - 1];
+  const nextCursor =
+    options.limit !== undefined && matched.length > options.limit && last
+      ? encodeCursor([last.createdAt, last.id])
+      : null;
+
   const vehicleCountRows = db
     .select({ businessId: vehicles.businessId, count: sql<number>`count(*)` })
     .from(vehicles)
@@ -59,13 +104,20 @@ export function listBusinesses(db: AppDatabase): BusinessListItem[] {
     vehicleCountRows.map((row) => [row.businessId, row.count]),
   );
 
-  return businessRows.map((row) => ({
-    id: row.id,
-    name: row.name,
-    active: row.active,
-    owner: ownerByBusinessId.get(row.id) ?? null,
-    vehicleCount: vehicleCountByBusinessId.get(row.id) ?? 0,
-  }));
+  return {
+    items: pageRows.map((row) => ({
+      id: row.id,
+      name: row.name,
+      active: row.active,
+      owner: ownerByBusinessId.get(row.id) ?? null,
+      vehicleCount: vehicleCountByBusinessId.get(row.id) ?? 0,
+    })),
+    nextCursor,
+  };
+}
+
+export function listBusinesses(db: AppDatabase): BusinessListItem[] {
+  return listBusinessesPage(db).items;
 }
 
 export interface BusinessDetail {

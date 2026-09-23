@@ -15,9 +15,19 @@ import { withProtectedRoute } from "../../../../../server/http/handler";
 import { jsonErrorResponse, jsonSuccessResponse } from "../../../../../server/http/errors";
 import {
   createBusinessWithOwner,
-  listBusinesses,
+  listBusinessesPage,
 } from "../../../../../server/usecases/admin-businesses";
 import { fieldErrorsFromZodIssues, mapMutationErrorToResponse, parseJsonBody } from "./_http";
+import { fieldErrorsFromZodIssues as listFieldErrors } from "../_http";
+import {
+  DEFAULT_LIST_LIMIT,
+  LIST_QUERY_FIELD_MESSAGES,
+  listQuerySchema,
+  pickSearchParams,
+} from "../_list-query";
+
+// İşletme imleci (created_at, id) → iki bileşen.
+const getBusinessesQuerySchema = listQuerySchema(2);
 
 // scopeSafeObject: role/personId/businessId/ownerId gövdede ASLA kabul
 // edilmez (bkz. `../../../../server/auth/scope.ts` üst notu) — bu uçta
@@ -32,8 +42,24 @@ const postBusinessBodySchema = scopeSafeObject({
 
 export const GET = withProtectedRoute({ permission: "business.manage", target: "none" })(
   (ctx) => {
-    const businesses = listBusinesses(ctx.db);
-    return jsonSuccessResponse(200, { businesses }, { requestId: ctx.requestId });
+    const parsed = getBusinessesQuerySchema.safeParse(
+      pickSearchParams(ctx.request, ["q", "active", "cursor", "limit"]),
+    );
+    if (!parsed.success) {
+      return jsonErrorResponse(422, "VALIDATION_ERROR", "Geçersiz sorgu parametresi.", {
+        fields: listFieldErrors(parsed.error, LIST_QUERY_FIELD_MESSAGES),
+        requestId: ctx.requestId,
+      });
+    }
+    const page = listBusinessesPage(ctx.db, {
+      ...parsed.data,
+      limit: parsed.data.limit ?? DEFAULT_LIST_LIMIT,
+    });
+    return jsonSuccessResponse(
+      200,
+      { businesses: page.items, nextCursor: page.nextCursor },
+      { requestId: ctx.requestId },
+    );
   },
 );
 

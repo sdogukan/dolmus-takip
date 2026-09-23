@@ -119,6 +119,10 @@ export const ERROR_CODE_MESSAGES: Record<string, string> = {
   // Sunucu 422 VALIDATION_ERROR döndüğünde alan ayrıntısı ekranda ayrıca
   // gösterilir; alan hatası olmayan durumlar için genel doğrulama metni.
   VALIDATION_ERROR: "Girilen bilgiler geçersiz. Alanları kontrol edip tekrar dene.",
+  // T2.4 — şoför yönetimi uçları (`../server/usecases/drivers/errors.ts`).
+  // Başka işletmenin/araçtan bağımsız kişi kimliği de AYNI kodu alır (kimliğin
+  // varlığı doğrulanmaz).
+  PERSON_NOT_FOUND: "Kişi bulunamadı.",
 };
 
 /**
@@ -292,4 +296,25 @@ export const COMMON_SCREEN_MESSAGES = {
    * araç açıklamasının somut metni bu tabloda VERİLMEZ — T1.5/T1.6'ya
    * bırakıldı.) */
   unauthorizedOrInactiveAccess: "Bu işlem için erişimin yok.",
+} as const;
+
+/** T2.4 — şoför yönetimi 422 `fields` metinleri (`../app/api/v1/drivers/_http.ts`
+ * ve `../server/usecases/drivers/**`). */
+export const DRIVER_FIELD_MESSAGES = {
+  requestId: "İstek kimliği eksik veya geçersiz.",
+  fullName: "Ad soyad 1-120 karakter olmalı.",
+  version: "Sürüm bilgisi eksik veya geçersiz.",
+  active: "Aktiflik değeri geçersiz.",
+  noChange: "Değişiklik yok.",
+  noChangeMessage: "Gönderilen değerler mevcut kayıtla aynı; değişiklik uygulanmadı.",
+  ownerPerson: "Araç sahibi şoför olarak atanamaz.",
+  personInactive: "Bu kişi pasif olduğu için araca atanamaz. Ekipten aktifleştirilmesini iste.",
+  notAssigned: "Bu kişi bu araca atanmamış.",
+} as const;
+
+/** T2.4 — Şoförlerim ekranı metinleri (DESIGN "Şoförlerim — notes"). */
+export const DRIVER_SCREEN_MESSAGES = {
+  renameNote: "Bu kişinin eski kayıtları da yeni adıyla görünür.",
+  sharedPasswordWarning:
+    "Ortak şoför şifresi hâlâ geçerli. Erişimi tamamen kesmek için ekipten şifre sıfırlama isteyin.",
 } as const;

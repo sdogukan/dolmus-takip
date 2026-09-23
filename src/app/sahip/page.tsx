@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { getAppDb } from "../../server/data/app-db";
 import { readPageSession } from "../../server/auth/page-session";
 import { readVehiclePlateForDisplay } from "../../server/auth/vehicle-plate";
+import { WORK_ENTRY_MESSAGES } from "../../lib/messages";
 import { VehiclePageHeader } from "../_components/vehicle-page-header";
 
 /**
@@ -64,7 +65,13 @@ export default async function SahipPage() {
           açılacak.
         </p>
       </div>
-      <nav aria-label="Sahip bağlantıları">
+      <nav aria-label="Sahip bağlantıları" className="flex flex-col gap-3">
+        <Link
+          href="/sahip/kayit/yeni"
+          className="inline-flex min-h-[var(--control-min-height)] items-center rounded-[var(--radius-control)] border border-[var(--color-input-border)] px-4 text-base font-medium text-[var(--color-text)]"
+        >
+          {WORK_ENTRY_MESSAGES.enterLink}
+        </Link>
         <Link
           href="/sahip/soforler"
           className="inline-flex min-h-[var(--control-min-height)] items-center rounded-[var(--radius-control)] border border-[var(--color-input-border)] px-4 text-base font-medium text-[var(--color-text)]"

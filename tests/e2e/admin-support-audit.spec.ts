@@ -253,7 +253,7 @@ test.describe("Yönetim araması (/yonetim)", () => {
 });
 
 test.describe("Destek ekranı (/yonetim/araclar/:id/destek)", () => {
-  test("hedef ve gerçek ekip kimliğini gösterir; günlük kayıt/teslim/rapor bağlantısı yoktur; bilinmeyen araç 404", async ({
+  test("hedef ve gerçek ekip kimliğini gösterir; çalışma kaydı bağlantısı vardır, teslim/rapor bağlantısı yoktur; bilinmeyen araç 404", async ({
     page,
   }) => {
     await loginAsAdmin(page);
@@ -265,9 +265,15 @@ test.describe("Destek ekranı (/yonetim/araclar/:id/destek)", () => {
     await expect(page.getByText(`İşlemi yapan: ${SEED_USERNAMES.admin} (Yönetici)`)).toBeVisible();
     await expect(page.getByRole("button", { name: "Hedefi değiştir" })).toBeVisible();
 
-    // Dürüstlük: olmayan işler bağlanmaz.
+    // Çalışma kaydı formu vardır ve bağlanır.
+    await expect(page.getByRole("link", { name: "+ Çalışma kaydı gir" })).toHaveAttribute(
+      "href",
+      `/yonetim/araclar/${vehicleId}/kayit/yeni`,
+    );
+
+    // Dürüstlük: hâlâ olmayan işler bağlanmaz.
     await expect(
-      page.getByRole("link", { name: /Çalışma kaydı|günlük|Teslim|onay|Rapor|Özet|Kayıtlar/i }),
+      page.getByRole("link", { name: /günlük|Teslim|onay|Rapor|Özet|Kayıtlar/i }),
     ).toHaveCount(0);
     await expect(
       page.getByRole("button", { name: /Çalışma kaydı|günlük|Teslim|onay|Rapor/i }),

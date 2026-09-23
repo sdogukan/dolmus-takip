@@ -1,7 +1,13 @@
 "use client";
 
 /**
- * Şoförün günlük kayıt formu (T3.1). Bu paket KAYIT YAZMAZ: gönderim yalnız
+ * Günlük kayıt formu (T3.1); `mode` ile şoför, sahip ve ekip ekranlarında
+ * kullanılır. Şoförde tür sabit "driver"dır. Sahip/ekipte kayıt türü AÇIK
+ * seçilir (önceden seçili değil): "sahip çalıştı" → kişi sahibin kendisi,
+ * pay 0; "şoför adına" → yönetim görünümünden türetilen AKTİF şoförler, pay
+ * %20. Ekip istekleri `X-Target-Vehicle` taşır. `disabled` (pasif hedef)
+ * formu kilitler. Pay/kalan yalnız gösterimdir; hiçbir türetilmiş değer
+ * yetki olarak gönderilmez. Bu paket KAYIT YAZMAZ: gönderim yalnız
  * alanları doğrular ve seçilen kişiyi `GET /api/v1/drivers`ten TAZE okuyup
  * hâlâ seçilebilir mi diye kontrol eder; "Kaydedildi" hiçbir yerde denmez.
  *
@@ -22,14 +28,13 @@ import { useEffect, useRef, useState } from "react";
 import { adminReadErrorMessage } from "../../lib/admin-search";
 import { COMMON_SCREEN_MESSAGES, WORK_ENTRY_MESSAGES as TEXT } from "../../lib/messages";
 import { formatTlAmount, parseTlAmount, type ParseTlResult } from "../../lib/money";
-import { AmountOutOfRangeError, calculateWorkEntryAmounts } from "../../lib/work-calculation";
+import { AmountOutOfRangeError, calculateWorkEntryAmounts, type WorkKind } from "../../lib/work-calculation";
+import { selectableFromDriversResponse, type SelectableDriver, type WorkTypeChoice } from "../../lib/work-entry-ui";
 import { evaluateWorkTime, formatDuration, formatWorkDate } from "../../lib/work-time";
-import { ConfirmDialog } from "../_components/confirm-dialog";
+import { ConfirmDialog } from "./confirm-dialog";
+import { useUnsavedChanges } from "./unsaved-changes";
 
-interface SelectableDriver {
-  personId: string;
-  fullName: string;
-}
+export type WorkEntryMode = "driver" | "owner" | "staff";
 
 type ListState =
   | { status: "loading" }
@@ -40,21 +45,16 @@ type FetchResult =
   | { ok: true; drivers: SelectableDriver[] }
   | { ok: false; message: string; retryable: boolean };
 
-function parseDrivers(body: unknown): SelectableDriver[] | null {
-  const list = (body as { drivers?: unknown } | null)?.drivers;
-  if (!Array.isArray(list)) return null;
-  const drivers: SelectableDriver[] = [];
-  for (const item of list as Array<Partial<SelectableDriver> | null>) {
-    if (typeof item?.personId !== "string" || typeof item.fullName !== "string") return null;
-    drivers.push({ personId: item.personId, fullName: item.fullName });
-  }
-  return drivers;
-}
-
-async function fetchDrivers(signal: AbortSignal): Promise<FetchResult> {
+async function fetchDrivers(
+  signal: AbortSignal,
+  targetVehicleId: string | undefined,
+): Promise<FetchResult> {
   let response: Response;
   try {
-    response = await fetch("/api/v1/drivers", { signal });
+    response = await fetch("/api/v1/drivers", {
+      signal,
+      headers: targetVehicleId ? { "X-Target-Vehicle": targetVehicleId } : undefined,
+    });
   } catch (error) {
     if (signal.aborted) throw error;
     return { ok: false, message: adminReadErrorMessage(null), retryable: true };
@@ -78,7 +78,7 @@ async function fetchDrivers(signal: AbortSignal): Promise<FetchResult> {
       retryable: response.status !== 401,
     };
   }
-  const drivers = parseDrivers(body);
+  const drivers = selectableFromDriversResponse(body);
   if (!drivers) return { ok: false, message: adminReadErrorMessage(null), retryable: true };
   return { ok: true, drivers };
 }
@@ -100,6 +100,7 @@ type SummaryState =
   | { status: "ready"; shareCents: number; remainderCents: number };
 
 function computeSummary(
+  workKind: WorkKind,
   gross: ParseTlResult,
   fuel: ParseTlResult,
   other: ParseTlResult | null,
@@ -110,7 +111,7 @@ function computeSummary(
   }
   try {
     const amounts = calculateWorkEntryAmounts(
-      "driver",
+      workKind,
       gross.cents,
       fuel.cents,
       other?.ok ? other.cents : 0n,
@@ -126,7 +127,23 @@ function computeSummary(
   }
 }
 
-export function WorkEntryForm({ today }: { today: string }) {
+export function WorkEntryForm({
+  today,
+  mode = "driver",
+  ownerName,
+  targetVehicleId,
+  disabled = false,
+}: {
+  today: string;
+  mode?: WorkEntryMode;
+  /** Sahibin adı (sunucudan); sahip/ekip modunda "sahip çalıştı" için. */
+  ownerName?: string;
+  /** Ekip modunda hedef araç (URL'den, sunucuda doğrulanmış). */
+  targetVehicleId?: string;
+  /** Pasif hedef: form kilitlenir, kontrol yapılamaz. */
+  disabled?: boolean;
+}) {
+  const [workType, setWorkType] = useState<WorkTypeChoice>("");
   const [list, setList] = useState<ListState>({ status: "loading" });
   const [date, setDate] = useState(today);
   const [personId, setPersonId] = useState("");
@@ -144,6 +161,7 @@ export function WorkEntryForm({ today }: { today: string }) {
   const [formMessage, setFormMessage] = useState<string | null>(null);
   const [checkedNote, setCheckedNote] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [workTypeError, setWorkTypeError] = useState<string | null>(null);
   const sequenceRef = useRef(0);
   const controllerRef = useRef<AbortController | null>(null);
 
@@ -155,7 +173,7 @@ export function WorkEntryForm({ today }: { today: string }) {
     controllerRef.current = controller;
     let result: FetchResult;
     try {
-      result = await fetchDrivers(controller.signal);
+      result = await fetchDrivers(controller.signal, targetVehicleId);
     } catch {
       return null;
     }
@@ -209,12 +227,27 @@ export function WorkEntryForm({ today }: { today: string }) {
   const endError =
     fieldErrors.endTime && (submitted || relationVisible) ? fieldErrors.endTime : undefined;
 
+  const workKind: WorkKind | null = mode === "driver" ? "driver" : workType === "" ? null : workType;
+  const needsPerson = workKind === "driver";
+  const dirty =
+    date !== today ||
+    personId !== "" ||
+    startTime !== "" ||
+    endTime !== "" ||
+    endsNextDay ||
+    grossText !== "" ||
+    fuelText !== "" ||
+    otherText !== "" ||
+    otherNote !== "" ||
+    workType !== "";
+  useUnsavedChanges("work-entry", dirty);
+
   const grossResult = parseTlAmount(grossText);
   const fuelResult = parseTlAmount(fuelText);
   // Tutar boş + açıklama boş = kullanılmadı (0); açıklamalı boş tutar 0 SAYILMAZ.
   const otherUsed = expenseOpen && (otherText.trim() !== "" || otherNote.trim() !== "");
   const otherResult = otherUsed ? parseTlAmount(otherText) : null;
-  const summary = computeSummary(grossResult, fuelResult, otherResult);
+  const summary = computeSummary(workKind ?? "driver", grossResult, fuelResult, otherResult);
   const grossError = submitted && !grossResult.ok ? grossResult.message : undefined;
   const fuelError =
     submitted && !fuelResult.ok
@@ -243,19 +276,34 @@ export function WorkEntryForm({ today }: { today: string }) {
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
-    if (submitting) return;
+    if (submitting || disabled) return;
     setSubmitted(true);
     setCheckedNote(null);
     setFormMessage(null);
 
     let hasError = !evaluation.ok;
-    if (personId === "") {
-      setPersonError(TEXT.personRequired);
+    if (workKind === null) {
+      setWorkTypeError(TEXT.workTypeInvalid);
+      hasError = true;
+    }
+    if (needsPerson && personId === "") {
+      setPersonError(mode === "driver" ? TEXT.personRequired : TEXT.managedPersonRequired);
       hasError = true;
     }
     if (!grossResult.ok || !fuelResult.ok || (otherResult && !otherResult.ok)) hasError = true;
     if (summary.status === "invalid") hasError = true;
     if (hasError || !evaluation.ok) return;
+
+    if (workKind === "owner") {
+      // Sahibin kendi çalışması: kişi sunucuda araçtan çözülür; seçilecek kişi yok.
+      setPersonError(null);
+      setCheckedNote(
+        `${ownerName ?? "—"} · ${formatWorkDate(evaluation.workDate)} · ${formatDuration(
+          evaluation.durationMinutes,
+        )}. ${TEXT.notSavedYet}`,
+      );
+      return;
+    }
 
     // Kişi hâlâ seçilebilir mi — istemci listesine GÜVENİLMEZ, taze okunur.
     setSubmitting(true);
@@ -283,7 +331,26 @@ export function WorkEntryForm({ today }: { today: string }) {
     );
   }
 
+  function chooseWorkType(next: WorkKind): void {
+    if (next === workType) return;
+    // Tür değişince kişi ve hatası temizlenir; bayat kişi kimliği sahip türüne taşınmaz.
+    setWorkType(next);
+    setWorkTypeError(null);
+    setPersonId("");
+    setPersonError(null);
+    touch();
+  }
+
   const drivers = list.status === "loaded" ? list.drivers : [];
+  const personEmptyText =
+    mode === "owner" ? TEXT.ownerPersonEmpty : mode === "staff" ? TEXT.staffPersonEmpty : TEXT.personEmpty;
+  const shareLabel =
+    mode === "driver"
+      ? TEXT.driverShareLabel
+      : workKind === "owner"
+        ? TEXT.ownerShareLabel
+        : TEXT.onBehalfShareLabel;
+  const remainderLabel = workKind === "owner" ? TEXT.ownerRemainderLabel : TEXT.remainderLabel;
   const personDescribedBy = personError
     ? "work-person-error"
     : list.status === "loaded" && drivers.length === 0
@@ -293,7 +360,48 @@ export function WorkEntryForm({ today }: { today: string }) {
         : undefined;
 
   return (
-    <form noValidate onSubmit={(event) => void handleSubmit(event)} className="flex flex-col gap-6">
+    <form noValidate onSubmit={(event) => void handleSubmit(event)}>
+      <fieldset disabled={disabled} className="m-0 flex min-w-0 flex-col gap-6 border-0 p-0">
+      {mode !== "driver" && (
+        <div role="group" aria-labelledby="work-type-label">
+          <p id="work-type-label" className={labelClass}>
+            {TEXT.workTypeLabel}
+          </p>
+          <div className="mt-1 grid grid-cols-2 gap-2">
+            {(
+              [
+                ["owner", mode === "staff" ? TEXT.staffOwnerWorked : TEXT.ownerWorked],
+                ["driver", TEXT.onBehalfOfDriver],
+              ] as const
+            ).map(([kind, text]) => (
+              <button
+                key={kind}
+                type="button"
+                aria-pressed={workType === kind}
+                onClick={() => chooseWorkType(kind)}
+                className={`min-h-[var(--control-min-height)] rounded-[var(--radius-control)] border px-3 text-base font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)] disabled:opacity-70 ${
+                  workType === kind
+                    ? "border-[var(--color-primary)] bg-[var(--color-primary)] text-[var(--color-on-primary)]"
+                    : "border-[var(--color-input-border)] text-[var(--color-text)]"
+                }`}
+              >
+                {text}
+              </button>
+            ))}
+          </div>
+          {workTypeError && (
+            <p role="alert" className={errorTextClass}>
+              {workTypeError}
+            </p>
+          )}
+          {workKind === "owner" && (
+            <p className="mt-2 text-lg font-medium text-[var(--color-text)]">
+              {TEXT.ownerEmployee(ownerName ?? "—")}
+            </p>
+          )}
+        </div>
+      )}
+
       <div>
         <label htmlFor="work-date" className={labelClass}>
           {TEXT.dateLabel}
@@ -320,6 +428,7 @@ export function WorkEntryForm({ today }: { today: string }) {
         )}
       </div>
 
+      {(mode === "driver" || workKind === "driver") && (
       <div>
         <label htmlFor="work-person" className={labelClass}>
           {TEXT.personLabel}
@@ -338,7 +447,11 @@ export function WorkEntryForm({ today }: { today: string }) {
           className={controlClass}
         >
           <option value="">
-            {list.status === "loading" ? TEXT.personLoading : TEXT.personPlaceholder}
+            {list.status === "loading"
+              ? TEXT.personLoading
+              : mode === "driver"
+                ? TEXT.personPlaceholder
+                : TEXT.managedPersonPlaceholder}
           </option>
           {drivers.map((driver) => (
             <option key={driver.personId} value={driver.personId}>
@@ -348,7 +461,7 @@ export function WorkEntryForm({ today }: { today: string }) {
         </select>
         {list.status === "loaded" && drivers.length === 0 && (
           <p id="work-person-empty" role="status" className="mt-1 text-base text-[var(--color-text-secondary)]">
-            {TEXT.personEmpty}
+            {personEmptyText}
           </p>
         )}
         {list.status === "error" && (
@@ -374,6 +487,7 @@ export function WorkEntryForm({ today }: { today: string }) {
           </p>
         )}
       </div>
+      )}
 
       <div>
         <label htmlFor="work-start" className={labelClass}>
@@ -551,6 +665,7 @@ export function WorkEntryForm({ today }: { today: string }) {
         </button>
       )}
 
+      {workKind !== null && (
       <div
         id="work-summary"
         role="status"
@@ -559,13 +674,13 @@ export function WorkEntryForm({ today }: { today: string }) {
         className="flex flex-col gap-2 rounded-[var(--radius-card)] border border-[var(--color-divider)] bg-[var(--color-surface)] p-4 text-lg tabular-nums"
       >
         <p className="flex justify-between gap-4">
-          <span>{TEXT.driverShareLabel}</span>
+          <span>{shareLabel}</span>
           <span className="font-semibold">
             {summary.status === "ready" ? formatTlAmount(summary.shareCents) : "—"}
           </span>
         </p>
         <p className="flex justify-between gap-4">
-          <span>{TEXT.remainderLabel}</span>
+          <span>{remainderLabel}</span>
           <span className="font-semibold">
             {summary.status === "ready" ? formatTlAmount(summary.remainderCents) : "—"}
           </span>
@@ -575,7 +690,13 @@ export function WorkEntryForm({ today }: { today: string }) {
             {TEXT.remainderNegative}
           </p>
         )}
+        {mode !== "driver" && workKind === "owner" && (
+          <p className="text-base font-normal text-[var(--color-text-secondary)]">
+            {mode === "staff" ? TEXT.staffOwnerNoShareNote : TEXT.ownerNoShareNote}
+          </p>
+        )}
       </div>
+      )}
 
       <ConfirmDialog
         open={confirmingRemove}
@@ -601,6 +722,7 @@ export function WorkEntryForm({ today }: { today: string }) {
       <button type="submit" disabled={submitting} className={primaryButtonClass}>
         {submitting ? TEXT.submitting : TEXT.submit}
       </button>
+      </fieldset>
     </form>
   );
 }

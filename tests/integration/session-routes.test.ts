@@ -259,10 +259,17 @@ describe("GET /api/v1/session ve POST /api/v1/auth/logout (T1.4 ADIM 1/2)", () =
       expect(body.error.message).toBe("Oturumun sona erdi. Yeniden giriş yap.");
     });
 
-    it("pasif araç (seed: vehicleB2) oturumu için 401 SESSION_REVOKED döner", async () => {
+    it("araç SONRADAN pasifleşince 401 SESSION_REVOKED döner", async () => {
+      // T2.2 — `createVehicleSession` artık aracın/işletmenin GÜNCEL
+      // aktifliğini KENDİSİ de denetlediğinden (bkz. o dosyanın üst
+      // notu), zaten pasif bir araç için oturum hiç KURULAMAZ; bu test
+      // `resolveSession`in KENDİ (oluşturmadan SONRAKİ) denetimini
+      // sınadığından oturum ÖNCE aktifken kurulur, SONRA araç
+      // pasifleştirilir.
       const setupSqlite = openDatabaseConnection(dbPath);
       const setupDb = createDb(setupSqlite);
-      const created = await createVehicleSession(setupDb, SEED_IDS.credB2Owner);
+      const created = await createVehicleSession(setupDb, SEED_IDS.credA1Owner);
+      setupSqlite.prepare("UPDATE vehicles SET active = 0 WHERE id = ?").run(SEED_IDS.vehicleA1);
       setupSqlite.close();
 
       const response = await getSession(

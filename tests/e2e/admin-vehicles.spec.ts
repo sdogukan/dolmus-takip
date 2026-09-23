@@ -81,9 +81,17 @@ test.describe("Araç oluşturma (/yonetim/isletmeler/:id/araclar/yeni)", () => {
     const vehicleId = page.url().split("/").pop()!;
     await expect(page.getByRole("heading", { level: 1 })).toContainText("TST");
 
-    // Şifreler kaydettikten sonra hiçbir yerde tekrar gösterilmez.
-    await expect(page.getByLabel("Sahip şifresi")).toHaveCount(0);
-    await expect(page.getByLabel("Şoför şifresi")).toHaveCount(0);
+    // Şifreler kaydettikten sonra hiçbir yerde tekrar gösterilmez. `input[type=password]`
+    // ile daraltılır — araç detay sayfasındaki şifre sıfırlama bölümü (S2.3) AYNI "Şoför
+    // şifresi" metnini kendi erişim seçimi radio düğmesi için KULLANIR (S2.3 AC1 birebir
+    // etiket); bu radio düğmesi FARKLI bir alan (`input[type=radio]`), gönderilen şifreyi
+    // TAŞIMAZ/göstermez.
+    await expect(
+      page.getByLabel("Sahip şifresi").and(page.locator('input[type="password"]')),
+    ).toHaveCount(0);
+    await expect(
+      page.getByLabel("Şoför şifresi").and(page.locator('input[type="password"]')),
+    ).toHaveCount(0);
 
     // Yeni plaka sahip şifresiyle /sahip'e girer.
     await page.getByRole("button", { name: "Çıkış" }).click();
@@ -722,5 +730,356 @@ test.describe("Araç detayı (/yonetim/araclar/:id)", () => {
 
     await page.goto("/yonetim/araclar/00000000-0000-4000-8000-000000000000");
     await page.waitForURL("**/sahip");
+  });
+
+  test.describe("Şifre sıfırlama bölümü (S2.3)", () => {
+    test("işletme adı ve plakayı gösterir; sahip şifresi sıfırlanınca eski şifre çalışmaz, yeni şifre çalışır, şoför şifresi etkilenmez", async ({
+      page,
+    }) => {
+      await loginAsAdmin(page);
+      const businessName = `Sıfırlama ${Date.now()}`;
+      const businessId = await createBusinessViaUi(page, businessName, "Gül Sahip");
+      const plate = uniqueRawPlate("RST");
+      const ownerPassword = "sahip-rst-1";
+      const driverPassword = "sofor-rst-1";
+      await createVehicleViaUi(page, businessId, { plate, ownerPassword, driverPassword });
+
+      const section = page.locator("#sifre-sifirlama");
+      await expect(section.getByText(businessName)).toBeVisible();
+      await expect(section.getByText(plate)).toBeVisible();
+      await expect(section.getByLabel("Mal sahibi şifresi")).toBeVisible();
+      await expect(section.getByLabel("Şoför şifresi")).toBeVisible();
+
+      const newOwnerPassword = "yeni-sahip-rst-1";
+      await section.getByLabel("Mal sahibi şifresi").check();
+      await section.getByLabel("Yeni şifre").fill(newOwnerPassword);
+      await section.getByRole("button", { name: "Şifreyi sıfırla" }).click();
+
+      const successBanner = section.getByRole("status").filter({ hasText: "değiştirildi" });
+      await expect(successBanner).toBeVisible();
+      await expect(successBanner).toContainText(plate);
+      await expect(successBanner).toContainText("Mal sahibi şifresi");
+      await expect(successBanner).toContainText("WhatsApp");
+      await expect(section.getByLabel("Yeni şifre")).toHaveValue("");
+
+      // Eski sahip şifresi artık çalışmaz.
+      await page.getByRole("button", { name: "Çıkış" }).click();
+      await page.waitForURL("**/yonetim/giris");
+      await page.goto("/giris");
+      await page.getByLabel("Plaka").fill(plate);
+      await page.getByLabel("Şifre").fill(ownerPassword);
+      await page.getByRole("button", { name: "Giriş yap", exact: true }).click();
+      await expect(page.getByRole("alert").filter({ hasText: "Plaka veya şifre yanlış." })).toBeVisible();
+
+      // Yeni sahip şifresi çalışır.
+      await page.getByLabel("Şifre").fill(newOwnerPassword);
+      await page.getByRole("button", { name: "Giriş yap", exact: true }).click();
+      await page.waitForURL("**/sahip");
+      await page.getByRole("button", { name: "Çıkış" }).click();
+
+      // Şoför şifresi hiç etkilenmedi.
+      await page.goto("/giris");
+      await page.getByLabel("Plaka").fill(plate);
+      await page.getByLabel("Şifre").fill(driverPassword);
+      await page.getByRole("button", { name: "Giriş yap", exact: true }).click();
+      await page.waitForURL("**/sofor");
+    });
+
+    test("diğer rolün mevcut şifresiyle aynı yeni şifre girilince alan hatası gösterilir, hiçbir şey değişmez", async ({
+      page,
+    }) => {
+      await loginAsAdmin(page);
+      const businessId = await createBusinessViaUi(page, `Aynı Şifre Sıfırlama ${Date.now()}`, "Nur Sahip");
+      const plate = uniqueRawPlate("SMS");
+      const ownerPassword = "sahip-sms-1";
+      const driverPassword = "sofor-sms-1";
+      await createVehicleViaUi(page, businessId, { plate, ownerPassword, driverPassword });
+
+      const section = page.locator("#sifre-sifirlama");
+      await section.getByLabel("Mal sahibi şifresi").check();
+      await section.getByLabel("Yeni şifre").fill(driverPassword);
+      await section.getByRole("button", { name: "Şifreyi sıfırla" }).click();
+
+      await expect(section.getByRole("alert").filter({ hasText: "aynı olamaz" })).toBeVisible();
+      await expect(section.getByRole("status").filter({ hasText: "değiştirildi" })).toHaveCount(0);
+
+      // Hiçbir şey değişmedi — eski sahip şifresi hâlâ çalışıyor.
+      await page.getByRole("button", { name: "Çıkış" }).click();
+      await page.waitForURL("**/yonetim/giris");
+      await page.goto("/giris");
+      await page.getByLabel("Plaka").fill(plate);
+      await page.getByLabel("Şifre").fill(ownerPassword);
+      await page.getByRole("button", { name: "Giriş yap", exact: true }).click();
+      await page.waitForURL("**/sahip");
+    });
+
+    test("gönderim sırasında bağlantı koparsa sonucu kontrol ekranı çıkar; sayfa yenilenmeden seçim ve şifre kilitli kalır, aynı şifreyle tekrar denenince tamamlanır", async ({
+      page,
+    }) => {
+      await loginAsAdmin(page);
+      const businessId = await createBusinessViaUi(page, `Sıfırlama Belirsiz ${Date.now()}`, "Onur Sahip");
+      const plate = uniqueRawPlate("AMS");
+      const ownerPassword = "sahip-ams-1";
+      const driverPassword = "sofor-ams-1";
+      const vehicleId = await createVehicleViaUi(page, businessId, { plate, ownerPassword, driverPassword });
+
+      const section = page.locator("#sifre-sifirlama");
+      await section.getByLabel("Şoför şifresi").check();
+      const newDriverPassword = "yeni-sofor-ams-1";
+      await section.getByLabel("Yeni şifre").fill(newDriverPassword);
+
+      await page.route(`**/api/v1/admin/vehicles/${vehicleId}/reset-password`, async (route) => {
+        await route.abort();
+      });
+      await section.getByRole("button", { name: "Şifreyi sıfırla" }).click();
+      await expect(section.getByText("Kaydın sonucu kontrol ediliyor.")).toBeVisible();
+      await expect(section.getByLabel("Şoför şifresi")).toBeDisabled();
+      await expect(section.getByLabel("Yeni şifre")).toBeDisabled();
+      await expect(section.getByLabel("Yeni şifre")).toHaveValue(newDriverPassword);
+
+      await page.unroute(`**/api/v1/admin/vehicles/${vehicleId}/reset-password`);
+      await section.getByRole("button", { name: "Tekrar kontrol et" }).click();
+      await expect(section.getByRole("status").filter({ hasText: "değiştirildi" })).toBeVisible();
+
+      await page.getByRole("button", { name: "Çıkış" }).click();
+      await page.waitForURL("**/yonetim/giris");
+      await page.goto("/giris");
+      await page.getByLabel("Plaka").fill(plate);
+      await page.getByLabel("Şifre").fill(newDriverPassword);
+      await page.getByRole("button", { name: "Giriş yap", exact: true }).click();
+      await page.waitForURL("**/sofor");
+    });
+
+    test("gönderim sırasında bağlantı koparsa ve sayfa yenilenirse erişim seçimi korunur, şifre boş ve düzenlenebilir döner; yeniden yazılınca tamamlanır", async ({
+      page,
+    }) => {
+      await loginAsAdmin(page);
+      const businessId = await createBusinessViaUi(page, `Sıfırlama Yenileme ${Date.now()}`, "Pelin Sahip");
+      const plate = uniqueRawPlate("RLD");
+      const ownerPassword = "sahip-rld-1";
+      const driverPassword = "sofor-rld-1";
+      const vehicleId = await createVehicleViaUi(page, businessId, { plate, ownerPassword, driverPassword });
+
+      const section = page.locator("#sifre-sifirlama");
+      await section.getByLabel("Mal sahibi şifresi").check();
+      const newOwnerPassword = "yeni-sahip-rld-1";
+      await section.getByLabel("Yeni şifre").fill(newOwnerPassword);
+
+      await page.route(`**/api/v1/admin/vehicles/${vehicleId}/reset-password`, async (route) => {
+        await route.abort();
+      });
+      await section.getByRole("button", { name: "Şifreyi sıfırla" }).click();
+      await expect(section.getByText("Kaydın sonucu kontrol ediliyor.")).toBeVisible();
+
+      await page.unroute(`**/api/v1/admin/vehicles/${vehicleId}/reset-password`);
+      await page.reload();
+
+      const reloadedSection = page.locator("#sifre-sifirlama");
+      await expect(reloadedSection.getByText("Kaydın sonucu kontrol ediliyor.")).toBeVisible();
+      await expect(reloadedSection.getByText("Devam etmek için yeni şifreyi tekrar gir.")).toBeVisible();
+      await expect(reloadedSection.getByLabel("Mal sahibi şifresi")).toBeChecked();
+      await expect(reloadedSection.getByLabel("Mal sahibi şifresi")).toBeDisabled();
+      const passwordInput = reloadedSection.getByLabel("Yeni şifre");
+      await expect(passwordInput).toHaveValue("");
+      await expect(passwordInput).toBeEnabled();
+      const retryButton = reloadedSection.getByRole("button", { name: "Tekrar kontrol et" });
+      await expect(retryButton).toBeDisabled();
+
+      await passwordInput.pressSequentially(newOwnerPassword);
+      await expect(retryButton).toBeEnabled();
+      await retryButton.click();
+
+      await expect(reloadedSection.getByRole("status").filter({ hasText: "değiştirildi" })).toBeVisible();
+
+      await page.getByRole("button", { name: "Çıkış" }).click();
+      await page.waitForURL("**/yonetim/giris");
+      await page.goto("/giris");
+      await page.getByLabel("Plaka").fill(plate);
+      await page.getByLabel("Şifre").fill(newOwnerPassword);
+      await page.getByRole("button", { name: "Giriş yap", exact: true }).click();
+      await page.waitForURL("**/sahip");
+    });
+
+    test("belirsiz sonuçtan sonra aynı erişim başka bir ekip bağlamında sıfırlanırsa tekrar kontrol 409 verir; sayfa yenilenince yeni sıfırlama başarılı olur ve yeni şifre girişte çalışır", async ({
+      page,
+      browser,
+    }) => {
+      // C1 review bulgusu — kesin (non-2xx) bir yanıttan sonra taslakta AYNI
+      // requestId kalıyordu; yenilemede bellekteki rotasyon durumu kayboluyor
+      // ve sunucunun makbuz tuttuğu requestId yalnız 409 alıyordu.
+      await loginAsAdmin(page);
+      const businessId = await createBusinessViaUi(page, `Sıfırlama Yarış ${Date.now()}`, "Cem Sahip");
+      const plate = uniqueRawPlate("YRS");
+      const vehicleId = await createVehicleViaUi(page, businessId, {
+        plate,
+        ownerPassword: "sahip-yrs-1",
+        driverPassword: "sofor-yrs-1",
+      });
+
+      const section = page.locator("#sifre-sifirlama");
+      await section.getByLabel("Mal sahibi şifresi").check();
+      await section.getByLabel("Yeni şifre").fill("yeni-sahip-yrs-1");
+
+      // İstek sunucuya ULAŞIR (sıfırlama + makbuz yazılır) ama yanıt kaybolur.
+      const resetUrl = `**/api/v1/admin/vehicles/${vehicleId}/reset-password`;
+      await page.route(resetUrl, async (route) => {
+        await route.fetch();
+        await route.abort();
+      });
+      await section.getByRole("button", { name: "Şifreyi sıfırla" }).click();
+      await expect(section.getByText("Kaydın sonucu kontrol ediliyor.")).toBeVisible();
+      await page.unroute(resetUrl);
+
+      // Başka bir ekip bağlamı AYNI erişimi sıfırlar — ilk makbuz geçersiz kalır.
+      const secondContext = await browser.newContext();
+      try {
+        const secondPage = await secondContext.newPage();
+        await loginAsAdmin(secondPage);
+        await secondPage.goto(`/yonetim/araclar/${vehicleId}`);
+        const secondSection = secondPage.locator("#sifre-sifirlama");
+        await secondSection.getByLabel("Mal sahibi şifresi").check();
+        await secondSection.getByLabel("Yeni şifre").fill("diger-sahip-yrs-2");
+        await secondSection.getByRole("button", { name: "Şifreyi sıfırla" }).click();
+        await expect(secondSection.getByRole("status").filter({ hasText: "değiştirildi" })).toBeVisible();
+      } finally {
+        await secondContext.close();
+      }
+
+      await section.getByRole("button", { name: "Tekrar kontrol et" }).click();
+      await expect(section.getByRole("button", { name: "Güncel halini aç" })).toBeVisible();
+
+      // Yenileme: taslak KESİN yanıttan SONRA yeni requestId ile yazılmıştı.
+      await page.reload();
+      const reloaded = page.locator("#sifre-sifirlama");
+      await expect(reloaded.getByText("Kaydın sonucu kontrol ediliyor.")).toHaveCount(0);
+      await expect(reloaded.getByLabel("Mal sahibi şifresi")).toBeChecked();
+      await expect(reloaded.getByLabel("Mal sahibi şifresi")).toBeEnabled();
+      const finalPassword = "son-sahip-yrs-3";
+      await reloaded.getByLabel("Yeni şifre").fill(finalPassword);
+      await reloaded.getByRole("button", { name: "Şifreyi sıfırla" }).click();
+      await expect(reloaded.getByRole("status").filter({ hasText: "değiştirildi" })).toBeVisible();
+
+      await page.getByRole("button", { name: "Çıkış" }).click();
+      await page.waitForURL("**/yonetim/giris");
+      await page.goto("/giris");
+      await page.getByLabel("Plaka").fill(plate);
+      await page.getByLabel("Şifre").fill(finalPassword);
+      await page.getByRole("button", { name: "Giriş yap", exact: true }).click();
+      await page.waitForURL("**/sahip");
+    });
+
+    test("belirsiz sonuçtan sonra farklı şifreyle tekrar kontrol REQUEST_ID_REUSED form-özgü metnini gösterir; yenilemeden sonraki gönderim başarılı olur", async ({
+      page,
+    }) => {
+      await loginAsAdmin(page);
+      const businessId = await createBusinessViaUi(page, `Sıfırlama Farklı Şifre ${Date.now()}`, "Defne Sahip");
+      const plate = uniqueRawPlate("FRK");
+      const vehicleId = await createVehicleViaUi(page, businessId, {
+        plate,
+        ownerPassword: "sahip-frk-1",
+        driverPassword: "sofor-frk-1",
+      });
+
+      const section = page.locator("#sifre-sifirlama");
+      await section.getByLabel("Şoför şifresi").check();
+      await section.getByLabel("Yeni şifre").fill("yeni-sofor-frk-1");
+
+      const resetUrl = `**/api/v1/admin/vehicles/${vehicleId}/reset-password`;
+      await page.route(resetUrl, async (route) => {
+        await route.fetch();
+        await route.abort();
+      });
+      await section.getByRole("button", { name: "Şifreyi sıfırla" }).click();
+      await expect(section.getByText("Kaydın sonucu kontrol ediliyor.")).toBeVisible();
+      await page.unroute(resetUrl);
+
+      // Yenileme sonrası personel İLK girilenden FARKLI bir şifre yazar.
+      await page.reload();
+      const reloaded = page.locator("#sifre-sifirlama");
+      await reloaded.getByLabel("Yeni şifre").pressSequentially("baska-sofor-frk-2");
+      await reloaded.getByRole("button", { name: "Tekrar kontrol et" }).click();
+
+      const banner = reloaded.getByRole("alert").filter({ hasText: "zaten sıfırlanmış olabilir" });
+      await expect(banner).toBeVisible();
+      await expect(banner).toContainText("ilk girdiğin şifreyle");
+      await expect(banner).toContainText("yeni bir şifre belirle");
+      await expect(banner).not.toContainText("yenile");
+
+      // Yenileme: taslak yeni requestId ile yazılmıştı — sonraki gönderim başarılı.
+      await page.reload();
+      const afterReload = page.locator("#sifre-sifirlama");
+      await expect(afterReload.getByText("Kaydın sonucu kontrol ediliyor.")).toHaveCount(0);
+      await expect(afterReload.getByLabel("Şoför şifresi")).toBeChecked();
+      const finalPassword = "son-sofor-frk-3";
+      await afterReload.getByLabel("Yeni şifre").fill(finalPassword);
+      await afterReload.getByRole("button", { name: "Şifreyi sıfırla" }).click();
+      await expect(afterReload.getByRole("status").filter({ hasText: "değiştirildi" })).toBeVisible();
+
+      await page.getByRole("button", { name: "Çıkış" }).click();
+      await page.waitForURL("**/yonetim/giris");
+      await page.goto("/giris");
+      await page.getByLabel("Plaka").fill(plate);
+      await page.getByLabel("Şifre").fill(finalPassword);
+      await page.getByRole("button", { name: "Giriş yap", exact: true }).click();
+      await page.waitForURL("**/sofor");
+    });
+
+    test("yeni şifre localStorage/sessionStorage'a hiç yazılmaz", async ({ page }) => {
+      await loginAsAdmin(page);
+      const businessId = await createBusinessViaUi(page, `Sıfırlama Depolama ${Date.now()}`, "Kader Sahip");
+      const plate = uniqueRawPlate("DPS");
+      await createVehicleViaUi(page, businessId, {
+        plate,
+        ownerPassword: "sahip-dps-1",
+        driverPassword: "sofor-dps-1",
+      });
+
+      const section = page.locator("#sifre-sifirlama");
+      await section.getByLabel("Mal sahibi şifresi").check();
+      const secretNewPassword = "gizli-yeni-sifre-dps";
+      await section.getByLabel("Yeni şifre").fill(secretNewPassword);
+
+      const dumpStorage = () =>
+        page.evaluate(() => {
+          const dump: string[] = [];
+          for (let i = 0; i < window.localStorage.length; i++) {
+            const key = window.localStorage.key(i);
+            if (key) dump.push(window.localStorage.getItem(key) ?? "");
+          }
+          for (let i = 0; i < window.sessionStorage.length; i++) {
+            const key = window.sessionStorage.key(i);
+            if (key) dump.push(window.sessionStorage.getItem(key) ?? "");
+          }
+          return dump.join("\n");
+        });
+
+      expect(await dumpStorage()).not.toContain(secretNewPassword);
+
+      await section.getByRole("button", { name: "Şifreyi sıfırla" }).click();
+      await expect(section.getByRole("status").filter({ hasText: "değiştirildi" })).toBeVisible();
+
+      expect(await dumpStorage()).not.toContain(secretNewPassword);
+    });
+
+    test("pasif araçta şifre sıfırlama bölümü kullanılamaz mesajı gösterir", async ({ page }) => {
+      await loginAsAdmin(page);
+      const businessId = await createBusinessViaUi(page, `Sıfırlama Pasif ${Date.now()}`, "Rıza Sahip");
+      const plate = uniqueRawPlate("PSV");
+      await createVehicleViaUi(page, businessId, {
+        plate,
+        ownerPassword: "sahip-psv-1",
+        driverPassword: "sofor-psv-1",
+      });
+
+      await page.getByRole("button", { name: "Aracı pasifleştir" }).click();
+      const dialog = page.getByRole("dialog");
+      await dialog.getByRole("button", { name: "Pasifleştir", exact: true }).click();
+      await expect(page.getByRole("button", { name: "Aracı yeniden aktifleştir" })).toBeVisible();
+
+      const section = page.locator("#sifre-sifirlama");
+      await expect(section.getByText("Araç veya işletme pasif; şifre sıfırlanamaz.")).toBeVisible();
+      await expect(section.getByLabel("Mal sahibi şifresi")).toHaveCount(0);
+      await expect(section.getByLabel("Yeni şifre")).toHaveCount(0);
+    });
   });
 });

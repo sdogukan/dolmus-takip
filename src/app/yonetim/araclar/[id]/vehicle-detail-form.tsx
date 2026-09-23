@@ -18,8 +18,9 @@ import { getErrorMessage } from "../../../../lib/messages";
 import { formatPlateForDisplay } from "../../../../lib/plate";
 import { isDraftStale } from "../../../../lib/draft-version";
 import { ConfirmDialog } from "../../../_components/confirm-dialog";
+import { PasswordResetSection } from "./password-reset-section";
 
-interface VehicleDetail {
+export interface VehicleDetail {
   vehicle: {
     id: string;
     plateNormalized: string;
@@ -206,6 +207,13 @@ export function VehicleDetailForm({
         draft={draft.active}
         onDraftChange={(active) => persistDraft((prev) => ({ ...prev, active }))}
         onSaved={setDetail}
+      />
+
+      <PasswordResetSection
+        vehicleId={vehicleId}
+        csrfToken={csrfToken}
+        scopeKey={scopeKey}
+        detail={detail}
       />
     </div>
   );

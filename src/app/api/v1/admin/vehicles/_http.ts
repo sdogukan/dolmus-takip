@@ -57,6 +57,8 @@ const FIELD_MESSAGES: Record<string, string> = {
   driverPassword: "Şoför şifresini gir.",
   version: "Sürüm bilgisi eksik veya geçersiz.",
   active: "Aktiflik değeri geçersiz.",
+  access: "Erişim rolü eksik veya geçersiz.",
+  newPassword: "Yeni şifreyi gir.",
 };
 
 export function fieldErrorsFromZodIssues(error: z.ZodError): Record<string, string> {

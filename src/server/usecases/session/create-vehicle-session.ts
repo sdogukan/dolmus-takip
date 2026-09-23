@@ -43,7 +43,11 @@ import {
 import type { AppDatabase } from "../../data/db";
 import { withImmediateTransaction } from "../../data/db";
 import { businesses, sessions, vehicleCredentials, vehicles } from "../../data/schema";
-import { VehicleCredentialNotFoundError, VehicleSessionTargetInactiveError } from "./errors";
+import {
+  VehicleCredentialNotFoundError,
+  VehicleCredentialVersionChangedError,
+  VehicleSessionTargetInactiveError,
+} from "./errors";
 import type { SessionContext } from "./types";
 
 export interface CreateVehicleSessionResult {
@@ -68,6 +72,14 @@ export async function createVehicleSession(
   db: AppDatabase,
   credentialId: string,
   clock: Clock = systemClock,
+  /** T2.3 — `../auth/vehicle-login.ts`in Argon2 doğrulamasından ÖNCE
+   * okuduğu `credential_version`; verildiğinde transaction içinde YENİDEN
+   * okunan güncel sürümle karşılaştırılır (bkz. dosya üstü not — giriş/
+   * parola sıfırlama yarışı). Verilmezse (ör. `resolveSession` gibi bu
+   * denetime ihtiyacı OLMAYAN çağıranlar) hiçbir ek kontrol yapılmaz —
+   * var olan HER çağıranın (bu dosyanın üst notundaki testler dahil)
+   * davranışı DEĞİŞMEZ. */
+  expectedCredentialVersion?: number,
 ): Promise<CreateVehicleSessionResult> {
   const now = clock();
   const token = generateSessionToken();
@@ -96,6 +108,12 @@ export async function createVehicleSession(
     }
     if (!row.vehicleActive || !row.businessActive) {
       throw new VehicleSessionTargetInactiveError();
+    }
+    if (
+      expectedCredentialVersion !== undefined &&
+      row.credentialVersion !== expectedCredentialVersion
+    ) {
+      throw new VehicleCredentialVersionChangedError();
     }
 
     db.insert(sessions)

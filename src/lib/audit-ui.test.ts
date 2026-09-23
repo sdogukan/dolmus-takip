@@ -28,11 +28,16 @@ const WRITTEN_ACTIONS = [
   "vehicle_driver.deactivate",
   "platform_user.bootstrap",
   "platform_user.reset_password",
+  "platform_user.create",
+  "platform_user.update",
+  "platform_user.role_change",
+  "platform_user.deactivate",
+  "platform_user.reactivate",
 ];
 
 describe("auditActionLabel", () => {
-  it("yazılan 19 işlemin hepsi ham koddan farklı bir etiket taşır", () => {
-    expect(WRITTEN_ACTIONS).toHaveLength(19);
+  it("yazılan 24 işlemin hepsi ham koddan farklı bir etiket taşır", () => {
+    expect(WRITTEN_ACTIONS).toHaveLength(24);
     for (const code of WRITTEN_ACTIONS) {
       expect(auditActionLabel(code), code).not.toBe(code);
     }
@@ -51,6 +56,14 @@ describe("auditActionLabel", () => {
   it("bilinen kodu Türkçe etikete çevirir", () => {
     expect(auditActionLabel("business.update")).toBe("İşletme bilgisi değişti");
     expect(auditActionLabel("vehicle.reset_password")).toBe("Araç şifresi sıfırlandı");
+  });
+
+  it("ekip hesabı işlemleri birbirinden ayrışan Türkçe etiket taşır", () => {
+    const codes = ["create", "update", "role_change", "deactivate", "reactivate", "reset_password"];
+    const labels = codes.map((code) => auditActionLabel(`platform_user.${code}`));
+    expect(new Set(labels).size).toBe(codes.length);
+    expect(auditActionLabel("platform_user.create")).toBe("Ekip hesabı açıldı");
+    expect(auditActionLabel("platform_user.role_change")).toBe("Ekip hesabının yetkisi değişti");
   });
 
   it("bilinmeyen kodu gizlemez, ham kodu döner", () => {
@@ -172,5 +185,42 @@ describe("buildAuditUrl", () => {
     expect(buildAuditUrl({ vehicleId: "v-1", cursor: "a b", limit: 20 })).toBe(
       "/api/v1/admin/audit?vehicleId=v-1&cursor=a+b&limit=20",
     );
+  });
+});
+
+describe("ekip hesabı denetim satırları", () => {
+  it("oluşturma önce değeri olmayan yeni kayıt sayılır; yetki etiketi Türkçe gösterilir", () => {
+    const view = buildBeforeAfterRows("platform_user.create", null, {
+      username: "destek.ayse",
+      fullName: "Ayşe K.",
+      platformRole: "support",
+      active: true,
+    });
+    expect(view.noPreviousValue).toBe(true);
+    const role = view.rows.find((row) => row.key === "platformRole");
+    expect(role).toMatchObject({ label: "Yetki", before: null, after: "Destek" });
+    expect(view.rows.find((row) => row.key === "username")).toMatchObject({ label: "Kullanıcı adı" });
+  });
+
+  it("yetki değişikliğinde yalnız değişen alan önce/sonra ile listelenir", () => {
+    const snapshot = { username: "destek.ayse", fullName: "Ayşe K.", active: true };
+    const view = buildBeforeAfterRows(
+      "platform_user.role_change",
+      { ...snapshot, platformRole: "support" },
+      { ...snapshot, platformRole: "admin" },
+    );
+    expect(view.noPreviousValue).toBe(false);
+    expect(view.rows).toEqual([{ key: "platformRole", label: "Yetki", before: "Destek", after: "Yönetici" }]);
+  });
+
+  it("parola/özet benzeri anahtarlar API dönse bile ekrana girmez", () => {
+    const view = buildBeforeAfterRows("platform_user.reset_password", null, {
+      username: "destek.ayse",
+      passwordHash: "$argon2id$secret",
+      newPassword: "gizli-sifre",
+    });
+    const text = JSON.stringify(view);
+    expect(text).not.toContain("argon2");
+    expect(text).not.toContain("gizli-sifre");
   });
 });

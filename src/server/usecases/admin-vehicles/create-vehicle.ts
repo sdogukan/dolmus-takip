@@ -25,9 +25,22 @@
  * FARK EDİLEMEYECEĞİ anlamına gelir — bu yüzden bu fonksiyon, bilinen bir
  * makbuzla karşılaşınca (transaction'a hiç girmeden, salt-okunur bir ön
  * bakışla) gönderilen iki parolayı da saklanan özetlere karşı (hash
- * kuyruğu ÜZERİNDEN, transaction DIŞINDA) DOĞRULAR; eşleşmezse 201 yerine
- * 409 REQUEST_ID_REUSED döner (aksi halde ilk parolalarla başarı
- * raporlanır ama ekip müşteriye ÇALIŞMAYAN bir parola vermiş olurdu).
+ * kuyruğu ÜZERİNDEN, transaction DIŞINDA) `verifyReplayPasswords` ile
+ * DOĞRULAR; eşleşmezse 201 yerine 409 REQUEST_ID_REUSED döner (aksi
+ * halde ilk parolalarla başarı raporlanır ama ekip müşteriye ÇALIŞMAYAN
+ * bir parola vermiş olurdu).
+ *
+ * Peşin bakış ile asıl yazma transaction'ı arasında GERÇEKTEN eşzamanlı
+ * iki istek varsa (peşin bakış ikisinde de "kayıt yok" görür, ikisi de
+ * transaction'a girer, biri BEGIN IMMEDIATE'i kazanıp yazar ve committer,
+ * kaybeden `resolveReceipt` çağrısında `replay: true` bulur) — Argon2
+ * SENKRON transaction İÇİNDE ÇALIŞAMAZ, bu yüzden bu dal transaction
+ * İÇİNDE parola doğrulamaz; yalnız bir REPLAY İŞARETİ (`entityId` +
+ * `responseCode`) döner. `createVehicle`, transaction COMMIT olduktan
+ * SONRA, kaybeden isteğin kendi `ownerPassword`/`driverPassword`'unu AYNI
+ * `verifyReplayPasswords` yardımcısıyla (transaction DIŞINDA) doğrular ve
+ * eşleşmezse 409 REQUEST_ID_REUSED döner — bu dar pencere de peşin
+ * bakışla AYNI garantiyi taşır, ATLANMAZ.
  */
 import crypto from "node:crypto";
 import Database from "better-sqlite3";
@@ -117,6 +130,50 @@ function isUniqueConstraintError(error: unknown, columnHint: string): boolean {
   );
 }
 
+/**
+ * Bilinen bir `vehicle.create` makbuzunun arkasındaki araç için gönderilen
+ * iki parolayı da saklanan Argon2 özetlerine karşı (hash kuyruğu ÜZERİNDEN)
+ * doğrular — peşin bakış (transaction'a hiç girmeden) VE transaction-içi
+ * replay işareti (transaction COMMIT olduktan SONRA) YOLLARININ PAYLAŞTIĞI
+ * TEK doğrulama; eşleşmezse `RequestIdReusedError` (409) fırlatır, hangi
+ * parolanın uyuşmadığını ASLA belirtmez (risk notu).
+ */
+async function verifyReplayPasswords(
+  db: AppDatabase,
+  vehicleId: string,
+  ownerPassword: string,
+  driverPassword: string,
+  clock: Clock,
+): Promise<void> {
+  const credentialRows = db
+    .select({ role: vehicleCredentials.role, passwordHash: vehicleCredentials.passwordHash })
+    .from(vehicleCredentials)
+    .where(eq(vehicleCredentials.vehicleId, vehicleId))
+    .all();
+  const ownerCredential = credentialRows.find((row) => row.role === "owner");
+  const driverCredential = credentialRows.find((row) => row.role === "driver");
+  if (!ownerCredential || !driverCredential) {
+    throw new Error(
+      `createVehicle: makbuz kaydı olan aracın credential'ları eksik: "${vehicleId}" (programlama hatası).`,
+    );
+  }
+  const [ownerMatches, driverMatches] = await Promise.all([
+    verifyVehiclePassword(ownerCredential.passwordHash, ownerPassword, clock),
+    verifyVehiclePassword(driverCredential.passwordHash, driverPassword, clock),
+  ]);
+  if (!ownerMatches || !driverMatches) {
+    throw new RequestIdReusedError("Bu istek kimliği farklı parolalarla zaten kullanılmış.");
+  }
+}
+
+/** `withImmediateTransaction` içindeki `createVehicle` çekirdeğinin dönüş
+ * şekli — normal oluşturma SONUCU ile transaction-içi replay İŞARETİ
+ * (parola doğrulaması henüz YAPILMAMIŞ, transaction COMMIT olduktan sonra
+ * `verifyReplayPasswords` ile tamamlanacak) ayrı tutulur. */
+type CreateVehicleTxOutcome =
+  | { kind: "created"; detail: VehicleDetail }
+  | { kind: "replay-marker"; entityId: string; responseCode: number };
+
 export async function createVehicle(
   db: AppDatabase,
   context: SessionContext,
@@ -182,27 +239,7 @@ export async function createVehicle(
         "createVehicle: vehicle.create makbuzu entityId taşımıyor (programlama hatası).",
       );
     }
-    const credentialRows = db
-      .select({ role: vehicleCredentials.role, passwordHash: vehicleCredentials.passwordHash })
-      .from(vehicleCredentials)
-      .where(eq(vehicleCredentials.vehicleId, peeked.entityId))
-      .all();
-    const ownerCredential = credentialRows.find((row) => row.role === "owner");
-    const driverCredential = credentialRows.find((row) => row.role === "driver");
-    if (!ownerCredential || !driverCredential) {
-      throw new Error(
-        `createVehicle: makbuz kaydı olan aracın credential'ları eksik: "${peeked.entityId}" (programlama hatası).`,
-      );
-    }
-    const [ownerMatches, driverMatches] = await Promise.all([
-      verifyVehiclePassword(ownerCredential.passwordHash, params.ownerPassword, clock),
-      verifyVehiclePassword(driverCredential.passwordHash, params.driverPassword, clock),
-    ]);
-    if (!ownerMatches || !driverMatches) {
-      throw new RequestIdReusedError(
-        "Bu istek kimliği farklı parolalarla zaten kullanılmış.",
-      );
-    }
+    await verifyReplayPasswords(db, peeked.entityId, params.ownerPassword, params.driverPassword, clock);
 
     // "erişimi iptal edilen aktör eski makbuz üzerinden veri okuyamaz" —
     // makbuz VARSA işletme daha önce GERÇEKTEN var olmuştur; yine de
@@ -242,7 +279,7 @@ export async function createVehicle(
     hashVehiclePassword(params.driverPassword, clock),
   ]);
 
-  return withImmediateTransaction(db.$client, () => {
+  const txResult = withImmediateTransaction<CreateVehicleTxOutcome>(db.$client, () => {
     const business = db
       .select({ id: businesses.id, active: businesses.active })
       .from(businesses)
@@ -269,17 +306,20 @@ export async function createVehicle(
     );
     if (resolved.replay) {
       // Aşırı nadir yarış (peşin bakışla bu transaction arasında AYNI
-      // requestId GERÇEKTEN kaydedildi) — parola tekrar doğrulaması bu
-      // dar pencerede ATLANIR (Argon2 senkron transaction İÇİNDE
-      // ÇALIŞAMAZ); yukarıdaki peşin bakış bu riskin asıl savunmasıdır.
+      // requestId GERÇEKTEN kaydedildi) — Argon2 senkron transaction
+      // İÇİNDE ÇALIŞAMAZ, bu yüzden parola doğrulaması burada YAPILMAZ;
+      // yalnız bir replay İŞARETİ dönülür. Çağıran, transaction COMMIT
+      // olduktan SONRA `verifyReplayPasswords` ile aynı doğrulamayı
+      // peşin bakış yoluyla AYNEN yapar (bkz. dosya üstü not).
       if (!resolved.receipt.entityId) {
         throw new Error(
           "createVehicle: vehicle.create makbuzu entityId taşımıyor (programlama hatası).",
         );
       }
       return {
-        status: resolved.receipt.responseCode,
-        detail: getVehicleDetail(db, resolved.receipt.entityId),
+        kind: "replay-marker",
+        entityId: resolved.receipt.entityId,
+        responseCode: resolved.receipt.responseCode,
       };
     }
 
@@ -405,6 +445,24 @@ export async function createVehicle(
       clock,
     );
 
-    return { status: 201, detail: getVehicleDetail(db, vehicleId) };
+    return { kind: "created", detail: getVehicleDetail(db, vehicleId) };
   });
+
+  if (txResult.kind === "created") {
+    return { status: 201, detail: txResult.detail };
+  }
+
+  // Transaction-içi replay işareti — commit olmuş receipt'in gerçek
+  // sahibi bu istek DEĞİL; kazanan isteğin araç için AYNI parola
+  // doğrulaması (transaction DIŞINDA, hash kuyruğu ÜZERİNDEN) burada
+  // tamamlanır. Eşleşmezse `verifyReplayPasswords` 409 REQUEST_ID_REUSED
+  // fırlatır.
+  await verifyReplayPasswords(
+    db,
+    txResult.entityId,
+    params.ownerPassword,
+    params.driverPassword,
+    clock,
+  );
+  return { status: txResult.responseCode, detail: getVehicleDetail(db, txResult.entityId) };
 }

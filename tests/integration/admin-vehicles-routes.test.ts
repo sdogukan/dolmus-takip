@@ -5,7 +5,8 @@
  * (mock/`:memory:` YOK). Acceptance'ın kapsadığı senaryolar: 201 + tek
  * transaction'da vehicles+2×vehicle_credentials+audit+receipt; aynı
  * requestId replay (ikinci araç ÜRETMEZ); aynı requestId FARKLI
- * parolalarla 409; plaka çakışması (boşluk/büyük-küçük harf farkıyla)
+ * parolalarla 409 (hem peşin bakış hem GERÇEK eşzamanlı transaction-içi
+ * replay yolunda — C2 düzeltmesi); plaka çakışması (boşluk/büyük-küçük harf farkıyla)
  * 422 fields.plate; sahip/şoför parolası aynıysa 422; oluşturma SONRASI
  * gerçek `POST /auth/vehicle-login` ile hem sahip hem şoför parolasıyla
  * giriş; eski version ile PATCH 409 (kanonik metin) ve kayıt değişmez;
@@ -308,6 +309,105 @@ describe("admin/vehicles routes (T2.2)", () => {
     );
     expect(second.status).toBe(409);
     expect((await second.json()).error.code).toBe("REQUEST_ID_REUSED");
+  });
+
+  // -------------------------------------------------------------------
+  // C2 düzeltmesi — GERÇEK eşzamanlı yarış: her iki istek de peşin bakışta
+  // "kayıt yok" görüp transaction'a girer; biri BEGIN IMMEDIATE'i kazanıp
+  // yazar/committer, kaybeden transaction-İÇİNDE `resolveReceipt`'in
+  // `replay: true` bulduğu dalı (peşin bakış DEĞİL) tetikler. `Promise.all`
+  // ile İKİ isteği de aralarında hiçbir `await` OLMADAN başlatmak (her
+  // ikisi de kendi ilk `await`'ine kadar SENKRON ilerler) bu peşin bakış
+  // penceresini GERÇEKTEN aynı anda açık tutar — bkz. `create-vehicle.ts`
+  // dosya üstü not.
+  // -------------------------------------------------------------------
+
+  it("GERÇEK eşzamanlı iki POST aynı requestId + FARKLI parolalarla: yalnız BİR araç oluşur, kaybeden transaction-içi replay yolunda 409 REQUEST_ID_REUSED alır", async () => {
+    const { token, csrfToken } = await loginPlatform(SEED_USERNAMES.admin, SEED_TEST_PASSWORDS.admin);
+    const requestId = "c0111111-1111-4111-8111-111111111111";
+    const plate = "34 KKK 303";
+
+    const [first, second] = await Promise.all([
+      postVehicle(
+        writeRequest(token, csrfToken, "POST", {
+          requestId,
+          businessRef: SEED_IDS.businessA,
+          plate,
+          ownerPassword: "yaris-sahip-a-1234",
+          driverPassword: "yaris-sofor-a-1234",
+        }),
+      ),
+      postVehicle(
+        writeRequest(token, csrfToken, "POST", {
+          requestId,
+          businessRef: SEED_IDS.businessA,
+          plate,
+          ownerPassword: "yaris-sahip-b-1234",
+          driverPassword: "yaris-sofor-b-1234",
+        }),
+      ),
+    ]);
+
+    const statuses = [first.status, second.status].sort((a, b) => a - b);
+    expect(statuses).toEqual([201, 409]);
+
+    const winner = first.status === 201 ? first : second;
+    const loser = first.status === 201 ? second : first;
+    const winnerBody = await winner.json();
+    const loserBody = await loser.json();
+    expect(loserBody.error.code).toBe("REQUEST_ID_REUSED");
+
+    const sqlite = rawDb(dbPath);
+    try {
+      const count = sqlite
+        .prepare("SELECT COUNT(*) c FROM vehicles WHERE plate_normalized = '34KKK303'")
+        .get() as { c: number };
+      expect(count.c).toBe(1);
+
+      const receiptRow = sqlite
+        .prepare("SELECT entity_id FROM mutation_receipts WHERE request_id = ?")
+        .get(requestId) as { entity_id: string };
+      expect(receiptRow.entity_id).toBe(winnerBody.vehicle.id);
+    } finally {
+      sqlite.close();
+    }
+  });
+
+  it("GERÇEK eşzamanlı iki POST aynı requestId + AYNI parolalarla: ikisi de 201 döner, aynı araç id'siyle", async () => {
+    const { token, csrfToken } = await loginPlatform(SEED_USERNAMES.admin, SEED_TEST_PASSWORDS.admin);
+    const requestId = "c0222222-2222-4222-8222-222222222222";
+    const plate = "34 KKK 404";
+    const body = {
+      requestId,
+      businessRef: SEED_IDS.businessA,
+      plate,
+      ownerPassword: "yaris-ayni-sahip-1234",
+      driverPassword: "yaris-ayni-sofor-1234",
+    };
+
+    const [first, second] = await Promise.all([
+      postVehicle(writeRequest(token, csrfToken, "POST", body)),
+      postVehicle(writeRequest(token, csrfToken, "POST", body)),
+    ]);
+
+    expect(first.status).toBe(201);
+    expect(second.status).toBe(201);
+    const firstBody = await first.json();
+    const secondBody = await second.json();
+    expect(secondBody.vehicle.id).toBe(firstBody.vehicle.id);
+
+    const sqlite = rawDb(dbPath);
+    try {
+      const count = sqlite
+        .prepare("SELECT COUNT(*) c FROM vehicles WHERE plate_normalized = '34KKK404'")
+        .get() as { c: number };
+      expect(count.c).toBe(1);
+    } finally {
+      sqlite.close();
+    }
+
+    const login = await loginVehicle(plate, "yaris-ayni-sahip-1234");
+    expect(login.status).toBe(201);
   });
 
   it("plaka boşluk/büyük-küçük harf farkıyla ÇAKIŞIYORSA 422 fields.plate döner, hiçbir şey yazılmaz", async () => {

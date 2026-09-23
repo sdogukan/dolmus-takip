@@ -45,6 +45,7 @@ import {
 import { DRIVER_SCREEN_MESSAGES } from "../../lib/messages";
 import { useStoredDraft } from "../../lib/use-stored-draft";
 import { ConfirmDialog } from "./confirm-dialog";
+import { useUnsavedChanges } from "./unsaved-changes";
 
 type Outcome =
   | { kind: "ambiguous" }
@@ -150,6 +151,8 @@ export function DriversManager({
   const locked = isBusy || draft.add.pending || op?.pending === true;
   const { active, inactive } = splitDrivers(view.drivers);
   const similar = findSimilarCandidates(draft.add.fullName, view.candidates);
+  // Yalnız ekip modunda: yazılmış ama gönderilmemiş ad veya açık bir satır işlemi.
+  useUnsavedChanges("soforler", isStaff && (draft.add.fullName.trim() !== "" || op !== null));
 
   function persistOp(next: DriverOpDraft | null): void {
     persistDraft((prev) => ({ ...prev, op: next }));

@@ -16,7 +16,7 @@
  * al" düğmesi) OTOMATİK geri verir — dosya üstü notun "odak kapanınca
  * önceki düğmeye döner" cümlesi budur.
  */
-import { useEffect, useRef, type ReactNode } from "react";
+import { useEffect, useId, useRef, type ReactNode } from "react";
 
 export interface ConfirmDialogProps {
   open: boolean;
@@ -44,6 +44,8 @@ export function ConfirmDialog({
   onCancel,
 }: ConfirmDialogProps) {
   const dialogRef = useRef<HTMLDialogElement>(null);
+  // Sayfada birden çok pencere olabilir; sabit id ilkinin başlığını hepsine bağlardı.
+  const titleId = useId();
 
   useEffect(() => {
     const dialog = dialogRef.current;
@@ -58,7 +60,7 @@ export function ConfirmDialog({
   return (
     <dialog
       ref={dialogRef}
-      aria-labelledby="confirm-dialog-title"
+      aria-labelledby={titleId}
       className="w-[calc(100%-2rem)] max-w-[28rem] rounded-[var(--radius-card)] border-none p-0 text-[var(--color-text)] backdrop:bg-black/40"
       onCancel={(event) => {
         // Escape — Vazgeç ile AYNI (yalnız iptal), sonuçlu işlem TETİKLENMEZ.
@@ -77,7 +79,7 @@ export function ConfirmDialog({
       // SONUCUDUR; ayrıca bir geri bildirim GEREKMEZ.
     >
       <div className="flex flex-col gap-4 p-6">
-        <h2 id="confirm-dialog-title" className="text-xl font-semibold">
+        <h2 id={titleId} className="text-xl font-semibold">
           {title}
         </h2>
         <div className="text-base text-[var(--color-text-secondary)]">{description}</div>

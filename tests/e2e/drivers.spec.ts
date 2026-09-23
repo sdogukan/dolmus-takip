@@ -159,7 +159,8 @@ test.describe("Şoförlerim", () => {
     // --- Ekip: bağlam, şifre sıfırlama bağlantısı, etkilenen araçlar ---
     await page.goto(`/yonetim/araclar/${vehicleA}/soforler`);
     await expect(page.getByText(new RegExp(`${plateA}.*${businessName}.*Sahip: Sevim Sahip`))).toBeVisible();
-    await expect(page.getByText(SEED_USERNAMES.admin)).toBeVisible();
+    // Ekip kimliği hem üst başlıkta hem destek hedefi başlığında ("İşlemi yapan") görünür.
+    await expect(page.getByText(`${SEED_USERNAMES.admin} · Yönetici`)).toBeVisible();
     const staffRow = page.getByRole("listitem").filter({ hasText: "Ali Veli Yıldız" });
     await expect(staffRow.getByRole("link", { name: "Şifre sıfırla" })).toHaveAttribute(
       "href",

@@ -20,6 +20,8 @@ import {
 import { createPlatformSession } from "../../src/server/usecases/session/create-platform-session";
 import { createVehicleSession } from "../../src/server/usecases/session/create-vehicle-session";
 import {
+  PlatformCredentialVersionChangedError,
+  PlatformSessionTargetInactiveError,
   PlatformUserNotFoundError,
   SessionExpiredError,
   SessionMissingError,
@@ -427,11 +429,15 @@ describe("oturum kullanım durumları (T1.4 ADIM 1/2)", () => {
       );
     });
 
-    it("pasif platform kullanıcısı (seed: platformAdminPassive1) için SessionRevokedError fırlatır", async () => {
-      const created = await createPlatformSession(
-        db,
-        SEED_IDS.platformAdminPassive1,
-      );
+    it("platform kullanıcısı SONRADAN pasifleşince SessionRevokedError fırlatır", async () => {
+      // `createPlatformSession` artık hedefin GÜNCEL aktifliğini kendisi de
+      // denetler (bkz. "createPlatformSession — hedef pasifse / sürüm
+      // değiştiyse"); bu test `resolveSession`in KENDİ denetimini sınadığından
+      // oturum ÖNCE aktifken kurulur, SONRA kullanıcı pasifleştirilir.
+      const created = await createPlatformSession(db, SEED_IDS.platformAdmin1);
+      sqlite
+        .prepare("UPDATE platform_users SET active = 0 WHERE id = ?")
+        .run(SEED_IDS.platformAdmin1);
       await expect(resolveSession(db, created.token)).rejects.toThrow(
         SessionRevokedError,
       );
@@ -486,6 +492,61 @@ describe("oturum kullanım durumları (T1.4 ADIM 1/2)", () => {
     it("araç VE işletme aktifken normal şekilde oturum üretir (regresyon)", async () => {
       const created = await createVehicleSession(db, SEED_IDS.credA2Owner);
       expect(created.context.vehicleId).toBe(SEED_IDS.vehicleA2);
+    });
+  });
+
+  describe("createPlatformSession — hedef pasifse / sürüm değiştiyse (S2.6 giriş yarışı)", () => {
+    function sessionCount(platformUserId: string): number {
+      const row = sqlite
+        .prepare("SELECT COUNT(*) c FROM sessions WHERE platform_user_id = ?")
+        .get(platformUserId) as { c: number };
+      return row.c;
+    }
+
+    it("kullanıcı pasifse PlatformSessionTargetInactiveError fırlatır ve HİÇBİR oturum satırı yazılmaz", async () => {
+      await expect(
+        createPlatformSession(db, SEED_IDS.platformAdminPassive1),
+      ).rejects.toThrow(PlatformSessionTargetInactiveError);
+      expect(sessionCount(SEED_IDS.platformAdminPassive1)).toBe(0);
+    });
+
+    it("sürüm verilmese de aktiflik denetlenir (pasifleştirilmiş aktif kullanıcı)", async () => {
+      sqlite
+        .prepare("UPDATE platform_users SET active = 0 WHERE id = ?")
+        .run(SEED_IDS.platformAdmin1);
+      await expect(
+        createPlatformSession(db, SEED_IDS.platformAdmin1),
+      ).rejects.toThrow(PlatformSessionTargetInactiveError);
+      expect(sessionCount(SEED_IDS.platformAdmin1)).toBe(0);
+    });
+
+    it("expectedCredentialVersion güncel sürümle eşleşmezse PlatformCredentialVersionChangedError fırlatır ve HİÇBİR oturum satırı yazılmaz", async () => {
+      const row = sqlite
+        .prepare("SELECT credential_version v FROM platform_users WHERE id = ?")
+        .get(SEED_IDS.platformAdmin1) as { v: number };
+      await expect(
+        createPlatformSession(
+          db,
+          SEED_IDS.platformAdmin1,
+          undefined,
+          row.v + 1,
+        ),
+      ).rejects.toThrow(PlatformCredentialVersionChangedError);
+      expect(sessionCount(SEED_IDS.platformAdmin1)).toBe(0);
+    });
+
+    it("expectedCredentialVersion eşleşirse oturum üretir ve issued_version güncel sürümdür (regresyon)", async () => {
+      const row = sqlite
+        .prepare("SELECT credential_version v FROM platform_users WHERE id = ?")
+        .get(SEED_IDS.platformAdmin1) as { v: number };
+      const created = await createPlatformSession(
+        db,
+        SEED_IDS.platformAdmin1,
+        undefined,
+        row.v,
+      );
+      expect(created.context.platformUserId).toBe(SEED_IDS.platformAdmin1);
+      expect(sessionCount(SEED_IDS.platformAdmin1)).toBe(1);
     });
   });
 

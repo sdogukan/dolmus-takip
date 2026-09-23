@@ -1,6 +1,10 @@
 import type { Metadata } from "next";
 import { LoginForm } from "../../_components/login-form";
-import { LOGIN_HELP_TEXT, PLATFORM_LOGIN_RESULT_MESSAGES } from "../../../lib/messages";
+import {
+  COMMON_SCREEN_MESSAGES,
+  LOGIN_HELP_TEXT,
+  PLATFORM_LOGIN_RESULT_MESSAGES,
+} from "../../../lib/messages";
 
 /**
  * /yonetim/giris — ekip girişi (DESIGN.md §1 "Giriş gerektirmeyen
@@ -36,9 +40,25 @@ export const metadata: Metadata = {
   description: "Kişisel ekip kullanıcı adı ve şifresiyle yönetim girişi.",
 };
 
-export default function YonetimGirisPage() {
+/**
+ * `?oturum=bitti` — bir ekran kendi oturumunu bilerek kapattığında (ör. yönetici
+ * kendi şifresini sıfırladı/hesabını pasifleştirdi) girişe bu işaretle gönderir;
+ * "Oturumun sona erdi" notu formun üstünde gösterilir.
+ */
+export default async function YonetimGirisPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ oturum?: string | string[] }>;
+}) {
+  const { oturum } = await searchParams;
+  const sessionEnded = (Array.isArray(oturum) ? oturum[0] : oturum) === "bitti";
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-[30rem] flex-col justify-center px-4 py-10">
+    <main className="mx-auto flex min-h-dvh w-full max-w-[30rem] flex-col justify-center gap-4 px-4 py-10">
+      {sessionEnded && (
+        <p role="status" className="rounded-[var(--radius-control)] bg-[var(--color-warning-surface)] px-3 py-2 text-base text-[var(--color-warning)]">
+          {COMMON_SCREEN_MESSAGES.sessionEnded}
+        </p>
+      )}
       <LoginForm
         heading="Ekip girişi"
         helpText={LOGIN_HELP_TEXT}

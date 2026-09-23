@@ -59,6 +59,10 @@ import {
   createPlatformSession,
   type CreatePlatformSessionResult,
 } from "../session/create-platform-session";
+import {
+  PlatformCredentialVersionChangedError,
+  PlatformSessionTargetInactiveError,
+} from "../session/errors";
 import { verifyPasswordOrDummy } from "./vehicle-login";
 
 // ---------------------------------------------------------------------------
@@ -117,6 +121,7 @@ interface PlatformUserLookupRow {
   passwordHash: string;
   platformRole: "admin" | "support";
   active: boolean;
+  credentialVersion: number;
 }
 
 async function lookupPlatformUserByUsername(
@@ -129,6 +134,7 @@ async function lookupPlatformUserByUsername(
       passwordHash: platformUsers.passwordHash,
       platformRole: platformUsers.platformRole,
       active: platformUsers.active,
+      credentialVersion: platformUsers.credentialVersion,
     })
     .from(platformUsers)
     .where(eq(platformUsers.username, username))
@@ -209,8 +215,11 @@ export async function platformLogin(
   const userRow = await lookupPlatformUserByUsername(db, username);
   const isUsableUser = userRow !== undefined && userRow.active;
 
-  let matched: { platformUserId: string; role: "admin" | "support" } | null =
-    null;
+  let matched: {
+    platformUserId: string;
+    role: "admin" | "support";
+    credentialVersion: number;
+  } | null = null;
 
   try {
     if (!isUsableUser) {
@@ -235,7 +244,11 @@ export async function platformLogin(
         clock,
       );
       if (matches) {
-        matched = { platformUserId: userRow.id, role: userRow.platformRole };
+        matched = {
+          platformUserId: userRow.id,
+          role: userRow.platformRole,
+          credentialVersion: userRow.credentialVersion,
+        };
       }
     }
   } catch (error) {
@@ -252,11 +265,28 @@ export async function platformLogin(
     return { ok: false, kind: "invalid_credentials" };
   }
 
-  const session = await createPlatformSession(
-    db,
-    matched.platformUserId,
-    clock,
-  );
+  let session: CreatePlatformSessionResult;
+  try {
+    session = await createPlatformSession(
+      db,
+      matched.platformUserId,
+      clock,
+      matched.credentialVersion,
+    );
+  } catch (error) {
+    if (
+      error instanceof PlatformSessionTargetInactiveError ||
+      error instanceof PlatformCredentialVersionChangedError
+    ) {
+      // Giriş/pasifleştirme YA DA giriş/parola sıfırlama yarışı: parola
+      // Argon2 anında eşleşti ama hesap, oturum INSERT'i anında (atomik
+      // yeniden denetim) artık pasif ya da parolası sıfırlanmış. Genel 401
+      // (hangi durumun gerçekleştiği sızdırılmaz); YANLIŞ PAROLA olmadığı
+      // için hız sınırı sayacı ARTIRILMAZ.
+      return { ok: false, kind: "invalid_credentials" };
+    }
+    throw error;
+  }
 
   return {
     ok: true,

@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { getAppDb } from "../../server/data/app-db";
 import { readPageSession } from "../../server/auth/page-session";
 import { readPlatformUsernameForDisplay } from "../../server/auth/platform-username";
-import { PLATFORM_ROLE_LABELS } from "../../lib/messages";
+import { PLATFORM_ROLE_LABELS, TEAM_USER_MESSAGES } from "../../lib/messages";
 import { TeamPageHeader } from "../_components/team-page-header";
 import { parseActiveFilter } from "../../lib/admin-search";
 import { AdminSearch } from "./admin-search";
@@ -84,6 +84,14 @@ export default async function YonetimPage({
         >
           İşlem geçmişi
         </Link>
+        {context.role === "admin" && (
+          <Link
+            href="/yonetim/ekip"
+            className="flex min-h-[var(--control-min-height)] items-center self-start text-base font-medium text-[var(--color-primary)] underline"
+          >
+            {TEAM_USER_MESSAGES.listTitle}
+          </Link>
+        )}
         <AdminSearch
           initialQuery={(rawQuery ?? "").trim().slice(0, 100)}
           initialActive={parseActiveFilter(rawActive)}

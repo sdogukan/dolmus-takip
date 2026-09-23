@@ -234,8 +234,8 @@ describe("release:build / release:verify boru hattı (T6.1, S6.1)", () => {
       ).toBeGreaterThanOrEqual(0);
 
       // --- Şema uyumluluğu: migration journal ile birebir ---
-      expect(manifest.schema.last_migration_idx).toBe(2);
-      expect(manifest.schema.migration_sha256_list).toHaveLength(3);
+      expect(manifest.schema.last_migration_idx).toBe(3);
+      expect(manifest.schema.migration_sha256_list).toHaveLength(4);
       for (const entry of manifest.schema.migration_sha256_list) {
         expect(entry.sha256).toMatch(SHA256_HEX);
       }

@@ -22,6 +22,8 @@ export interface AuditEntry {
   business: { id: string; name: string } | null;
   vehicle: { id: string; plateNormalized: string } | null;
   actor: AuditActor;
+  /** Yalnız `entityType === "platform_user"` satırlarında dolu. */
+  targetUser: { id: string; username: string } | null;
   onBehalfOf: { kind: "owner" | "driver"; fullName: string } | null;
   before: Record<string, unknown> | null;
   after: Record<string, unknown> | null;
@@ -49,6 +51,11 @@ const ACTION_LABELS: Record<string, string> = {
   "vehicle_driver.deactivate": "Şoför ataması pasifleştirildi",
   "vehicle_driver.set": "Şoför ataması değişti",
   "platform_user.bootstrap": "İlk yönetici hesabı oluşturuldu",
+  "platform_user.create": "Ekip hesabı açıldı",
+  "platform_user.update": "Ekip hesabı bilgisi değişti",
+  "platform_user.role_change": "Ekip hesabının yetkisi değişti",
+  "platform_user.deactivate": "Ekip hesabı pasifleştirildi",
+  "platform_user.reactivate": "Ekip hesabı yeniden aktifleştirildi",
   "platform_user.reset_password": "Ekip hesabı şifresi sıfırlandı",
 };
 
@@ -85,6 +92,8 @@ export function formatAuditActor(actor: AuditActor): string {
 const FIELD_LABELS: Record<string, string> = {
   name: "Ad",
   fullName: "Ad soyad",
+  username: "Kullanıcı adı",
+  platformRole: "Yetki",
   ownerFullName: "Sahip",
   plateNormalized: "Plaka",
   brandModel: "Marka / model",
@@ -110,6 +119,9 @@ function formatValue(key: string, value: unknown): string {
   if (key === "access") {
     if (value === "owner") return "Mal sahibi şifresi";
     if (value === "driver") return "Şoför şifresi";
+  }
+  if (key === "platformRole" && (value === "admin" || value === "support")) {
+    return PLATFORM_ROLE_LABELS[value];
   }
   if (key === "plateNormalized" && typeof value === "string") return formatPlateForDisplay(value);
   if (typeof value === "boolean") return value ? "Evet" : "Hayır";

@@ -105,6 +105,7 @@ function AuditRow({ entry }: { entry: AuditEntry }) {
       <p>
         {TEXT.actorPrefix}: {formatAuditActor(entry.actor)}
       </p>
+      {entry.targetUser && <p>{TEXT.targetUser(entry.targetUser.username)}</p>}
       {entry.onBehalfOf && (
         <p className="text-[var(--color-text-secondary)]">{TEXT.onBehalfOf(entry.onBehalfOf.fullName)}</p>
       )}

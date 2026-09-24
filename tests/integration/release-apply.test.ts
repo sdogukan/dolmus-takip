@@ -187,6 +187,11 @@ function withDb<T>(fn: (sqlite: InstanceType<typeof Database>) => T): T {
   }
 }
 
+/** Deponun kendi migration sayısı (OLD/SAME release'lerin şeması); MIG bunun üstüne bir tane ekler. */
+const REPO_MIGRATIONS = (
+  JSON.parse(fs.readFileSync(path.join(projectRoot, "drizzle", "meta", "_journal.json"), "utf8")) as { entries: unknown[] }
+).entries.length;
+
 const migrationCount = (): number =>
   withDb((sqlite) => (sqlite.prepare("SELECT COUNT(*) AS c FROM __drizzle_migrations").get() as { c: number }).c);
 
@@ -402,7 +407,7 @@ describe("scripts/release-apply.ts deploy", () => {
     const manifest = parseManifest(fs.readFileSync(path.join(preMigrationDir, manifestName!), "utf8"));
     expect(manifest, "pre-migration manifesti BackupManifest biçiminde").not.toBeNull();
     expect(manifest!.release_id).toBe(OLD);
-    expect(manifest!.schema.applied_migrations).toBe(4);
+    expect(manifest!.schema.applied_migrations).toBe(REPO_MIGRATIONS);
     expect(sha256(path.join(preMigrationDir, manifest!.file))).toBe(manifest!.sha256);
 
     const state = readState();
@@ -419,7 +424,7 @@ describe("scripts/release-apply.ts deploy", () => {
     expect(new Date(state.traffic_opened_at).toISOString()).toBe(state.traffic_opened_at);
     expect(fs.existsSync(markerPath)).toBe(false);
     expect(currentRelease()).toBe(MIG);
-    expect(migrationCount()).toBe(5);
+    expect(migrationCount()).toBe(REPO_MIGRATIONS + 1);
     expect(serviceState()).toBe("active");
     expect(fs.statSync(path.join(stateDir, "state.json")).mode & 0o777).toBe(0o600);
     // Trafik satırı son, ready/mali kontrol satırlarından sonra.
@@ -439,7 +444,7 @@ describe("scripts/release-apply.ts deploy", () => {
     expect(calls().some((line) => line.includes("db-init.ts"))).toBe(false);
     expect(currentRelease()).toBe(OLD);
     expect(fs.existsSync(markerPath)).toBe(true);
-    expect(migrationCount()).toBe(4);
+    expect(migrationCount()).toBe(REPO_MIGRATIONS);
     expect(indexOfCall(/^systemctl start marker=1$/)).toBeGreaterThan(indexOfCall(/^systemctl stop marker=1$/));
     expect(serviceState()).toBe("active");
     expect(readState()).toMatchObject({
@@ -763,7 +768,7 @@ describe("scripts/release-apply.ts rollback", () => {
     const result = await runApply(MIG, ["rollback", "--code"]);
     expectOk(result);
     expect(currentRelease()).toBe(OLD);
-    expect(migrationCount()).toBe(4);
+    expect(migrationCount()).toBe(REPO_MIGRATIONS);
     expect(fs.existsSync(markerPath)).toBe(false);
     expect(readState()).toMatchObject({ phase: "rolled_back", failure: null });
   }, SLOW);
@@ -790,7 +795,7 @@ describe("scripts/release-apply.ts rollback", () => {
     expect(calls().some((line) => line.includes("db-restore.ts"))).toBe(false);
     expect(fs.readdirSync(preservedDir)).toEqual([]);
     expect(withDb((sqlite) => sqlite.prepare("SELECT COUNT(*) AS c FROM work_entries WHERE id = 'entry-after-release'").get())).toEqual({ c: 1 });
-    expect(migrationCount()).toBe(5);
+    expect(migrationCount()).toBe(REPO_MIGRATIONS + 1);
     expect(currentRelease()).toBe(MIG);
     expect(fs.existsSync(markerPath)).toBe(true);
     expect(readState().failure).toMatchObject({ phase: "rolling_back", reason: "fingerprint_mismatch" });
@@ -803,13 +808,13 @@ describe("scripts/release-apply.ts rollback", () => {
     const before = calls().length;
     expectRefused(await runApply(MIG, ["rollback", "--code-and-db"]), "state_unreadable");
     expect(calls()).toHaveLength(before);
-    expect(migrationCount()).toBe(5);
+    expect(migrationCount()).toBe(REPO_MIGRATIONS + 1);
   }, SLOW);
 
   it("--code-and-db: trafik açılmadan; yeni DB/WAL preserved altına taşınır, oturumlar iptal, eski şema ve eski release", async () => {
     health.ready = 503;
     expectRefused(await deploy(MIG), "readiness_failed");
-    expect(migrationCount()).toBe(5);
+    expect(migrationCount()).toBe(REPO_MIGRATIONS + 1);
     const liveBefore: Record<string, string> = {};
     for (const suffix of ["", "-wal", "-shm"]) {
       if (fs.existsSync(`${dbPath}${suffix}`)) liveBefore[`app.sqlite${suffix}`] = sha256(`${dbPath}${suffix}`);
@@ -833,7 +838,7 @@ describe("scripts/release-apply.ts rollback", () => {
     expect(Object.keys(moved).every((name) => /^app\.sqlite(-wal|-shm)?$/.test(name))).toBe(true);
 
     expect(currentRelease()).toBe(OLD);
-    expect(migrationCount()).toBe(4);
+    expect(migrationCount()).toBe(REPO_MIGRATIONS);
     expect(withDb((sqlite) => sqlite.prepare("SELECT COUNT(*) AS c FROM sessions WHERE revoked_at IS NULL").get())).toEqual({ c: 0 });
     expect(fs.existsSync(markerPath)).toBe(false);
     expect(state.traffic_opened_at).not.toBeNull();
@@ -859,7 +864,7 @@ describe("scripts/release-apply.ts rollback", () => {
     expect(state.rollback.restored_fingerprint).toMatch(/^[0-9a-f]{64}$/);
     expect(state.rollback.restored_fingerprint).not.toBe(migrated);
     expect(currentRelease()).toBe(OLD);
-    expect(migrationCount()).toBe(4);
+    expect(migrationCount()).toBe(REPO_MIGRATIONS);
     expect(fs.existsSync(markerPath)).toBe(true);
     return state.rollback.preserved as string;
   }
@@ -885,7 +890,7 @@ describe("scripts/release-apply.ts rollback", () => {
     expect(state.rollback.finished_at).not.toBeNull();
     expect(state.traffic_opened_at).not.toBeNull();
     expect(currentRelease()).toBe(OLD);
-    expect(migrationCount()).toBe(4);
+    expect(migrationCount()).toBe(REPO_MIGRATIONS);
     expect(withDb((sqlite) => sqlite.prepare("SELECT COUNT(*) AS c FROM sessions WHERE revoked_at IS NULL").get())).toEqual({ c: 0 });
     expect(fs.existsSync(markerPath)).toBe(false);
   }, SLOW);
@@ -1024,7 +1029,7 @@ describe("scripts/release-apply.ts inspect", () => {
     const parsed = JSON.parse(first.stdout.trim());
     expect(parsed.check_failure).toBeNull();
     expect(parsed.verified.row_counts.work_entries).toBe(2);
-    expect(parsed.applied_migrations).toBe(4);
+    expect(parsed.applied_migrations).toBe(REPO_MIGRATIONS);
     expect(sha256(dbPath)).toBe(before);
     expect(JSON.parse(inspect().stdout.trim()).fingerprint).toBe(parsed.fingerprint);
 

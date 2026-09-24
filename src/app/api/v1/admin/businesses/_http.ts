@@ -18,6 +18,7 @@ import {
   BusinessValidationError,
   BusinessVersionConflictError,
 } from "../../../../../server/usecases/admin-businesses";
+import { PersonAnonymizedError } from "../../../../../server/usecases/drivers";
 import {
   fieldErrorsFromZodIssues as fieldErrorsFromZodIssuesGeneric,
   mapKnownAdminMutationErrorToResponse,
@@ -33,7 +34,7 @@ export { parseJsonBody };
  * genel 500).
  */
 export function mapMutationErrorToResponse(error: unknown, requestId: string): Response | undefined {
-  if (error instanceof BusinessVersionConflictError) {
+  if (error instanceof BusinessVersionConflictError || error instanceof PersonAnonymizedError) {
     return jsonErrorResponse(error.status, error.code, error.message, { requestId });
   }
   if (error instanceof BusinessValidationError) {

@@ -15,7 +15,7 @@
  * döner, sürüm artırılmaz, audit yazılmaz.
  */
 import crypto from "node:crypto";
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import { systemClock, type Clock } from "../../auth/session";
 import type { StaffScope } from "../../auth/scope";
 import type { AppDatabase } from "../../data/db";
@@ -28,6 +28,7 @@ import { resolveReceipt } from "../receipts/resolve-receipt";
 import { hashRequestPayload } from "./request-hash";
 import { getBusinessDetail, type BusinessDetail } from "./queries";
 import { BusinessValidationError, BusinessVersionConflictError } from "./errors";
+import { PersonAnonymizedError } from "../drivers/errors";
 
 export interface UpdateBusinessOwnerAssignment {
   /** Aynı işletmedeki mevcut, aktif bir kişiyi sahip yapar. */
@@ -225,7 +226,8 @@ export function updateBusiness(
       });
     }
 
-    // --- Sahip adı düzeltmesi — aynı person id korunur, people.version artar. ---
+    // --- Sahip adı düzeltmesi — aynı person id korunur, people.version artar.
+    // Adı anonimleştirilmiş sahip yeniden adlandırılamaz (geri dönüşsüz). ---
     if (params.ownerRename) {
       const owner = db
         .select({ personId: businessOwners.personId })
@@ -236,7 +238,7 @@ export function updateBusiness(
         throw new BusinessValidationError({ ownerRename: "Bu işletmenin sahibi yok." });
       }
       const beforePerson = db
-        .select({ fullName: people.fullName })
+        .select({ fullName: people.fullName, anonymizedAt: people.anonymizedAt })
         .from(people)
         .where(and(eq(people.businessId, businessId), eq(people.id, owner.personId)))
         .get();
@@ -244,6 +246,9 @@ export function updateBusiness(
         throw new Error(
           `updateBusiness: sahip kişi kaydı bulunamadı: "${owner.personId}" (programlama hatası).`,
         );
+      }
+      if (beforePerson.anonymizedAt !== null) {
+        throw new PersonAnonymizedError();
       }
 
       const renameResult = db
@@ -254,6 +259,7 @@ export function updateBusiness(
             eq(people.businessId, businessId),
             eq(people.id, owner.personId),
             eq(people.version, params.ownerRename.ownerVersion),
+            isNull(people.anonymizedAt),
           ),
         )
         .run();

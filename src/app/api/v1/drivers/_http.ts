@@ -12,6 +12,7 @@ import {
   DriverVersionConflictError,
   GlobalActiveForbiddenError,
   normalizeFullName,
+  PersonAnonymizedError,
   PersonNotFoundError,
 } from "../../../../server/usecases/drivers";
 import {
@@ -35,7 +36,8 @@ export function mapDriverErrorToResponse(error: unknown, requestId: string): Res
   if (
     error instanceof PersonNotFoundError ||
     error instanceof DriverVersionConflictError ||
-    error instanceof GlobalActiveForbiddenError
+    error instanceof GlobalActiveForbiddenError ||
+    error instanceof PersonAnonymizedError
   ) {
     return jsonErrorResponse(error.status, error.code, error.message, { requestId });
   }

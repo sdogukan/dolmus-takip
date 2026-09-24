@@ -18,6 +18,7 @@ const WRITTEN_ACTIONS = [
   "person.rename",
   "person.deactivate",
   "person.reactivate",
+  "person.anonymize",
   "vehicle.create",
   "vehicle.update",
   "vehicle.deactivate",
@@ -38,8 +39,8 @@ const WRITTEN_ACTIONS = [
 ];
 
 describe("auditActionLabel", () => {
-  it("yazılan 26 işlemin hepsi ham koddan farklı bir etiket taşır", () => {
-    expect(WRITTEN_ACTIONS).toHaveLength(26);
+  it("yazılan 27 işlemin hepsi ham koddan farklı bir etiket taşır", () => {
+    expect(WRITTEN_ACTIONS).toHaveLength(27);
     for (const code of WRITTEN_ACTIONS) {
       expect(auditActionLabel(code), code).not.toBe(code);
     }
@@ -107,6 +108,20 @@ describe("formatAuditActor", () => {
 });
 
 describe("buildBeforeAfterRows", () => {
+  it("anonimleştirme satırı Türkçe etiketlerle gösterilir; önceki ad alanı boştur", () => {
+    expect(auditActionLabel("person.anonymize")).toBe("Kişi adı anonimleştirildi");
+    const view = buildBeforeAfterRows(
+      "person.anonymize",
+      { anonymized: false, version: 3 },
+      { fullName: "Anonim kişi 1A2B3C", anonymized: true, version: 4 },
+    );
+    expect(view.noPreviousValue).toBe(false);
+    expect(view.rows).toEqual([
+      { key: "anonymized", label: "Anonimleştirildi", before: "Hayır", after: "Evet" },
+      { key: "fullName", label: "Ad soyad", before: "—", after: "Anonim kişi 1A2B3C" },
+    ]);
+  });
+
   it("güncellemede yalnız değişen alanları, sürümü gizleyerek listeler", () => {
     const view = buildBeforeAfterRows(
       "business.update",

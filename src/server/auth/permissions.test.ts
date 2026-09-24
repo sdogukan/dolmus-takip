@@ -22,7 +22,7 @@ import type { StaffScope, VehicleScope } from "./scope";
 
 /**
  * Beklenen matris — ARCHITECTURE §2 + TASKS.md T1.5 görev tanımından
- * BİREBİR, "true/false" tablo biçiminde. Her satır 16 iznin TAMAMINI
+ * BİREBİR, "true/false" tablo biçiminde. Her satır 17 iznin TAMAMINI
  * (PERMISSIONS'ın sırasıyla) taşır; eksik bırakılan bir izin de bir
  * yazım/kopyalama hatasını TypeScript'in kendisi (Record<Permission,
  * boolean> zorunluluğu) yakalar.
@@ -45,6 +45,7 @@ const EXPECTED_MATRIX: Record<Actor, Record<Permission, boolean>> = {
     "vehicle.reset_password": false,
     "platform_user.manage": false,
     "audit.read": false,
+    "person.anonymize": false,
     },
   owner: {
     "work_entry.create_driver": true,
@@ -63,6 +64,7 @@ const EXPECTED_MATRIX: Record<Actor, Record<Permission, boolean>> = {
     "vehicle.reset_password": false,
     "platform_user.manage": false,
     "audit.read": false,
+    "person.anonymize": false,
     },
   support: {
     "work_entry.create_driver": true,
@@ -81,6 +83,7 @@ const EXPECTED_MATRIX: Record<Actor, Record<Permission, boolean>> = {
     "vehicle.reset_password": true,
     "platform_user.manage": false,
     "audit.read": true,
+    "person.anonymize": false,
     },
   admin: {
     "work_entry.create_driver": true,
@@ -99,15 +102,22 @@ const EXPECTED_MATRIX: Record<Actor, Record<Permission, boolean>> = {
     "vehicle.reset_password": true,
     "platform_user.manage": true,
     "audit.read": true,
+    "person.anonymize": true,
     },
 };
 
 const ACTORS: Actor[] = ["driver", "owner", "support", "admin"];
 
-describe("PERMISSION_MATRIX — 4 aktör × 16 izin, TAM tablo (düzeltme turu 3: vehicle.read_current kaldırıldı)", () => {
-  it("PERMISSIONS listesi tam olarak 16 benzersiz izin içerir", () => {
-    expect(PERMISSIONS.length).toBe(16);
-    expect(new Set(PERMISSIONS).size).toBe(16);
+describe("PERMISSION_MATRIX — 4 aktör × 17 izin, TAM tablo (düzeltme turu 3: vehicle.read_current kaldırıldı)", () => {
+  it("PERMISSIONS listesi tam olarak 17 benzersiz izin içerir", () => {
+    expect(PERMISSIONS.length).toBe(17);
+    expect(new Set(PERMISSIONS).size).toBe(17);
+  });
+
+  it("person.anonymize (KVKK ad anonimleştirme) yalnız admin'dedir — destek dahil başka hiçbir aktörde yok", () => {
+    for (const actor of ACTORS) {
+      expect(hasPermission(actor, "person.anonymize"), actor).toBe(actor === "admin");
+    }
   });
 
   for (const actor of ACTORS) {

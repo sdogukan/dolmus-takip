@@ -29,6 +29,13 @@
       "when": 1790184489449,
       "tag": "0003_platform_users_team",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1790274362719,
+      "tag": "0004_people_anonymized_at",
+      "breakpoints": true
     }
   ]
 }

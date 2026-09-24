@@ -174,6 +174,10 @@ export const people = sqliteTable(
     fullName: text("full_name").notNull(),
     active: integer("active", { mode: "boolean" }).notNull().default(true),
     version: integer("version").notNull().default(1),
+    // KVKK silme talebi — ad yerinde anonimleştirildiği an (ISO). NULL =
+    // anonimleştirilmedi. Doluysa ad bir daha değiştirilemez (geri dönüşsüz).
+    // Var olan tabloya yalnız `ALTER TABLE ADD COLUMN` (tablo yeniden kurulmaz).
+    anonymizedAt: text("anonymized_at"),
   },
   (t) => [
     primaryKey({ columns: [t.id] }),

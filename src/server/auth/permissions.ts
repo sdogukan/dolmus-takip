@@ -89,6 +89,7 @@ export const PERMISSIONS = [
   "vehicle.reset_password",
   "platform_user.manage",
   "audit.read",
+  "person.anonymize",
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];
@@ -129,9 +130,13 @@ const SUPPORT_PERMISSIONS: readonly Permission[] = [
   "audit.read",
 ];
 
+// KVKK silme talebi — kişi adının geri dönüşsüz anonimleştirilmesi yalnız
+// platform yöneticisindedir (destek `person.set_global_active`/`business.manage`
+// sahibi olsa da bu izni ALMAZ).
 const ADMIN_PERMISSIONS: readonly Permission[] = [
   ...SUPPORT_PERMISSIONS,
   "platform_user.manage",
+  "person.anonymize",
 ];
 
 export const PERMISSION_MATRIX: Readonly<Record<Actor, ReadonlySet<Permission>>> =

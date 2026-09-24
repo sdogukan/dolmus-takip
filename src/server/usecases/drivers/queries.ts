@@ -30,6 +30,8 @@ export interface ManagedDriver {
   fullName: string;
   personActive: boolean;
   personVersion: number;
+  /** Ad KVKK talebiyle anonimleştirildi — yeniden adlandırılamaz. */
+  anonymized: boolean;
   assignment: DriverAssignmentState | null;
 }
 
@@ -148,6 +150,7 @@ export function listVehicleDriversForManagement(
       fullName: people.fullName,
       personActive: people.active,
       personVersion: people.version,
+      anonymizedAt: people.anonymizedAt,
       assignmentActive: vehicleDrivers.active,
       assignmentVersion: vehicleDrivers.version,
     })
@@ -180,6 +183,7 @@ export function listVehicleDriversForManagement(
       fullName: row.fullName,
       personActive: row.personActive,
       personVersion: row.personVersion,
+      anonymized: row.anonymizedAt !== null,
       assignment: { active: row.assignmentActive, version: row.assignmentVersion },
     })),
     candidates,
@@ -200,6 +204,7 @@ export function getManagedDriver(
       fullName: people.fullName,
       personActive: people.active,
       personVersion: people.version,
+      anonymizedAt: people.anonymizedAt,
     })
     .from(people)
     .where(and(scopedPeopleFilter(scope), eq(people.id, personId), NOT_OWNER_PERSON))
@@ -210,7 +215,8 @@ export function getManagedDriver(
     .from(vehicleDrivers)
     .where(and(scopedVehicleDriversFilter(scope), eq(vehicleDrivers.personId, personId)))
     .get();
-  return { ...person, assignment: assignment ?? null };
+  const { anonymizedAt, ...rest } = person;
+  return { ...rest, anonymized: anonymizedAt !== null, assignment: assignment ?? null };
 }
 
 /** Kişinin işletmedeki TÜM araç atamaları (küresel aktiflik değişiminin

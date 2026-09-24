@@ -3,6 +3,8 @@ import {
   COMMON_SCREEN_MESSAGES,
   ERROR_CODE_MESSAGES,
   getErrorMessage,
+  PERSON_ANONYMIZE_MESSAGES,
+  PRIVACY_NOTICE,
   WORK_ENTRY_MESSAGES,
   VEHICLE_LOGIN_FIELD_MESSAGES,
   VEHICLE_LOGIN_RESULT_MESSAGES,
@@ -160,5 +162,72 @@ describe("messages", () => {
     expect(WORK_ENTRY_MESSAGES.editTitle).toBe("Kaydı düzenle");
     expect(WORK_ENTRY_MESSAGES.correctUnknownResult).not.toMatch(/Henüz kaydedilmedi/);
     expect(COMMON_SCREEN_MESSAGES.correctedAndConfirmed).toBe("Kayıt düzeltildi ve onaylandı.");
+  });
+});
+
+describe("KVKK aydınlatma metni", () => {
+  const text = (index: number): string => {
+    const section = PRIVACY_NOTICE.sections[index]!;
+    return [section.heading, ...section.paragraphs, ...(section.items ?? []), ...(section.closing ?? [])].join("\n");
+  };
+
+  it("tam olarak yedi bölüm, 1'den 7'ye numaralı başlıklarla", () => {
+    expect(PRIVACY_NOTICE.path).toBe("/aydinlatma-metni");
+    expect(PRIVACY_NOTICE.sections).toHaveLength(7);
+    PRIVACY_NOTICE.sections.forEach((section, index) => {
+      expect(section.heading.startsWith(`${index + 1}. `), section.heading).toBe(true);
+    });
+  });
+
+  it("1 — veri sorumlusu bilgileri için doldurulacak alan taşır", () => {
+    expect(text(0)).toMatch(/Veri sorumlusu/);
+    expect(text(0)).toMatch(/\[Veri sorumlusunun unvanı\]/);
+  });
+
+  it("2 — işlenen veriler: ad soyad, ekip kullanıcı adları, plaka, çalışma ve para kayıtları", () => {
+    const section = text(1);
+    expect(section).toMatch(/Ad soyad/);
+    expect(section).toMatch(/Ekip kullanıcı adları/);
+    expect(section).toMatch(/plaka/i);
+    expect(section).toMatch(/Çalışma kayıtları/);
+    expect(section).toMatch(/Para kayıtları/);
+  });
+
+  it("3 ve 4 — amaçlar, toplama yöntemi ve hukuki sebep", () => {
+    expect(text(2)).toMatch(/İşleme amaçları/);
+    expect(text(2)).toMatch(/hasılat, gider, şoför payı/);
+    expect(text(3)).toMatch(/Toplama yöntemi ve hukuki sebep/);
+    expect(text(3)).toMatch(/KVKK m\.5\/2/);
+  });
+
+  it("5 — aktarım bölümü", () => {
+    expect(text(4)).toMatch(/Aktarım/);
+    expect(text(4)).toMatch(/satılmaz/);
+  });
+
+  it("6 — en az beş yıl saklama ve silme talebinde ad anonimleştirme; kayıtlar silinmez", () => {
+    expect(text(5)).toMatch(/en az beş yıl/);
+    expect(text(5)).toMatch(/adı anonimleştirilir/);
+    expect(text(5)).toMatch(/silinmez/);
+  });
+
+  it("7 — KVKK m.11 hakları ve başvuru yolu", () => {
+    expect(text(6)).toMatch(/KVKK m\.11/);
+    expect(PRIVACY_NOTICE.sections[6]!.items?.length).toBeGreaterThanOrEqual(8);
+    expect(text(6)).toMatch(/Başvurunu/);
+    expect(text(6)).toMatch(/30 gün/);
+  });
+});
+
+describe("KVKK ad anonimleştirme metinleri", () => {
+  it("PERSON_ANONYMIZED kodu Türkçe metne çevrilir", () => {
+    expect(getErrorMessage("PERSON_ANONYMIZED")).toBe("Bu kişinin adı anonimleştirildi; değiştirilemez.");
+  });
+
+  it("onay penceresi geri dönüşsüzlüğü ve kayıtların silinmediğini söyler", () => {
+    expect(PERSON_ANONYMIZE_MESSAGES.action).toBe("Adı anonimleştir");
+    expect(PERSON_ANONYMIZE_MESSAGES.dialogDescription("Ali Veli")).toMatch(/^Ali Veli adı kalıcı olarak/);
+    expect(PERSON_ANONYMIZE_MESSAGES.dialogDescription("Ali Veli")).toMatch(/geri alınamaz/);
+    expect(PERSON_ANONYMIZE_MESSAGES.dialogKeepsRecords).toMatch(/silinmez/);
   });
 });

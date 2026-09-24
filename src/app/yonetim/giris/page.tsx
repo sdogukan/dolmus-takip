@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { LoginForm } from "../../_components/login-form";
+import { PrivacyNoticeLink } from "../../_components/privacy-notice-link";
 import {
   COMMON_SCREEN_MESSAGES,
   LOGIN_HELP_TEXT,
@@ -86,6 +87,7 @@ export default async function YonetimGirisPage({
         // `/yonetim`'in KENDİ üst başlığında gösterilir (bkz. `../page.tsx`).
         defaultRedirectPath="/yonetim"
       />
+      <PrivacyNoticeLink />
     </main>
   );
 }

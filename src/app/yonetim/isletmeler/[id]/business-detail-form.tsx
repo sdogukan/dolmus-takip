@@ -19,17 +19,29 @@
  * T2.1 notu) bu yüzden BİR mini-formun başarısı DİĞERLERİNİN sonraki
  * gönderiminin sürüm jetonunu da GÜNCEL tutmalıdır; ayrı ayrı senkron
  * mantığı YAZILMAZ, tek `setDetail(fresh)` üçünü de besler.
+ *
+ * KVKK "Adı anonimleştir" (yalnız `canAnonymize` — sunucu sayfasının yönetici
+ * rolü) sahip bölümündedir; ayrı `POST .../people/:personId/anonymize` ucuna
+ * gider. Belirsiz sonuçta kişi kimliği, sürüm ve `requestId` taslakta
+ * dondurulur; "Tekrar kontrol et" AYNI gövdeyi gönderir. Anonimleştirilmiş
+ * sahibin adı düzenlenemez.
  */
 import { useRef, useState, type FormEvent } from "react";
 import Link from "next/link";
 import type { ClientStateScope } from "../../../../lib/client-state";
 import { useStoredDraft } from "../../../../lib/use-stored-draft";
-import { getErrorMessage } from "../../../../lib/messages";
+import { getErrorMessage, PERSON_ANONYMIZE_MESSAGES } from "../../../../lib/messages";
 import { ConfirmDialog } from "../../../_components/confirm-dialog";
 
 interface BusinessDetail {
   business: { id: string; name: string; active: boolean; version: number; createdAt: string };
-  owner: { personId: string; fullName: string; active: boolean; version: number } | null;
+  owner: {
+    personId: string;
+    fullName: string;
+    active: boolean;
+    version: number;
+    anonymized: boolean;
+  } | null;
   eligiblePeople: { id: string; fullName: string; active: boolean }[];
   vehicles: { id: string; plateNormalized: string; active: boolean }[];
 }
@@ -80,6 +92,54 @@ async function patchBusiness(
 
 function randomRequestId(): string {
   return crypto.randomUUID();
+}
+
+type AnonymizeOutcome =
+  | { kind: "ambiguous" }
+  | { kind: "success"; person: { fullName: string; version: number } }
+  | { kind: "error"; status: number; code?: string };
+
+/** Ağ hatası ve 5xx belirsizdir: sunucunun adı değiştirip değiştirmediği
+ * bilinmez. */
+async function postAnonymize(
+  businessId: string,
+  csrfToken: string,
+  body: NonNullable<DetailDraft["ownerAnonymize"]>,
+): Promise<AnonymizeOutcome> {
+  let response: Response;
+  try {
+    response = await fetch(
+      `/api/v1/admin/businesses/${encodeURIComponent(businessId)}/people/${encodeURIComponent(body.personId)}/anonymize`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-CSRF-Token": csrfToken },
+        body: JSON.stringify({ requestId: body.requestId, version: body.ownerVersion }),
+      },
+    );
+  } catch {
+    return { kind: "ambiguous" };
+  }
+  if (response.status >= 500) return { kind: "ambiguous" };
+  let parsed: ({ person?: { fullName: string; version: number } } & PatchErrorBody) | undefined;
+  try {
+    parsed = (await response.json()) as { person?: { fullName: string; version: number } } & PatchErrorBody;
+  } catch {
+    return response.ok ? { kind: "ambiguous" } : { kind: "error", status: response.status };
+  }
+  if (response.ok && parsed?.person) return { kind: "success", person: parsed.person };
+  if (response.ok) return { kind: "ambiguous" };
+  return { kind: "error", status: response.status, code: parsed?.error?.code };
+}
+
+/** 409/404 sonrası görünümü sunucudan tazelemek için. */
+async function fetchBusinessDetail(businessId: string): Promise<BusinessDetail | null> {
+  try {
+    const response = await fetch(`/api/v1/admin/businesses/${encodeURIComponent(businessId)}`);
+    if (!response.ok) return null;
+    return (await response.json()) as BusinessDetail;
+  } catch {
+    return null;
+  }
 }
 
 /** Alan-dışı (409/403/429/5xx/ağ) bir hatayı ekran metnine çevirir —
@@ -151,6 +211,10 @@ interface DetailDraft {
     version?: number;
   };
   active: { requestId: string; target: boolean; pending: boolean; version?: number } | null;
+  /** Sahip adının anonimleştirilmesi — onay penceresi açıldığında kişi ve
+   * sürümle birlikte oluşur. Bu alan eklenmeden önce yazılmış taslaklarda
+   * yoktur (`undefined` = işlem yok). */
+  ownerAnonymize?: { requestId: string; personId: string; ownerVersion: number; pending: boolean } | null;
 }
 
 function emptyDraft(detail: BusinessDetail): DetailDraft {
@@ -169,6 +233,7 @@ function emptyDraft(detail: BusinessDetail): DetailDraft {
       pending: false,
     },
     active: null,
+    ownerAnonymize: null,
   };
 }
 
@@ -177,11 +242,15 @@ export function BusinessDetailForm({
   initialDetail,
   csrfToken,
   scopeKey,
+  canAnonymize,
 }: {
   businessId: string;
   initialDetail: BusinessDetail;
   csrfToken: string;
   scopeKey: string;
+  /** Sunucu sayfasının oturum rolünden hesapladığı (yalnız yönetici) izin;
+   * asıl yetki denetimi sunucudadır. */
+  canAnonymize: boolean;
 }) {
   const draftName = `isletme-${businessId}`;
   const scope: ClientStateScope = { scopeKey };
@@ -230,6 +299,9 @@ export function BusinessDetailForm({
           draft={draft.ownerRename}
           onDraftChange={(ownerRename) => persistDraft((prev) => ({ ...prev, ownerRename }))}
           onSaved={setDetail}
+          canAnonymize={canAnonymize}
+          anonymizeDraft={draft.ownerAnonymize ?? null}
+          onAnonymizeDraftChange={(ownerAnonymize) => persistDraft((prev) => ({ ...prev, ownerAnonymize }))}
         />
       ) : (
         <OwnerAssignSection
@@ -399,6 +471,9 @@ function OwnerRenameSection({
   draft,
   onDraftChange,
   onSaved,
+  canAnonymize,
+  anonymizeDraft,
+  onAnonymizeDraftChange,
 }: {
   businessId: string;
   csrfToken: string;
@@ -406,6 +481,9 @@ function OwnerRenameSection({
   draft: DetailDraft["ownerRename"];
   onDraftChange: (next: DetailDraft["ownerRename"]) => void;
   onSaved: (detail: BusinessDetail) => void;
+  canAnonymize: boolean;
+  anonymizeDraft: NonNullable<DetailDraft["ownerAnonymize"]> | null;
+  onAnonymizeDraftChange: (next: DetailDraft["ownerAnonymize"]) => void;
 }) {
   const owner = detail.owner!;
   const [isFetching, setIsFetching] = useState(false);
@@ -417,6 +495,70 @@ function OwnerRenameSection({
   const [fieldError, setFieldError] = useState<string | undefined>();
   const [banner, setBanner] = useState<Banner | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const [anonymizeFetching, setAnonymizeFetching] = useState(false);
+  const [anonymizeDialogOpen, setAnonymizeDialogOpen] = useState(false);
+  const [anonymizedNotice, setAnonymizedNotice] = useState(false);
+  const anonymizePhase: "idle" | "submitting" | "ambiguous" = anonymizeFetching
+    ? "submitting"
+    : anonymizeDraft?.pending
+      ? "ambiguous"
+      : "idle";
+  // Ad düzeltmesi ile anonimleştirme birbirini kilitler: biri çözülmeden
+  // diğeri eski sürüme karşı gönderilemez.
+  const disabled = phase !== "idle" || anonymizePhase !== "idle";
+
+  async function runAnonymize(body: NonNullable<DetailDraft["ownerAnonymize"]>): Promise<void> {
+    setBanner(null);
+    setAnonymizedNotice(false);
+    const outcome = await postAnonymize(businessId, csrfToken, body);
+    if (outcome.kind === "ambiguous") {
+      onAnonymizeDraftChange({ ...body, pending: true });
+      return;
+    }
+    if (outcome.kind === "success") {
+      onAnonymizeDraftChange(null);
+      // Eski ad taslakta da kalmasın.
+      onDraftChange({ requestId: randomRequestId(), value: outcome.person.fullName, pending: false });
+      onSaved({
+        ...detail,
+        owner: { ...owner, fullName: outcome.person.fullName, version: outcome.person.version, anonymized: true },
+      });
+      setAnonymizedNotice(true);
+      return;
+    }
+    onAnonymizeDraftChange(null);
+    setBanner(bannerFor(outcome));
+    if (outcome.status === 409 || outcome.status === 404) {
+      // Görünüm sunucudan tazelenir; yeni sürümle sessizce yeniden GÖNDERİLMEZ.
+      const fresh = await fetchBusinessDetail(businessId);
+      if (fresh) onSaved(fresh);
+    }
+  }
+
+  async function confirmAnonymize(): Promise<void> {
+    setAnonymizeDialogOpen(false);
+    if (!anonymizeDraft) return;
+    const sent = { ...anonymizeDraft, pending: true };
+    onAnonymizeDraftChange(sent);
+    setAnonymizeFetching(true);
+    await runAnonymize(sent);
+    setAnonymizeFetching(false);
+  }
+
+  if (owner.anonymized) {
+    return (
+      <div className="flex flex-col gap-3">
+        <h2 className="text-xl font-semibold text-[var(--color-text)]">Mal sahibi</h2>
+        {anonymizedNotice && (
+          <p role="status" className="rounded-[var(--radius-control)] bg-[var(--color-success-surface)] px-3 py-2 text-base text-[var(--color-success)]">
+            {PERSON_ANONYMIZE_MESSAGES.done}
+          </p>
+        )}
+        <p className="text-lg font-medium text-[var(--color-text)]">{owner.fullName}</p>
+        <p className="text-base text-[var(--color-text-secondary)]">{PERSON_ANONYMIZE_MESSAGES.anonymizedNote}</p>
+      </div>
+    );
+  }
 
   async function run(body: DetailDraft["ownerRename"]): Promise<void> {
     setBanner(null);
@@ -449,7 +591,7 @@ function OwnerRenameSection({
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
-    if (phase !== "idle") return;
+    if (disabled) return;
     setFieldError(undefined);
     setIsFetching(true);
     const sent = {
@@ -469,8 +611,6 @@ function OwnerRenameSection({
     if (banner) setBanner(null);
     onDraftChange({ requestId, value, pending: false });
   }
-
-  const disabled = phase !== "idle";
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-3">
@@ -522,6 +662,59 @@ function OwnerRenameSection({
           {phase === "submitting" ? "Kaydediliyor…" : "Adı kaydet"}
         </button>
       </div>
+      {canAnonymize && (
+        <>
+          {anonymizePhase === "ambiguous" && anonymizeDraft && (
+            <div role="status" className="flex flex-col gap-3 rounded-[var(--radius-control)] bg-[var(--color-warning-surface)] px-3 py-2 text-base text-[var(--color-warning)]">
+              <p>Kaydın sonucu kontrol ediliyor.</p>
+              <button
+                type="button"
+                onClick={async () => {
+                  setAnonymizeFetching(true);
+                  await runAnonymize(anonymizeDraft);
+                  setAnonymizeFetching(false);
+                }}
+                className="min-h-[var(--control-min-height)] self-start rounded-[var(--radius-control)] border border-[var(--color-input-border)] px-4 text-base font-medium text-[var(--color-text)]"
+              >
+                Tekrar kontrol et
+              </button>
+            </div>
+          )}
+          <button
+            type="button"
+            disabled={disabled}
+            onClick={() => {
+              onAnonymizeDraftChange({
+                requestId: randomRequestId(),
+                personId: owner.personId,
+                ownerVersion: owner.version,
+                pending: false,
+              });
+              setAnonymizeDialogOpen(true);
+            }}
+            className="min-h-[var(--control-min-height)] self-start rounded-[var(--radius-control)] border border-[var(--color-input-border)] px-4 text-base font-medium text-[var(--color-text)] disabled:opacity-70"
+          >
+            {PERSON_ANONYMIZE_MESSAGES.action}
+          </button>
+          <ConfirmDialog
+            open={anonymizeDialogOpen}
+            title={PERSON_ANONYMIZE_MESSAGES.dialogTitle}
+            description={
+              <div className="flex flex-col gap-2">
+                <p>{PERSON_ANONYMIZE_MESSAGES.dialogDescription(owner.fullName)}</p>
+                <p>{PERSON_ANONYMIZE_MESSAGES.dialogKeepsRecords}</p>
+              </div>
+            }
+            confirmLabel={PERSON_ANONYMIZE_MESSAGES.confirm}
+            isSubmitting={anonymizePhase === "submitting"}
+            onConfirm={confirmAnonymize}
+            onCancel={() => {
+              setAnonymizeDialogOpen(false);
+              onAnonymizeDraftChange(null);
+            }}
+          />
+        </>
+      )}
     </form>
   );
 }

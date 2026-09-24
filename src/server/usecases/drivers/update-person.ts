@@ -10,8 +10,10 @@
  *   (kaskad yok) ve araç oturumları iptal EDİLMEZ.
  * - Sahip kişiler (işletme/araç sahibi) BU uçta 404 döner — adları yalnız
  *   `PATCH /admin/businesses` ile düzenlenir (people.version paylaşımı).
+ * - Adı anonimleştirilmiş kişiye `fullName` gönderilirse 409
+ *   PERSON_ANONYMIZED (geri dönüşsüz); yalnız `active` değişimi serbesttir.
  */
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import { systemClock, type Clock } from "../../auth/session";
 import type { Scope } from "../../auth/scope";
 import { withImmediateTransaction, type AppDatabase } from "../../data/db";
@@ -23,7 +25,12 @@ import { hashRequestPayload } from "../admin-businesses/request-hash";
 import { recordReceipt } from "../receipts/record-receipt";
 import { resolveReceipt } from "../receipts/resolve-receipt";
 import { writeDriverAudit } from "./audit";
-import { DriverValidationError, DriverVersionConflictError, PersonNotFoundError } from "./errors";
+import {
+  DriverValidationError,
+  DriverVersionConflictError,
+  PersonAnonymizedError,
+  PersonNotFoundError,
+} from "./errors";
 import { isValidFullName, normalizeFullName } from "./person-name";
 import {
   getManagedDriver,
@@ -109,7 +116,12 @@ export function updatePerson(
     }
 
     const current = db
-      .select({ fullName: people.fullName, active: people.active, version: people.version })
+      .select({
+        fullName: people.fullName,
+        active: people.active,
+        version: people.version,
+        anonymizedAt: people.anonymizedAt,
+      })
       .from(people)
       .where(and(scopedPeopleFilter(scope), eq(people.id, params.personId)))
       .get();
@@ -124,6 +136,12 @@ export function updatePerson(
         .where(and(scopedVehicleDriversFilter(scope), eq(vehicleDrivers.personId, params.personId)))
         .get();
       if (!link) throw new PersonNotFoundError();
+    }
+
+    // Anonim ad kalıcıdır: bayat sürümden de önce, istemci neden
+    // reddedildiğini görsün.
+    if (fullName !== undefined && current.anonymizedAt !== null) {
+      throw new PersonAnonymizedError();
     }
 
     // Bayat sürüm "değişiklik yok" 422'sinden ÖNCE 409 alır (T2.1/T2.2 sırası).
@@ -154,6 +172,7 @@ export function updatePerson(
           eq(people.businessId, scope.businessId),
           eq(people.id, params.personId),
           eq(people.version, params.version),
+          wantsRename ? isNull(people.anonymizedAt) : undefined,
         ),
       )
       .run();

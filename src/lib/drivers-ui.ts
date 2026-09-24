@@ -21,6 +21,8 @@ export interface DriverRow {
   fullName: string;
   personActive: boolean;
   personVersion: number;
+  /** Ad KVKK silme talebiyle anonimleştirildi — bir daha değiştirilemez. */
+  anonymized: boolean;
   assignment: { active: boolean; version: number } | null;
 }
 
@@ -103,14 +105,15 @@ export function findSimilarCandidates(
 }
 
 /** Bir satır işlemi (aday bağlama / yeniden adlandırma / araç ataması /
- * küresel aktiflik) — taslakta `requestId` ile birlikte saklanır. */
-export type DriverOpKind = "link" | "rename" | "assignment" | "person";
+ * küresel aktiflik / KVKK ad anonimleştirme) — taslakta `requestId` ile
+ * birlikte saklanır. */
+export type DriverOpKind = "link" | "rename" | "assignment" | "person" | "anonymize";
 
 export interface DriverOpDraft {
   requestId: string;
   kind: DriverOpKind;
   personId: string;
-  /** İşlemin DAYANDIĞI sürüm (`rename`/`person` → kişi, `assignment` →
+  /** İşlemin DAYANDIĞI sürüm (`rename`/`person`/`anonymize` → kişi, `assignment` →
    * atama); `link` için yok (atama satırı henüz yok). */
   baseVersion: number | null;
   fullName: string;
@@ -161,6 +164,18 @@ export function isOpStale(op: DriverOpDraft, view: DriversView): boolean {
   return isDraftStale({ baseVersion: op.baseVersion, currentVersion, pending: false });
 }
 
+/**
+ * Satırın ad işlemleri: anonimleştirilmiş ad ne yeniden adlandırılır ne
+ * yeniden anonimleştirilir. `canAnonymize` YALNIZ sunucu sayfasının oturum
+ * rolünden (yönetici) hesapladığı değerdir; asıl yetki denetimi sunucudadır.
+ */
+export function rowNameActions(
+  row: DriverRow,
+  canAnonymize: boolean,
+): { rename: boolean; anonymize: boolean } {
+  return { rename: !row.anonymized, anonymize: canAnonymize && !row.anonymized };
+}
+
 export interface DriverRequest {
   method: "POST" | "PUT" | "PATCH";
   url: string;
@@ -177,7 +192,10 @@ export function buildAddRequest(draft: AddDriverDraft): DriverRequest {
   };
 }
 
-export function buildOpRequest(op: DriverOpDraft, vehicleId: string): DriverRequest {
+/** `anonymize` işletme kapsamlı yönetici ucuna gider; `businessId` yalnız
+ * URL'dedir. Gövde, belirsiz sonuçtan sonraki tekrarda da AYNI olsun diye
+ * yalnız saklanan taslaktan (`requestId` + `baseVersion`) kurulur. */
+export function buildOpRequest(op: DriverOpDraft, vehicleId: string, businessId?: string): DriverRequest {
   const personId = encodeURIComponent(op.personId);
   switch (op.kind) {
     case "link":
@@ -211,6 +229,15 @@ export function buildOpRequest(op: DriverOpDraft, vehicleId: string): DriverRequ
         method: "PATCH",
         url: `/api/v1/drivers/${personId}`,
         body: { requestId: op.requestId, version: op.baseVersion, active: op.active },
+      };
+    case "anonymize":
+      if (!businessId) {
+        throw new Error("buildOpRequest: anonymize için businessId gerekli (programlama hatası).");
+      }
+      return {
+        method: "POST",
+        url: `/api/v1/admin/businesses/${encodeURIComponent(businessId)}/people/${personId}/anonymize`,
+        body: { requestId: op.requestId, version: op.baseVersion },
       };
   }
 }

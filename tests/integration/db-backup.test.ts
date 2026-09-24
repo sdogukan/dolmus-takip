@@ -166,7 +166,10 @@ describe("scripts/db-backup.ts run", () => {
     expect(manifest.sha256).toBe(sha256(path.join(backupDir, `${stem}.sqlite`)));
     expect(manifest.size_bytes).toBe(fs.statSync(path.join(backupDir, `${stem}.sqlite`)).size);
     expect(manifest.release_id).toBe(path.basename(fs.realpathSync(projectRoot)));
-    expect(manifest.schema.applied_migrations).toBe(4);
+    expect(manifest.schema.applied_migrations).toBe(
+      (JSON.parse(fs.readFileSync(path.join(projectRoot, "drizzle", "meta", "_journal.json"), "utf8")) as { entries: unknown[] })
+        .entries.length,
+    );
     expect(manifest.schema.last_migration_hash).toMatch(/^[0-9a-f]{64}$/);
     expect(manifest.sqlite_version).toMatch(/^\d+\.\d+\.\d+/);
     expect(manifest.verified_at).toBe("2026-09-24T12:00:00.000Z");

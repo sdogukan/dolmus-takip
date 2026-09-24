@@ -46,6 +46,7 @@ const ACTION_LABELS: Record<string, string> = {
   "person.deactivate": "Kişi pasifleştirildi",
   "person.set_global_active": "Kişi aktifliği değişti",
   "person.update": "Kişi bilgisi değişti",
+  "person.anonymize": "Kişi adı anonimleştirildi",
   "vehicle_driver.create": "Şoför araca atandı",
   "vehicle_driver.activate": "Şoför ataması aktifleştirildi",
   "vehicle_driver.deactivate": "Şoför ataması pasifleştirildi",
@@ -104,6 +105,7 @@ const FIELD_LABELS: Record<string, string> = {
   note: "Not",
   active: "Durum",
   access: "Erişim",
+  anonymized: "Anonimleştirildi",
 };
 
 /** Teknik anahtarlar (sürüm sayaçları, kimlikler) ekranda gösterilmez;

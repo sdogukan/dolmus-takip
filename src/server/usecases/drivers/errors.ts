@@ -37,3 +37,15 @@ export class DriverVersionConflictError extends Error {
     this.name = "DriverVersionConflictError";
   }
 }
+
+/** Kişinin adı anonimleştirilmiş — ad bir daha değiştirilemez / yeniden
+ * anonimleştirilemez (KVKK silme talebi geri dönüşsüzdür). */
+export class PersonAnonymizedError extends Error {
+  readonly status = 409 as const;
+  readonly code = "PERSON_ANONYMIZED" as const;
+
+  constructor(message = "Bu kişinin adı anonimleştirildi; değiştirilemez.") {
+    super(message);
+    this.name = "PersonAnonymizedError";
+  }
+}

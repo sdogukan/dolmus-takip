@@ -134,7 +134,7 @@ describe("GET /api/v1/session — izinli kapsam özeti + scopeKey (T1.5 ADIM 1/2
     expect(body.permissions).not.toContain("driver.manage");
   });
 
-  it("platform admin oturumu TÜM (16) izni döner", async () => {
+  it("platform admin oturumu TÜM izinleri döner (person.anonymize dahil)", async () => {
     const setupSqlite = openDatabaseConnection(dbPath);
     const setupDb = createDb(setupSqlite);
     const created = await createPlatformSession(setupDb, SEED_IDS.platformAdmin1);
@@ -145,7 +145,8 @@ describe("GET /api/v1/session — izinli kapsam özeti + scopeKey (T1.5 ADIM 1/2
     );
     const body = await response.json();
     expect(body.permissions).toEqual([...PERMISSIONS].sort());
-    expect(body.permissions).toHaveLength(16);
+    expect(body.permissions).toHaveLength(PERMISSIONS.length);
+    expect(body.permissions).toContain("person.anonymize");
   });
 
   it("scopeKey opak (16 hex karakter), gizli veri (token) İÇERMEZ ve AYNI oturumda kararlıdır", async () => {

@@ -122,7 +122,15 @@ export function listBusinesses(db: AppDatabase): BusinessListItem[] {
 
 export interface BusinessDetail {
   business: { id: string; name: string; active: boolean; version: number; createdAt: string };
-  owner: { personId: string; fullName: string; active: boolean; version: number } | null;
+  /** `anonymized` — sahibin adı KVKK talebiyle anonimleştirildi; yeniden
+   * adlandırılamaz. */
+  owner: {
+    personId: string;
+    fullName: string;
+    active: boolean;
+    version: number;
+    anonymized: boolean;
+  } | null;
   /** Yalnız `owner === null` iken dolu — "sahipsizse seçilebilir aynı
    * işletme kişileri" (ARCH §4). Sahip varsa boş dizi döner. */
   eligiblePeople: { id: string; fullName: string; active: boolean }[];
@@ -158,6 +166,7 @@ export function getBusinessDetail(db: AppDatabase, businessId: string): Business
       fullName: people.fullName,
       active: people.active,
       version: people.version,
+      anonymizedAt: people.anonymizedAt,
     })
     .from(businessOwners)
     .innerJoin(
@@ -166,7 +175,15 @@ export function getBusinessDetail(db: AppDatabase, businessId: string): Business
     )
     .where(eq(businessOwners.businessId, businessId))
     .get();
-  const owner = ownerRow ?? null;
+  const owner = ownerRow
+    ? {
+        personId: ownerRow.personId,
+        fullName: ownerRow.fullName,
+        active: ownerRow.active,
+        version: ownerRow.version,
+        anonymized: ownerRow.anonymizedAt !== null,
+      }
+    : null;
 
   const eligiblePeople = owner
     ? []

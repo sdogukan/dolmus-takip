@@ -123,6 +123,9 @@ export const ERROR_CODE_MESSAGES: Record<string, string> = {
   // Başka işletmenin/araçtan bağımsız kişi kimliği de AYNI kodu alır (kimliğin
   // varlığı doğrulanmaz).
   PERSON_NOT_FOUND: "Kişi bulunamadı.",
+  // KVKK — adı anonimleştirilmiş kişi yeniden adlandırılamaz/anonimleştirilemez
+  // (`../server/usecases/drivers/errors.ts` `PersonAnonymizedError`).
+  PERSON_ANONYMIZED: "Bu kişinin adı anonimleştirildi; değiştirilemez.",
   // T3.5 — günlük kayıt okuma/düzenleme uçları (`../server/usecases/work-entries/errors.ts`).
   WORK_ENTRY_NOT_FOUND: "Kayıt bulunamadı.",
   ENTRY_CONFIRMED: "Bu kayıt onaylanmış; buradan düzenlenemez.",
@@ -408,6 +411,117 @@ export const DRIVER_SCREEN_MESSAGES = {
     "Ortak şoför şifresi hâlâ geçerli. Erişimi tamamen kesmek için ekipten şifre sıfırlama isteyin.",
   emptyActiveList: "Bu araç için şoför eklenmemiş.",
 } as const;
+
+/** KVKK silme talebi — yalnız yöneticinin gördüğü "Adı anonimleştir" işlemi
+ * (ekip şoför ekranı ve işletme sahibi bölümü). Kayıtlar silinmez; ad yerinde
+ * ve geri dönüşsüz olarak anonim adla değiştirilir. */
+export const PERSON_ANONYMIZE_MESSAGES = {
+  action: "Adı anonimleştir",
+  dialogTitle: "Kişinin adını anonimleştir",
+  dialogDescription: (fullName: string): string =>
+    `${fullName} adı kalıcı olarak "Anonim kişi …" biçiminde değişir. Bu işlem geri alınamaz ve ad bir daha değiştirilemez.`,
+  dialogKeepsRecords: "Çalışma ve para kayıtları, raporlar ve işlem geçmişi silinmez.",
+  confirm: "Anonimleştir",
+  anonymizedNote: "Ad, kişisel veri silme talebiyle anonimleştirildi; değiştirilemez.",
+  done: "Kişinin adı anonimleştirildi.",
+} as const;
+
+export interface PrivacyNoticeSection {
+  heading: string;
+  paragraphs: readonly string[];
+  items?: readonly string[];
+  /** Listeden SONRA gelen paragraflar. */
+  closing?: readonly string[];
+}
+
+/** KVKK aydınlatma metni (`/aydinlatma-metni`) — metnin TEK kaynağı; sayfa ve
+ * giriş ekranlarındaki bağlantı buradan okur. Veri sorumlusu bilgileri yayından
+ * önce hizmeti sunan tarafça köşeli parantezli alanlara yazılır. */
+export const PRIVACY_NOTICE: {
+  path: string;
+  linkLabel: string;
+  title: string;
+  intro: string;
+  sections: readonly PrivacyNoticeSection[];
+} = {
+  path: "/aydinlatma-metni",
+  linkLabel: "Kişisel verilerin korunması: aydınlatma metni",
+  title: "Kişisel Verilerin Korunması Aydınlatma Metni",
+  intro:
+    "Dolmuş Takip, dolmuşların günlük hasılat, gider, şoför payı ve teslim hesabını tutar. Bu metin, 6698 sayılı Kişisel Verilerin Korunması Kanunu (KVKK) m.10 uyarınca hangi verilerin neden ve nasıl işlendiğini anlatır.",
+  sections: [
+    {
+      heading: "1. Veri sorumlusu",
+      paragraphs: [
+        "Veri sorumlusu: [Veri sorumlusunun unvanı]",
+        "Adres: [Veri sorumlusunun adresi]",
+        "İletişim: [Başvuru e-posta adresi]",
+      ],
+    },
+    {
+      heading: "2. İşlenen kişisel veriler",
+      paragraphs: ["Uygulamada şu veriler tutulur:"],
+      items: [
+        "Ad soyad: mal sahipleri, şoförler ve kayıtlarda adı geçen kişiler",
+        "Ekip kullanıcı adları ve ekip üyelerinin ad soyadı",
+        "Araç plakaları",
+        "Çalışma kayıtları: çalışılan gün, başlangıç ve bitiş saati, çalışan kişi",
+        "Para kayıtları: hasılat, mazot, diğer masraf, şoför payı, teslim edilecek ve teslim alınan tutar, teslim onayları",
+        "İşlem geçmişi: kaydı kimin, ne zaman oluşturduğu veya değiştirdiği",
+      ],
+    },
+    {
+      heading: "3. İşleme amaçları",
+      paragraphs: ["Veriler yalnız şu amaçlarla işlenir:"],
+      items: [
+        "Günlük hasılat, gider, şoför payı ve teslim edilen paranın takibi",
+        "Mal sahibine haftalık, aylık ve yıllık raporların sunulması",
+        "Hesapların güvenliği, oturum yönetimi ve müşteri desteği",
+        "Kayıtlarda yapılan değişikliklerin izlenebilir tutulması",
+      ],
+    },
+    {
+      heading: "4. Toplama yöntemi ve hukuki sebep",
+      paragraphs: [
+        "Veriler, mal sahibi, şoför ve platform ekibi tarafından uygulamaya elektronik ortamda girilerek toplanır.",
+        "Hukuki sebepler: hizmet sözleşmesinin kurulması ve ifası (KVKK m.5/2-c), veri sorumlusunun hukuki yükümlülüklerini yerine getirmesi (KVKK m.5/2-ç) ve temel hak ve özgürlüklere zarar vermemek kaydıyla hesapların doğru ve güvenli tutulmasındaki meşru menfaat (KVKK m.5/2-f).",
+      ],
+    },
+    {
+      heading: "5. Aktarım",
+      paragraphs: [
+        "Veriler satılmaz, reklam veya pazarlama amacıyla paylaşılmaz.",
+        "Veriler yalnız hizmetin barındırıldığı sunucu ve yedekleme hizmeti sağlayıcılarında saklanır; kanunen yetkili kamu kurumlarına ancak yasal bir talep olduğunda aktarılır.",
+      ],
+    },
+    {
+      heading: "6. Saklama süresi",
+      paragraphs: [
+        "Çalışma ve para kayıtları en az beş yıl saklanır.",
+        "Silme talebinde kişinin adı anonimleştirilir: ad kalıcı olarak anonim bir adla değiştirilir. Raporların ve toplamların doğru kalması için kayıtlar, tutarlar ve işlem geçmişi silinmez.",
+      ],
+    },
+    {
+      heading: "7. Hakların ve başvuru yolu",
+      paragraphs: ["KVKK m.11 uyarınca şu haklara sahipsin:"],
+      items: [
+        "Kişisel verilerinin işlenip işlenmediğini öğrenme",
+        "İşlenmişse buna ilişkin bilgi isteme",
+        "İşlenme amacını ve amacına uygun kullanılıp kullanılmadığını öğrenme",
+        "Yurt içinde veya yurt dışında aktarıldığı üçüncü kişileri bilme",
+        "Eksik veya yanlış işlenmişse düzeltilmesini isteme",
+        "KVKK m.7 şartlarıyla silinmesini veya yok edilmesini isteme",
+        "Düzeltme ve silme işlemlerinin aktarılan üçüncü kişilere bildirilmesini isteme",
+        "Yalnız otomatik sistemlerle analiz edilmesi sonucu aleyhine bir sonuç çıkmasına itiraz etme",
+        "Kanuna aykırı işleme nedeniyle zarara uğrarsan zararın giderilmesini isteme",
+      ],
+      closing: [
+        "Başvurunu yazılı olarak veri sorumlusunun yukarıdaki adresine veya iletişim e-posta adresine gönderebilirsin; hesabını açan ekipten de yardım alabilirsin.",
+        "Başvurular en geç 30 gün içinde ücretsiz olarak sonuçlandırılır (KVKK m.13).",
+      ],
+    },
+  ],
+};
 
 /** Yönetim ana ekranı araması (`../app/yonetim/admin-search.tsx`). */
 export const ADMIN_SEARCH_MESSAGES = {

@@ -398,11 +398,145 @@ Bu tablodaki **hiçbir satır henüz doğrulanmadı**; hepsi manuel kurulum sır
 | 25 | Yayın aracı: bakım, eski release'in yayın öncesi kopyası, migration, trafik | Deneme kaydı varken yeni `<yeni-id>` ile §4 adım 1–6; yayın sürerken ayrı oturumda dışarıdan `curl -si "https://$DOLMUS_DOMAIN/" \| head -1` tekrarla; sonra `sudo cat /var/lib/dolmus-takip/release-state/state.json`, `sudo -u dolmus-takip sh -c 'cat /var/lib/dolmus-takip/pre-migration/*.manifest.json' \| grep -E '"(stem\|release_id)"'`, `ls -l /var/lib/dolmus-takip/data` | Yayın boyunca dışarıya `503`, `event=release_traffic_opened` sonrası normal yanıt; `state.json` `phase=traffic_open`, `pre_migration` ve `traffic_opened_at` dolu, `migrations_applied` beklenen sayı; pre-migration manifestinin `release_id`'si önceki release (kopya `runuser` ortamıyla `DOLMUS_BACKUP_DIR`'ı aldı); `data` dosyaları `dolmus-takip` sahipli; deneme kaydı duruyor | elle kurulumda doğrulanacak |
 | 26 | Yayın aracı: trafik açılmadan DB geri dönüşü | Yalnız deneme kaydıyla: yeni bir `deploy` sürerken journal'da `event=release_service_started` görününce ayrı oturumda `sudo systemctl stop dolmus-takip.service` (hazırlık süresi dolar, yayın `reason=readiness_failed` ile bakımda kalır); sonra `cd /opt/dolmus-takip/releases/<yeni-id> && sudo node scripts/release-apply.ts rollback --code-and-db`; `ls -l /var/lib/dolmus-takip/preserved/*/` | `event=restore_installed` (ortak kilit `runuser` üzerinden devralındı: `ops_lock_busy`/`ops_lock_unavailable` yok); yeni DB/WAL `preserved/<zaman>/` altında, silinmedi; `current` önceki release; eski oturumlar iptal (yeniden giriş gerekir); trafik açık, `state.json` `phase=rolled_back` | elle kurulumda doğrulanacak |
 | 27 | Yayın aracı: trafik açıldıktan sonra DB geri dönüşü reddedilir | Satır 25'teki yayında: `cd /opt/dolmus-takip/releases/<yeni-id> && sudo node scripts/release-apply.ts rollback --code-and-db`; `systemctl is-active dolmus-takip`; `ls /var/lib/dolmus-takip/maintenance` | `reason=traffic_opened`, çıkış 1; servis `active` kalır, bakım işareti yok, DB'ye dokunulmaz ([RELEASE](RELEASE.md) §7 F5 yolu) | elle kurulumda doğrulanacak |
+| 28 | Yük DB'si ayrı yolda; üretim yolunda veri seti kurulmadı | §5.1 adım 1–2 | Yük DB'sinin sha256'sı yan dosyadaki `database.sha256` ile aynı; dosya `/var/lib/dolmus-takip/data/load-test/load.sqlite`, `dolmus-takip` sahipli; `app.sqlite` yerinde, `load:seed` hedefte hiç çalışmadı | elle kurulumda doğrulanacak |
+| 29 | Uygulama servisi yük DB'sini kullanıyor; diğer birimler üretim DB'sinde | §5.1 adım 3; `systemctl cat dolmus-takip-backup.service dolmus-takip-health.service \| grep -c load-test` | Süreç ortamında `DOLMUS_DB_PATH=/var/lib/dolmus-takip/data/load-test/load.sqlite`; yerel `ready` 200; yedek ve sağlık birimlerinde `load-test` yok (0) | elle kurulumda doğrulanacak |
+| 30 | Üç senaryo ayrı koşuldu | [QA-PLAN](QA-PLAN.md) §3; üreticideki üç rapor | Üç rapor `acceptance_eligible=true`, `release.sourceCommit` = yayın adayı commit; koşular arası ≥ 15 dk; sağlık görevi açıktı | elle kurulumda doğrulanacak |
+| 31 | Süreç öldürme denemesi (`write-peak` sırasında) | §5.1 adım 4 | ~10 sn sonra `active`; rapor defteri `lost`/`duplicate`/`inconsistent` 0; zaman ve toparlanma süresi kayıtlı | elle kurulumda doğrulanacak |
+| 32 | Her koşu sonrası bütünlük | §5.1 adım 5 | `db-backup.ts run` çıkış 0; üreticide `integrity:check` `event=integrity_passed`, çıkış 0 | elle kurulumda doğrulanacak |
+| 33 | Üretim DB'sine dönüş ve yük verisinin kaldırılması (pilot öncesi zorunlu) | §5.1 adım 7 | Süreç ortamında `DOLMUS_DB_PATH=/var/lib/dolmus-takip/data/app.sqlite`; `ready` 200; `systemctl cat dolmus-takip.service` içinde `load-test` yok; satır 8'deki deneme kaydı listelenir; `load-test` dizini ve üreticideki kimlik bilgisi dosyası silindi | elle kurulumda doğrulanacak |
 
-**PİLOT İÇİN HAZIR DEĞİL.** Bu tablo tamamlanıp kaydedilene ve M6'nın kalan işleri (sağlık otomasyonunun 10–16. satırlarla gerçek denemesi, restore, yük ve veri bütünlüğü kabulü ile 17–27. satırların gerçek denemesi) yapılana dek bu makine gerçek müşteri verisi taşımaz.
+**PİLOT İÇİN HAZIR DEĞİL.** Bu tablo tamamlanıp kaydedilene ve M6'nın kalan işleri (sağlık otomasyonunun 10–16. satırlarla gerçek denemesi, restore, yük ve veri bütünlüğü kabulü ile 17–33. satırların gerçek denemesi) yapılana dek bu makine gerçek müşteri verisi taşımaz.
+
+### 5.1 Yük kabulü: ayrı yük DB'si ve üretim DB'sine dönüş (S6.6)
+
+Sıra, eşikler ve ölçüm kaynakları [QA-PLAN](QA-PLAN.md) §3 "Yük ve veri bütünlüğü kabul prosedürü"ndedir; bu bölüm hedef makinedeki adımlardır. Kurallar:
+
+- Yük verisi müşteri verisine karışmaz. `load:seed` yalnız **yük üreticisinde** (hedef dışı makine) çalışır; hedefte ve `/var/lib/dolmus-takip/data/app.sqlite` üzerinde çalıştırılmaz. Yük DB'si `/var/lib/dolmus-takip/data/load-test/` altındadır (uygulama servisinin yazabildiği tek yol `data/` olduğu için orada).
+- Yalnız uygulama servisi yük DB'sine bağlanır: ek ayar dosyası `/etc/dolmus-takip/load-test.env` bir drop-in ile `app.env`'den sonra okunur ve `DOLMUS_DB_PATH`'i ezer. `app.env` değiştirilmez; yedek, sağlık ve yayın birimleri üretim DB'sinde kalır. Bağlantı süreç ortamından doğrulanmadan yük başlatılmaz.
+- Yük penceresinde yayın (`release-apply`) veya restore yapılmaz; sağlık zamanlayıcısı **durdurulmaz**. Sağlık görevinin düzeltici restart'ı veya kurtarma kilidi bir bulgudur (QA-PLAN §3).
+- Her başlatma (adım 3, adım 4, adım 7) 900 sn'de 3 başlatma sınırına sayılır; iki başlatma arasında en az 15 dk bırakılır.
+- Pilot trafiğinden önce adım 7 zorunludur. Yük oturumları yalnız yük DB'sindeki `sessions` tablosunda yaşar; üretim DB'sine dönüş ve `load-test` dizininin silinmesiyle geçersiz kalırlar.
+
+Adım 1 — üreticide doğrula ve hedefe kopyala:
+
+```bash
+# hazırlandı, denenmedi (elle kurulumda denenecek)
+# ÜRETİCİDE (hedefte DEĞİL). load:seed yan dosyası: sourceCommit = yayın adayı commit, sourceTreeDirty = false
+LOAD_SRC="<üretici>/load.sqlite"
+sha256sum "$LOAD_SRC"
+node -e 'const s=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8")); console.log(s.database.sha256, s.sourceCommit, s.sourceTreeDirty)' "$LOAD_SRC.counts.json"
+IP="$(aws lightsail get-static-ip --profile "$AWS_PROFILE" --region "$AWS_REGION" \
+  --static-ip-name "$DOLMUS_STATIC_IP_NAME" --query 'staticIp.ipAddress' --output text)"
+scp -i "$DOLMUS_SSH_KEY" "$LOAD_SRC" ubuntu@"$IP":~/load.sqlite
+```
+
+Adım 2 — hedefte ayrı dizine yerleştir:
+
+```bash
+# hazırlandı, denenmedi (elle kurulumda denenecek)
+# HEDEFTE. Dizin zaten varsa önceki yük verisi incelenmeden DUR (üzerine yazılmaz)
+LOAD_DIR=/var/lib/dolmus-takip/data/load-test
+sudo test ! -e "$LOAD_DIR" || { echo "$LOAD_DIR zaten var; DUR" >&2; false; }
+sudo install -d -m 0750 -o dolmus-takip -g dolmus-takip "$LOAD_DIR" "$LOAD_DIR/copies"
+sudo install -m 0640 -o dolmus-takip -g dolmus-takip ~/load.sqlite "$LOAD_DIR/load.sqlite"
+sudo sha256sum "$LOAD_DIR/load.sqlite"   # adım 1'deki değerle aynı olmalı; değilse DUR
+rm ~/load.sqlite
+```
+
+Adım 3 — yalnız uygulama servisini yük DB'sine bağla ve doğrula:
+
+```bash
+# hazırlandı, denenmedi (elle kurulumda denenecek)
+printf 'DOLMUS_DB_PATH=/var/lib/dolmus-takip/data/load-test/load.sqlite\n' | sudo tee /etc/dolmus-takip/load-test.env >/dev/null
+sudo chown root:dolmus-takip /etc/dolmus-takip/load-test.env
+sudo chmod 0640 /etc/dolmus-takip/load-test.env
+sudo install -d -m 0755 -o root -g root /etc/systemd/system/dolmus-takip.service.d
+printf '[Service]\nEnvironmentFile=/etc/dolmus-takip/load-test.env\n' | sudo tee /etc/systemd/system/dolmus-takip.service.d/load-test.conf >/dev/null
+sudo systemctl daemon-reload
+sudo systemctl restart dolmus-takip.service
+# çalışan süreç yük DB'sini göstermeli; app.sqlite görünürse yük BAŞLATILMAZ, drop-in incelenir
+sudo cat "/proc/$(systemctl show -p MainPID --value dolmus-takip)/environ" | tr '\0' '\n' | grep '^DOLMUS_DB_PATH='
+curl -fsS http://127.0.0.1:3000/api/v1/health/ready
+systemctl cat dolmus-takip-backup.service dolmus-takip-health.service | grep -c load-test   # 0 olmalı
+```
+
+Adım 4 — süreç öldürme denemesi (yalnız `write-peak`'in sürdürülen aşamasında, bir kez):
+
+```bash
+# hazırlandı, denenmedi (elle kurulumda denenecek)
+date -u +%Y-%m-%dT%H:%M:%SZ   # öldürme zamanı kayda yazılır
+sudo kill -9 "$(systemctl show -p MainPID --value dolmus-takip)"
+# systemd 10 sn sonra açar (Restart=on-failure, RestartSec=10s); sağlık görevi durdurulmaz
+sleep 15
+systemctl is-active dolmus-takip
+sudo journalctl -u dolmus-takip.service -u dolmus-takip-health.service --since "-2min" --no-pager | tail -n 20
+```
+
+Adım 5 — her senaryodan sonra tutarlı kopya ve bütünlük denetimi:
+
+```bash
+# hazırlandı, denenmedi (elle kurulumda denenecek)
+# HEDEFTE, senaryo bittikten sonra. Kopya SQLite Backup API ile, ortak işletim kilidi altında alınır ve
+# kendi görüntüsünde doğrulanır. 02:55–04:00 Europe/Istanbul arasında araç reddeder; o saatte çalıştırılmaz.
+cd /opt/dolmus-takip/current && sudo flock -w 900 -E 75 /var/lib/dolmus-takip/ops.lock \
+  sudo -u dolmus-takip env DOLMUS_DB_PATH=/var/lib/dolmus-takip/data/load-test/load.sqlite \
+  DOLMUS_BACKUP_DIR=/var/lib/dolmus-takip/data/load-test/copies node scripts/db-backup.ts run
+# en yeni kopya (yalnız sentetik yük verisi) SSH kullanıcısına verilir
+COPY="$(sudo sh -c 'ls -1t /var/lib/dolmus-takip/data/load-test/copies/app-*.sqlite | head -n 1')"
+sudo install -m 0600 -o "$USER" -g "$USER" "$COPY" ~/
+# ÜRETİCİDE, aday commit checkout'unda: kopyayı al ve denetle; beklenen event=integrity_passed, çıkış 0
+#   scp -i "$DOLMUS_SSH_KEY" ubuntu@"$IP":~/app-<zaman>.sqlite <üretici>/kopyalar/
+#   npm run integrity:check -- <üretici>/kopyalar/app-<zaman>.sqlite
+```
+
+Adım 6 — yük boyunca ve sonrasında ölçümleri topla:
+
+```bash
+# hazırlandı, denenmedi (elle kurulumda denenecek)
+# HEDEFTE, yük boyunca ayrı bir oturumda: yük DB'sinin -wal boyutu (sağlık satırındaki wal_bytes üretim DB'sinindir)
+while sleep 30; do printf '%s load_wal_bytes=%s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+  "$(sudo stat -c %s /var/lib/dolmus-takip/data/load-test/load.sqlite-wal 2>/dev/null || echo 0)"; done | tee -a ~/load-wal.log
+```
+
+```bash
+# hazırlandı, denenmedi (elle kurulumda denenecek)
+# HEDEFTE, koşu bitince: raporun UTC başlangıç/bitişiyle uygulama ve sağlık satırları
+START="<YYYY-MM-DD HH:MM:SS> UTC"; END="<YYYY-MM-DD HH:MM:SS> UTC"
+sudo journalctl -u dolmus-takip.service --since "$START" --until "$END" -o cat --no-pager | grep 'event=runtime_metrics' > ~/runtime-metrics.log
+sudo journalctl -u dolmus-takip-health.service --since "$START" --until "$END" -o cat --no-pager | grep -E 'event=(metrics|decision|corrective_restart|recovery_lock_written)' > ~/health.log
+sudo journalctl -u dolmus-takip.service --since "$START" --until "$END" -o cat --no-pager | grep -cE 'RATE_LIMITED|HASH_QUEUE_FULL|runtime_metrics_failed'
+```
+
+```bash
+# hazırlandı, denenmedi (elle kurulumda denenecek)
+# ÇALIŞMA MAKİNESİNDE: aynı pencere için Lightsail CPU ve burst (ISO 8601, UTC)
+for m in CPUUtilization:Percent BurstCapacityPercentage:Percent BurstCapacityTime:Seconds; do
+  aws lightsail get-instance-metric-data --profile "$AWS_PROFILE" --region "$AWS_REGION" \
+    --instance-name "$DOLMUS_INSTANCE" --metric-name "${m%%:*}" --unit "${m##*:}" \
+    --period 60 --statistics Average Maximum Minimum \
+    --start-time "<başlangıç ISO UTC>" --end-time "<bitiş ISO UTC>" --output json > "lightsail-${m%%:*}.json"
+done
+```
+
+Adım 7 — üretim DB'sine dönüş ve yük verisinin kaldırılması (pilot trafiğinden önce zorunlu):
+
+```bash
+# hazırlandı, denenmedi (elle kurulumda denenecek)
+sudo rm /etc/systemd/system/dolmus-takip.service.d/load-test.conf /etc/dolmus-takip/load-test.env
+sudo systemctl daemon-reload
+sudo systemctl restart dolmus-takip.service
+sudo cat "/proc/$(systemctl show -p MainPID --value dolmus-takip)/environ" | tr '\0' '\n' | grep '^DOLMUS_DB_PATH='   # .../data/app.sqlite olmalı
+curl -fsS http://127.0.0.1:3000/api/v1/health/ready
+systemctl cat dolmus-takip.service | grep -c load-test   # 0 olmalı
+# YALNIZ yukarıdaki satır app.sqlite gösterdiyse ve kanıtlar (raporlar, kopyalar, loglar) makine dışına alındıysa:
+sudo rm -r /var/lib/dolmus-takip/data/load-test
+rm -f ~/app-*.sqlite ~/runtime-metrics.log ~/health.log ~/load-wal.log
+```
+
+Üreticideki kimlik bilgisi dosyası kanıtlar kaydedildikten sonra silinir; yük DB'si veya kimlik bilgileri hiçbir zaman üretim DB'sine aktarılmaz.
 
 ## 6. Kapsam dışı ve durum
 
-Bu belge kaynak oluşturmaz ve AWS'ye komut çalıştırmaz; kurulum, sertifika alma ve yeniden başlatma denemeleri elle kurulum sırasında yapılır (§5). Önceki gerçek makine denemeleri (ISSUE-24/25/26/28) elle kurulum tamamlanana dek ertelenmiştir ([PROGRESS](PROGRESS.md)). 30 saniyelik sağlık zamanlayıcısı, kalıcı kurtarma kilidi, journald sınırı ve Caddy erişim günlüğü **hazırlandı, denenmedi** (`deploy/health/`, §3.3, §5 satır 10–16; işleyiş ve kilit kaldırma yordamı [OPS](OPS.md) §2, §5-B). Günlük yedek birimi ve zamanlayıcısı ile Lightsail otomatik snapshot da **hazırlandı, denenmedi** (§3.3, §3.5, §5 satır 17–21; [OPS](OPS.md) §4). Caddy bakım kapısı (işaret varken dışarıya 503) ve `release-state`/`preserved` dizinleri de **hazırlandı, denenmedi** (§2, §3.1, §5 satır 22–24). Bakım işaretini koyan/kaldıran yayın aracı (`scripts/release-apply.ts`, §4) da **hazırlandı, denenmedi** (§5 satır 25–27); işaret varken sağlık görevi restart yapmaz, başlatmadan sonra 90 saniyelik tolerans işler. Uygulama servis dosyası `Restart=on-failure`, `RestartSec=10s`, `StartLimitIntervalSec=900`, `StartLimitBurst=3` değerlerini taşır; sağlık görevi systemd'nin start sınırını hiçbir zaman sıfırlamaz.
+Bu belge kaynak oluşturmaz ve AWS'ye komut çalıştırmaz; kurulum, sertifika alma ve yeniden başlatma denemeleri elle kurulum sırasında yapılır (§5). Önceki gerçek makine denemeleri (ISSUE-24/25/26/28) elle kurulum tamamlanana dek ertelenmiştir ([PROGRESS](PROGRESS.md)). 30 saniyelik sağlık zamanlayıcısı, kalıcı kurtarma kilidi, journald sınırı ve Caddy erişim günlüğü **hazırlandı, denenmedi** (`deploy/health/`, §3.3, §5 satır 10–16; işleyiş ve kilit kaldırma yordamı [OPS](OPS.md) §2, §5-B). Günlük yedek birimi ve zamanlayıcısı ile Lightsail otomatik snapshot da **hazırlandı, denenmedi** (§3.3, §3.5, §5 satır 17–21; [OPS](OPS.md) §4). Caddy bakım kapısı (işaret varken dışarıya 503) ve `release-state`/`preserved` dizinleri de **hazırlandı, denenmedi** (§2, §3.1, §5 satır 22–24). Yük kabulü için ayrı yük DB'si, süreç öldürme denemesi ve üretim DB'sine dönüş adımları da **hazırlandı, denenmedi** (§5.1, §5 satır 28–33); yük üreticisinin dış hazırlık kontrolü Caddy'nin sağlık uçlarını dışarıya kapatmasıyla çakıştığı için koşu şu an başlayamaz ([QA-PLAN](QA-PLAN.md) §3 "Açık engel"). Bakım işaretini koyan/kaldıran yayın aracı (`scripts/release-apply.ts`, §4) da **hazırlandı, denenmedi** (§5 satır 25–27); işaret varken sağlık görevi restart yapmaz, başlatmadan sonra 90 saniyelik tolerans işler. Uygulama servis dosyası `Restart=on-failure`, `RestartSec=10s`, `StartLimitIntervalSec=900`, `StartLimitBurst=3` değerlerini taşır; sağlık görevi systemd'nin start sınırını hiçbir zaman sıfırlamaz.
 
 Sürüm dizini `ProtectSystem=strict` ile salt okunurdur ve `ReadWritePaths` yalnız `/var/lib/dolmus-takip/data`'dır. Uygulama `next/image` veya ISR kullanmadığı için çalışma anında sürüm dizinine yazması beklenmez; bu **gerçek makinede doğrulanmamıştır** (manuel kurulumda servis kullanıcısıyla ilk istekler sonrası `journalctl` ile izlenir).

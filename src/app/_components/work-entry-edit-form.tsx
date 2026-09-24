@@ -8,8 +8,9 @@
  * şoför kaydında kişi değiştirilebilir. Onaylı kayıt ve şoför için bugün
  * dışındaki/doğrulanmış kayıt salt okunurdur; asıl karar sunucudadır.
  *
- * Onaylı şoför kaydını sahip `WorkEntryCorrectForm` ile düzeltir (T4.3); şoför ve
- * ekip görünümlerinde onaylı kayıt salt okunur kalır.
+ * Onaylı şoför kaydını sahip ve ekip (sahip adına, hedef araç başlığıyla)
+ * `WorkEntryCorrectForm` ile düzeltir (T4.3); şoför görünümünde onaylı kayıt
+ * salt okunur kalır. Ekip teslim onayını da `WorkEntryConfirmPanel` ile verir.
  *
  * Taslak (`kayit-duzenle-<araç>-<kayıt>`) oluşturma taslağından AYRIDIR ve
  * dayandığı sürümü (`baseVersion`) taşır: PATCH taslağın sürümünü yollar, o an
@@ -270,7 +271,7 @@ export function WorkEntryEditForm({
     workEntryEditDraftName(vehicleId, initialEntry.id),
     () => editDraftFromEntry(initialEntry, randomRequestId),
   );
-  // Onay taslağı yalnız sahip modunda yazılır; diğer modlarda hiç dokunulmaz.
+  // Onay taslağı yalnız sahip ve ekip modunda yazılır; şoför modunda hiç dokunulmaz.
   const [confirmDraft, persistConfirmDraft] = useStoredDraft<WorkEntryConfirmDraft>(
     scope,
     workEntryConfirmDraftName(vehicleId, initialEntry.id),
@@ -303,8 +304,11 @@ export function WorkEntryEditForm({
   const dirty = isEditDraftDirty(draft, entry);
   useUnsavedChanges("work-entry-edit", editable && dirty);
   const ownerView = mode === "owner";
+  const staffView = mode === "staff";
+  // Sahip ve ekip teslim onayı verir/düzeltir; şoför yalnız okur.
+  const canConfirm = ownerView || staffView;
   // Sonucu belirsiz onay varken düzenleme kilitlenir: PATCH sürümü değiştirip onayı çakıştırmasın.
-  const confirmLocked = ownerView && confirmDraft.pending;
+  const confirmLocked = canConfirm && confirmDraft.pending;
   // Sahipte form "Kaydı düzenle" ile açılır; bekleyen/bayat/yarım taslak formu kendiliğinden açık tutar.
   const editVisible = !ownerView || editOpen || dirty || stale;
 
@@ -503,8 +507,9 @@ export function WorkEntryEditForm({
         ? TEXT.ownerShareLabel
         : TEXT.onBehalfShareLabel;
   const remainderLabel = entry.workKind === "owner" ? TEXT.ownerRemainderLabel : TEXT.remainderLabel;
-  // Sahip onaylı şoför kaydını "Kaydı düzenle" ile düzeltebilir; salt okunur notu yalnız düzeltilemeyen onaylı kayıtta görünür.
-  const correctable = ownerView && !disabled && entry.status === "confirmed" && entry.confirmation !== null;
+  // Sahip ve ekip onaylı şoför kaydını "Kaydı düzenle" ile düzeltebilir (pasif hedefte form kilitli görünür);
+  // salt okunur notu yalnız düzeltilemeyen onaylı kayıtta görünür.
+  const correctable = canConfirm && entry.status === "confirmed" && entry.confirmation !== null;
   const readOnlyNote =
     entry.status === "confirmed"
       ? correctable
@@ -540,13 +545,15 @@ export function WorkEntryEditForm({
     <div className="flex flex-col gap-6">
       {ownerView ? <OwnerEntrySummary entry={entry} plate={plate ?? "—"} /> : <EntryDetail entry={entry} />}
 
-      {ownerView && (
+      {canConfirm && (
         <WorkEntryConfirmPanel
           entry={entry}
           draft={confirmDraft}
           persistDraft={persistConfirmDraft}
           blocked={disabled || draft.pending || stale}
           csrfToken={csrfToken}
+          targetVehicleId={targetVehicleId}
+          onBehalf={staffView}
           onEntry={adoptEntry}
           onReread={rereadForConfirm}
         />
@@ -601,6 +608,9 @@ export function WorkEntryEditForm({
           vehicleId={vehicleId}
           scopeKey={scopeKey}
           csrfToken={csrfToken}
+          targetVehicleId={targetVehicleId}
+          onBehalf={staffView}
+          disabled={disabled}
           onEntry={adoptEntry}
           onReread={rereadForConfirm}
         />

@@ -73,6 +73,8 @@ export type HistoryRow =
       onBehalf: string | null;
       received: string;
       current: boolean;
+      /** Ekip onayında "Sahip adına platform desteği · <kullanıcı>"; araç onayında `null`. */
+      supportTrace: string | null;
     };
 
 const ACCESS_LABELS = { owner: "Sahip oturumu", driver: "Şoför oturumu" } as const;
@@ -105,6 +107,11 @@ export function formatHistoryOnBehalf(actor: HistoryActor): string | null {
   return actor.onBehalfOf.kind === "owner"
     ? TEXT.historyOnBehalfOfOwner(actor.onBehalfOf.fullName)
     : TEXT.historyOnBehalfOfDriver(actor.onBehalfOf.fullName);
+}
+
+/** Yalnız ekip onayında: "Sahip adına platform desteği · <kullanıcı adı>". */
+export function formatHistorySupportTrace(actor: HistoryActor): string | null {
+  return actor.kind === "platform_user" ? TEXT.supportTrace(actor.username || DASH) : null;
 }
 
 /** Bir değişen alanın ekran metni: gün, saat ve tutarlar biçimlenir; boş → "—". */
@@ -176,6 +183,7 @@ export function buildHistoryRows(view: HistoryView): HistoryRow[] {
         onBehalf: formatHistoryOnBehalf(confirmation.actor),
         received: formatHistoryCents(confirmation.receivedCents),
         current: confirmation.current,
+        supportTrace: formatHistorySupportTrace(confirmation.actor),
       },
     });
   }

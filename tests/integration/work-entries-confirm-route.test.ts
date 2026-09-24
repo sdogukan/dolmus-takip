@@ -199,10 +199,10 @@ describe("teslim onayı (T4.1)", () => {
         status: "confirmed",
         version: 2,
         remainderCents: "620000",
-        confirmation: { receivedCents: "620000", entryVersion: 2 },
+        confirmation: { receivedCents: "620000", entryVersion: 2, actor: { kind: "vehicle_credential" } },
       });
       expect(new Date(workEntry.confirmation.confirmedAt).toISOString()).toBe(workEntry.confirmation.confirmedAt);
-      expect(Object.keys(workEntry.confirmation).sort()).toEqual(["confirmedAt", "entryVersion", "receivedCents"]);
+      expect(Object.keys(workEntry.confirmation).sort()).toEqual(["actor", "confirmedAt", "entryVersion", "receivedCents"]);
 
       expect(counts()).toEqual({
         ...before,
@@ -250,6 +250,60 @@ describe("teslim onayı (T4.1)", () => {
       const id2 = await seedDriverEntry("c-s2");
       expect((await confirm(support, id2, confirmBody("k-sup"), SEED_IDS.vehicleA1)).status).toBe(200);
       expect(counts().admin_audit).toBe(2);
+    });
+  });
+
+  describe("ekip adına onay: onaylayan özeti", () => {
+    it("destek, 10.000/2.000/6.200 kaydı 600000 ile onaylar: yanıt ve sonraki sahip GET'i aynı platform_user aktörünü taşır, tutarlar değişmez; şoför GET'i actor null; kimlik sızmaz", async () => {
+      const id = await seedDriverEntry("c-actor");
+      const response = await confirm(support, id, confirmBody("k-actor", 1, "600000"), SEED_IDS.vehicleA1);
+      expect(response.status).toBe(200);
+      const body = await response.json();
+      expect(body.workEntry).toMatchObject({
+        status: "confirmed",
+        version: 2,
+        grossCents: "1000000",
+        shareCents: "200000",
+        remainderCents: "620000",
+        confirmation: { receivedCents: "600000", entryVersion: 2, actor: { kind: "platform_user", username: SEED_USERNAMES.support } },
+      });
+      expect(Object.keys(body.workEntry.confirmation.actor).sort()).toEqual(["kind", "username"]);
+
+      const ownerView = (await (await getOne(owner, id)).json()).workEntry;
+      expect(ownerView.confirmation).toEqual(body.workEntry.confirmation);
+      expect(ownerView).toMatchObject({ grossCents: "1000000", shareCents: "200000", remainderCents: "620000" });
+      const ownerListed = (await (await getList(owner)).json()).workEntries.find((e: { id: string }) => e.id === id);
+      expect(ownerListed.confirmation).toEqual(body.workEntry.confirmation);
+
+      const driverView = (await (await getOne(driver, id)).json()).workEntry;
+      expect(driverView.confirmation).toMatchObject({ receivedCents: "600000", entryVersion: 2, actor: null });
+
+      const [confirmation] = rows("SELECT actor_session_id, actor_platform_user_id FROM cash_confirmations");
+      for (const value of Object.values(confirmation!)) {
+        expect(JSON.stringify(body)).not.toContain(String(value));
+        expect(JSON.stringify(driverView)).not.toContain(String(value));
+      }
+      expect(JSON.stringify(body)).not.toContain(support.token);
+    });
+
+    it("aynı requestId ile ekip tekrarı aynı actor'ı döner; tek onay satırı ve tek admin_audit", async () => {
+      const id = await seedDriverEntry("c-actor-r");
+      const first = await (await confirm(support, id, confirmBody("k-actor-r", 1, "600000"), SEED_IDS.vehicleA1)).json();
+      const replay = await confirm(support, id, confirmBody("k-actor-r", 1, "600000"), SEED_IDS.vehicleA1);
+      expect(replay.status).toBe(200);
+      expect((await replay.json()).workEntry.confirmation).toEqual(first.workEntry.confirmation);
+      expect(first.workEntry.confirmation.actor).toEqual({ kind: "platform_user", username: SEED_USERNAMES.support });
+      expect(counts().cash_confirmations).toBe(1);
+      expect(counts().admin_audit).toBe(1);
+    });
+
+    it("başka aracın X-Target-Vehicle'ı ile ekip onayı 404 WORK_ENTRY_NOT_FOUND, hiçbir yazım yok", async () => {
+      const id = await seedDriverEntry("c-actor-x");
+      const before = counts();
+      const response = await confirm(support, id, confirmBody("k-actor-x", 1, "600000"), SEED_IDS.vehicleB1);
+      expect(response.status).toBe(404);
+      expect((await errorOf(response)).code).toBe("WORK_ENTRY_NOT_FOUND");
+      expect(counts()).toEqual(before);
     });
   });
 

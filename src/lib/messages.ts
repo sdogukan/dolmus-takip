@@ -126,6 +126,8 @@ export const ERROR_CODE_MESSAGES: Record<string, string> = {
   // T3.5 — günlük kayıt okuma/düzenleme uçları (`../server/usecases/work-entries/errors.ts`).
   WORK_ENTRY_NOT_FOUND: "Kayıt bulunamadı.",
   ENTRY_CONFIRMED: "Bu kayıt onaylanmış; buradan düzenlenemez.",
+  // T4.1 — teslim onayı (`../server/usecases/work-entries/confirm.ts`).
+  CONFIRMATION_NOT_REQUIRED: "Bu kayıt için teslim onayı gerekmiyor.",
 };
 
 /**
@@ -585,4 +587,16 @@ export const WORK_ENTRY_MESSAGES = {
   listEmpty: "Bu kişi için görebileceğin kayıt yok.",
   listMore: "Daha fazla göster",
   listOpen: "Aç",
+  // T4.2 — sahibin teslim onayı.
+  expectedLabel: "Beklenen teslim",
+  receivedLabel: "Aldığım tutar (TL)",
+  receivedShortfall: (amount: string): string => `Beklenenden ${amount} az.`,
+  receivedExcess: (amount: string): string => `Beklenenden ${amount} fazla.`,
+  confirmButton: "Parayı aldım, tutar doğru",
+  confirmSending: "Onaylanıyor…",
+  confirmRetry: "Sonucu şimdi kontrol et",
+  deliveryConfirmed: "Teslim doğrulandı",
+  confirmedReceivedLabel: "Alınan tutar",
+  confirmedAtLabel: "Doğrulama zamanı",
+  confirmedAtValue: (date: string, time: string): string => `${date} · ${time}`,
 } as const;

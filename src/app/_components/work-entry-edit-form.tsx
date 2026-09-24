@@ -32,7 +32,7 @@ import {
   getErrorMessage,
   WORK_ENTRY_MESSAGES as TEXT,
 } from "../../lib/messages";
-import { formatTlAmount, parseApiCents, parseTlAmount } from "../../lib/money";
+import { formatTlAmount, parseSignedApiCents, parseTlAmount } from "../../lib/money";
 import { isDraftStale } from "../../lib/draft-version";
 import { useStoredDraft } from "../../lib/use-stored-draft";
 import {
@@ -41,6 +41,8 @@ import {
   classifyWorkEntryUpdateResponse,
   editDraftFromEntry,
   editPersonOptions,
+  emptyConfirmDraft,
+  formatWorkTimeRange,
   hasEarlierAttempt,
   isEditDraftDirty,
   parseWorkEntryDetail,
@@ -48,16 +50,19 @@ import {
   releaseEditDraft,
   shouldReleaseAfterUpdateError,
   updateErrorNeedsReread,
+  workEntryConfirmDraftName,
   workEntryEditDraftName,
   workEntryErrorMessage,
   type SelectableDriver,
   type WorkEntryDetail,
+  type WorkEntryConfirmDraft,
   type WorkEntryEditDraft,
   type WorkEntryUpdateOutcome,
 } from "../../lib/work-entry-ui";
 import { evaluateWorkTime, formatDuration, formatWorkDate, istanbulWallClock } from "../../lib/work-time";
 import { ConfirmDialog } from "./confirm-dialog";
 import { useUnsavedChanges } from "./unsaved-changes";
+import { WorkEntryConfirmPanel } from "./work-entry-confirm-panel";
 import {
   amountInputProps,
   computeSummary,
@@ -140,7 +145,7 @@ async function fetchWorkEntry(entryId: string, targetVehicleId: string | undefin
 }
 
 function formatCents(text: string): string {
-  const cents = parseApiCents(text);
+  const cents = parseSignedApiCents(text);
   return cents === null ? "—" : formatTlAmount(cents);
 }
 
@@ -195,6 +200,39 @@ function EntryDetail({ entry }: { entry: WorkEntryDetail }) {
   );
 }
 
+/**
+ * Sahip görünümü ("Kayıt detayı ve teslim onayı" wireframe'i): kişi · plaka,
+ * gün · saat aralığı, durum ve tutar satırları. Yalnız sunucu kaydını gösterir.
+ */
+function OwnerEntrySummary({ entry, plate }: { entry: WorkEntryDetail; plate: string }) {
+  return (
+    <section id="entry-detail" aria-label={TEXT.currentValuesTitle} className="flex flex-col gap-2">
+      <p className="text-xl font-semibold text-[var(--color-text)]">{TEXT.savedWho(entry.person.fullName, plate)}</p>
+      <p className="text-lg tabular-nums text-[var(--color-text)]">
+        {TEXT.savedWhen(formatWorkDate(entry.workDate), formatWorkTimeRange(entry.startsAt, entry.endsAt))}
+      </p>
+      <p role="status" className="text-lg font-medium text-[var(--color-text)]">
+        {entry.status === "confirmed" ? TEXT.deliveryConfirmed : statusText(entry.status)}
+      </p>
+      <div className="flex flex-col gap-2 rounded-[var(--radius-card)] border border-[var(--color-divider)] bg-[var(--color-surface)] p-4">
+        <DetailRow label={TEXT.detailGross} value={formatCents(entry.grossCents)} />
+        <DetailRow label={TEXT.detailFuel} value={formatCents(entry.fuelCents)} />
+        {(entry.otherExpenseCents !== "0" || entry.otherExpenseNote !== null) && (
+          <DetailRow
+            label={entry.otherExpenseNote ? `${TEXT.detailOther} (${entry.otherExpenseNote})` : TEXT.detailOther}
+            value={formatCents(entry.otherExpenseCents)}
+          />
+        )}
+        <DetailRow label={TEXT.detailShare} value={formatCents(entry.shareCents)} />
+        <DetailRow
+          label={entry.workKind === "owner" ? TEXT.detailOwnerRemainder : TEXT.expectedLabel}
+          value={formatCents(entry.remainderCents)}
+        />
+      </div>
+    </section>
+  );
+}
+
 export function WorkEntryEditForm({
   entry: initialEntry,
   today,
@@ -204,6 +242,7 @@ export function WorkEntryEditForm({
   vehicleId,
   scopeKey,
   csrfToken,
+  plate,
 }: {
   /** Sunucuda kapsamla okunmuş kayıt. */
   entry: WorkEntryDetail;
@@ -217,6 +256,8 @@ export function WorkEntryEditForm({
   vehicleId: string;
   scopeKey: string;
   csrfToken: string;
+  /** Yalnız sahip modunda: başlıktaki "kişi · plaka" için. */
+  plate?: string;
 }) {
   const scope: ClientStateScope = { scopeKey };
   const [entry, setEntry] = useState(initialEntry);
@@ -225,6 +266,13 @@ export function WorkEntryEditForm({
     workEntryEditDraftName(vehicleId, initialEntry.id),
     () => editDraftFromEntry(initialEntry, randomRequestId),
   );
+  // Onay taslağı yalnız sahip modunda yazılır; diğer modlarda hiç dokunulmaz.
+  const [confirmDraft, persistConfirmDraft] = useStoredDraft<WorkEntryConfirmDraft>(
+    scope,
+    workEntryConfirmDraftName(vehicleId, initialEntry.id),
+    () => emptyConfirmDraft(randomRequestId),
+  );
+  const [editOpen, setEditOpen] = useState(false);
   const [list, setList] = useState<ListState>({ status: "loading" });
   const [confirmingRemove, setConfirmingRemove] = useState(false);
   const [submitted, setSubmitted] = useState(false);
@@ -250,6 +298,11 @@ export function WorkEntryEditForm({
   });
   const dirty = isEditDraftDirty(draft, entry);
   useUnsavedChanges("work-entry-edit", editable && dirty);
+  const ownerView = mode === "owner";
+  // Sonucu belirsiz onay varken düzenleme kilitlenir: PATCH sürümü değiştirip onayı çakıştırmasın.
+  const confirmLocked = ownerView && confirmDraft.pending;
+  // Sahipte form "Kaydı düzenle" ile açılır; bekleyen/bayat/yarım taslak formu kendiliğinden açık tutar.
+  const editVisible = !ownerView || editOpen || dirty || stale;
 
   function update(patch: Partial<WorkEntryEditDraft>): void {
     persistDraft((prev) => ({ ...prev, ...patch }));
@@ -398,7 +451,7 @@ export function WorkEntryEditForm({
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
-    if (submitting || !editable || stale) return;
+    if (submitting || !editable || stale || confirmLocked) return;
     if (draft.pending && draft.frozenBody !== null) {
       // Belirsiz sonuç: dondurulmuş gövde aynen, aynı requestId ile.
       await send(draft.frozenBody, hasEarlierAttempt(draft));
@@ -454,9 +507,42 @@ export function WorkEntryEditForm({
         : undefined;
   const keptDraft = !editable && entry.status === "confirmed" && dirty;
 
+  /**
+   * Onay akışından gelen kaydı benimser. Temiz (yarım değişikliği ve bekleyen
+   * gönderimi olmayan) düzenleme taslağı yeni sürüme taşınır; yoksa temiz taslak
+   * bayat görünür ve onayı kilitlerdi. Yarım taslak korunur ("saklı taslak" / bayat uyarısı).
+   */
+  function adoptEntry(next: WorkEntryDetail): void {
+    setEntry(next);
+    const current = draftRef.current;
+    if (!current.pending && !isEditDraftDirty(current, entry)) {
+      persistDraft(() => editDraftFromEntry(next, randomRequestId));
+    }
+  }
+
+  /** Onay çakışmasında güncel kaydı okur; başarısızsa kullanıcıya gösterilecek mesajı döner. */
+  async function rereadForConfirm(): Promise<string | null> {
+    const result = await fetchWorkEntry(entry.id, targetVehicleId);
+    if (!result.ok) return result.message;
+    adoptEntry(result.entry);
+    return null;
+  }
+
   return (
     <div className="flex flex-col gap-6">
-      <EntryDetail entry={entry} />
+      {ownerView ? <OwnerEntrySummary entry={entry} plate={plate ?? "—"} /> : <EntryDetail entry={entry} />}
+
+      {ownerView && (
+        <WorkEntryConfirmPanel
+          entry={entry}
+          draft={confirmDraft}
+          persistDraft={persistConfirmDraft}
+          blocked={disabled || draft.pending || stale}
+          csrfToken={csrfToken}
+          onEntry={adoptEntry}
+          onReread={rereadForConfirm}
+        />
+      )}
 
       {saved && (
         <p role="status" className="text-2xl font-semibold text-[var(--color-success)]">
@@ -501,7 +587,17 @@ export function WorkEntryEditForm({
         </div>
       )}
 
-      {editable && (
+      {editable && !editVisible && (
+        <button
+          type="button"
+          onClick={() => setEditOpen(true)}
+          className="inline-flex min-h-[var(--control-min-height)] items-center self-start rounded-[var(--radius-control)] px-1 text-base font-medium text-[var(--color-primary)] underline focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]"
+        >
+          {TEXT.editTitle}
+        </button>
+      )}
+
+      {editable && editVisible && (
         <form noValidate onSubmit={(event) => void handleSubmit(event)} className="flex flex-col gap-6">
           <h2 className="text-xl font-semibold text-[var(--color-text)]">{TEXT.editTitle}</h2>
 
@@ -535,7 +631,7 @@ export function WorkEntryEditForm({
             </div>
           )}
 
-          <fieldset disabled={draft.pending || stale} className="m-0 flex min-w-0 flex-col gap-6 border-0 p-0">
+          <fieldset disabled={draft.pending || stale || confirmLocked} className="m-0 flex min-w-0 flex-col gap-6 border-0 p-0">
             <div>
               <label htmlFor="edit-date" className={labelClass}>
                 {TEXT.dateLabel}
@@ -823,7 +919,7 @@ export function WorkEntryEditForm({
           )}
 
           {!stale && (
-            <button type="submit" disabled={submitting} className={primaryButtonClass}>
+            <button type="submit" disabled={submitting || confirmLocked} className={primaryButtonClass}>
               {submitting ? TEXT.submitting : draft.pending ? TEXT.editSubmitRetry : TEXT.editSubmit}
             </button>
           )}

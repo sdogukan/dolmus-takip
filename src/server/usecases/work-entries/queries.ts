@@ -11,7 +11,7 @@ import { WORK_ENTRY_MESSAGES as TEXT } from "../../../lib/messages";
 import type { Scope } from "../../auth/scope";
 import type { AppDatabase } from "../../data/db";
 import { scopedVehiclesFilter, scopeFilter } from "../../data/scoped";
-import { people, vehicles, workEntries } from "../../data/schema";
+import { cashConfirmations, people, vehicles, workEntries } from "../../data/schema";
 import { entryPersonSelectableWhere, findSelectableDriver } from "../drivers/queries";
 import { encodeCursor, requireCursor } from "../list-cursor";
 
@@ -34,15 +34,25 @@ export interface WorkEntryView {
   shareBps: number;
   calculationVersion: number;
   person: { id: string; fullName: string };
+  /** Kaydın GÜNCEL sürümüne ait teslim onayı; onaysız kayıtta `null`. */
+  confirmation: WorkEntryConfirmationView | null;
 }
 
-/** Kaydın ham satırı (düzenleme kararları için) + kişinin adı. */
+/** Aktör/oturum kimliği taşımaz; kuruş ondalık tam sayı metnidir. */
+export interface WorkEntryConfirmationView {
+  receivedCents: string;
+  confirmedAt: string;
+  entryVersion: number;
+}
+
+/** Kaydın ham satırı (düzenleme kararları için) + kişinin adı + güncel sürümün onayı. */
 export interface WorkEntryRow {
   entry: typeof workEntries.$inferSelect;
   fullName: string;
+  confirmation: { receivedCents: number; confirmedAt: string; entryVersion: number } | null;
 }
 
-export function toWorkEntryView({ entry: e, fullName }: WorkEntryRow): WorkEntryView {
+export function toWorkEntryView({ entry: e, fullName, confirmation }: WorkEntryRow): WorkEntryView {
   return {
     id: e.id,
     version: e.version,
@@ -61,6 +71,13 @@ export function toWorkEntryView({ entry: e, fullName }: WorkEntryRow): WorkEntry
     shareBps: e.shareBps,
     calculationVersion: e.calculationVersion,
     person: { id: e.personId, fullName },
+    confirmation: confirmation
+      ? {
+          receivedCents: String(confirmation.receivedCents),
+          confirmedAt: confirmation.confirmedAt,
+          entryVersion: confirmation.entryVersion,
+        }
+      : null,
   };
 }
 
@@ -81,11 +98,28 @@ function driverVisibilityWhere(scope: Scope): SQL | undefined {
 
 function selectEntryRows(db: AppDatabase, where: SQL | undefined) {
   return db
-    .select({ entry: workEntries, fullName: people.fullName })
+    .select({
+      entry: workEntries,
+      fullName: people.fullName,
+      confirmation: {
+        receivedCents: cashConfirmations.receivedCents,
+        confirmedAt: cashConfirmations.confirmedAt,
+        entryVersion: cashConfirmations.entryVersion,
+      },
+    })
     .from(workEntries)
     .innerJoin(
       people,
       and(eq(people.businessId, workEntries.businessId), eq(people.id, workEntries.personId)),
+    )
+    // Yalnız AYNI işletme + kayıt + GÜNCEL sürümün onayı (eski sürümün onayı eşleşmez).
+    .leftJoin(
+      cashConfirmations,
+      and(
+        eq(cashConfirmations.businessId, workEntries.businessId),
+        eq(cashConfirmations.entryId, workEntries.id),
+        eq(cashConfirmations.entryVersion, workEntries.version),
+      ),
     )
     .where(where);
 }

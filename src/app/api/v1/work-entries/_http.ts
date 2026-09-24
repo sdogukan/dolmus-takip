@@ -5,9 +5,11 @@
  */
 import { jsonErrorResponse } from "../../../../server/http/errors";
 import {
+  WorkEntryConfirmationNotRequiredError,
   WorkEntryConfirmedError,
   WorkEntryNotFoundError,
   WorkEntryVersionConflictError,
+  type ConfirmWorkEntryResult,
   type UpdateWorkEntryResult,
 } from "../../../../server/usecases/work-entries";
 import { mapKnownAdminMutationErrorToResponse } from "../admin/_http";
@@ -21,7 +23,8 @@ export function mapWorkEntryErrorToResponse(error: unknown, requestId: string): 
   if (
     error instanceof WorkEntryNotFoundError ||
     error instanceof WorkEntryVersionConflictError ||
-    error instanceof WorkEntryConfirmedError
+    error instanceof WorkEntryConfirmedError ||
+    error instanceof WorkEntryConfirmationNotRequiredError
   ) {
     return jsonErrorResponse(error.status, error.code, error.message, { requestId });
   }
@@ -30,7 +33,7 @@ export function mapWorkEntryErrorToResponse(error: unknown, requestId: string): 
 
 /** 403/422 sonuçlarının zarfı (`ok: true` çağıranın işidir). */
 export function workEntryFailureResponse(
-  result: Exclude<UpdateWorkEntryResult, { ok: true }>,
+  result: Exclude<UpdateWorkEntryResult | ConfirmWorkEntryResult, { ok: true }>,
   requestId: string,
 ): Response {
   if (result.status === 403) {

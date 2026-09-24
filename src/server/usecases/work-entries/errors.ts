@@ -36,3 +36,14 @@ export class WorkEntryConfirmedError extends Error {
     this.name = "WorkEntryConfirmedError";
   }
 }
+
+/** Sahip kaydı (`not_required`) teslim onayı almaz. */
+export class WorkEntryConfirmationNotRequiredError extends Error {
+  readonly status = 422 as const;
+  readonly code = "CONFIRMATION_NOT_REQUIRED" as const;
+
+  constructor(message = ERROR_CODE_MESSAGES.CONFIRMATION_NOT_REQUIRED ?? "Bu kayıt için teslim onayı gerekmiyor.") {
+    super(message);
+    this.name = "WorkEntryConfirmationNotRequiredError";
+  }
+}

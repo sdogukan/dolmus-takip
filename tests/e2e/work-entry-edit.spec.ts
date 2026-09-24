@@ -7,10 +7,10 @@ import {
 } from "../../scripts/db-seed-dev";
 
 /**
- * Kayıt detayı ve düzenleme uçtan uca testleri (T3.5). Gerçek standalone sunucu
- * + seed; her test kendi kaydını UI'dan oluşturur ve "Kaydı aç" bağlantısıyla
- * açar. Onaylı kayıt henüz oluşturulamadığından onaylı durumun birim ve
- * entegrasyon testleri vardır. Sayfa hydrate olmadan etkileşim yapılmaz:
+ * Kayıt detayı, düzenleme ve sahibin teslim onayı uçtan uca testleri (T3.5,
+ * T4.2). Gerçek standalone sunucu + seed; her test kendi kaydını UI'dan
+ * oluşturur ve "Kaydı aç" bağlantısıyla açar. Sahip sayfasında düzenleme
+ * formu "Kaydı düzenle" ile açılır. Sayfa hydrate olmadan etkileşim yapılmaz:
  * `networkidle` beklenir.
  */
 
@@ -62,14 +62,14 @@ async function openHydrated(page: Page, url: string): Promise<void> {
 /** Sahip formundan bir kayıt oluşturur ve "Kaydı aç" ile detay sayfasına gider. */
 async function createOwnerEntry(
   page: Page,
-  options: { date: string; kind: "owner" | "driver" },
+  options: { date: string; kind: "owner" | "driver"; gross?: string; fuel?: string },
 ): Promise<void> {
   await openHydrated(page, "/sahip/kayit/yeni");
   await page.getByLabel("Çalışılan gün").fill(options.date);
   await page.getByLabel("Başlangıç saati").fill("08:00");
   await page.getByLabel("Bitiş saati").fill("17:00");
-  await page.getByLabel("Hasılat").fill("10.000");
-  await page.getByLabel("Mazot").fill("1.500");
+  await page.getByLabel("Hasılat").fill(options.gross ?? "10.000");
+  await page.getByLabel("Mazot").fill(options.fuel ?? "1.500");
   await page.getByRole("button", { name: "+ Masraf ekle" }).click();
   await page.getByLabel("Diğer masraf").fill("300");
   if (options.kind === "owner") {
@@ -106,6 +106,31 @@ function capturePatches(page: Page): string[] {
 }
 
 const SAVE = "Değişiklikleri kaydet";
+const CONFIRM = "Parayı aldım, tutar doğru";
+const CHECKING_TEXT = "Kaydın sonucu kontrol ediliyor.";
+
+/** Sahip sayfasında düzenleme formunu açar. */
+async function openEditForm(page: Page): Promise<void> {
+  await page.getByRole("button", { name: "Kaydı düzenle", exact: true }).click();
+  await expect(page.getByRole("button", { name: SAVE })).toBeVisible();
+}
+
+function captureConfirms(page: Page): string[] {
+  const bodies: string[] = [];
+  page.on("request", (request) => {
+    if (request.method() === "POST" && request.url().includes("/confirm")) {
+      bodies.push(request.postData() ?? "");
+    }
+  });
+  return bodies;
+}
+
+async function expectNoHorizontalScroll(page: Page): Promise<void> {
+  const overflow = await page.evaluate(
+    () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+  );
+  expect(overflow).toBeLessThanOrEqual(0);
+}
 
 test.describe("Sahip kayıt düzenleme (/sahip/kayitlar/:id)", () => {
   test("şoför adına bekleyen kayıt: brüt değişir, sunucunun yeni sürümü, payı ve teslimi görünür; hâlâ 'Henüz doğrulanmadı'; tür değiştirilemez", async ({
@@ -117,13 +142,14 @@ test.describe("Sahip kayıt düzenleme (/sahip/kayitlar/:id)", () => {
 
     await expect(page.getByRole("heading", { name: "Kayıt detayı" })).toBeVisible();
     await expect(detailRow(page, "Şoför payı")).toContainText("2.000,00 TL");
-    await expect(detailRow(page, "Teslim edilecek tutar")).toContainText("6.200,00 TL");
+    await expect(detailRow(page, "Beklenen teslim")).toContainText("6.200,00 TL");
     await expect(page.getByText("Henüz doğrulanmadı")).toBeVisible();
-    await expect(page.getByText("Sürüm 1")).toBeVisible();
-    // Tür formda değiştirilemez; alınan tutar yok.
+    // Düzenleme formu kapalı gelir ve "Kaydı düzenle" ile açılır.
+    await expect(page.getByLabel("Hasılat (TL)")).toHaveCount(0);
+    await openEditForm(page);
+    // Tür formda değiştirilemez.
     await expect(page.getByRole("button", { name: "Şoför adına" })).toHaveCount(0);
     await expect(page.getByRole("button", { name: "Kendim çalıştım" })).toHaveCount(0);
-    await expect(page.getByText("Parayı aldım")).toHaveCount(0);
     await expect(page.getByLabel("Hasılat")).toHaveValue("10.000,00");
     await expect(page.getByLabel("Kim çalıştı?")).toHaveValue(/.+/);
 
@@ -137,11 +163,12 @@ test.describe("Sahip kayıt düzenleme (/sahip/kayitlar/:id)", () => {
     await page.getByRole("button", { name: SAVE }).click();
 
     await expect(page.getByText("Değişiklikler kaydedildi")).toBeVisible();
-    await expect(page.getByText("Sürüm 2")).toBeVisible();
     await expect(detailRow(page, "Hasılat")).toContainText("12.000,00 TL");
     await expect(detailRow(page, "Şoför payı")).toContainText("2.400,00 TL");
-    await expect(detailRow(page, "Teslim edilecek tutar")).toContainText("7.800,00 TL");
+    await expect(detailRow(page, "Beklenen teslim")).toContainText("7.800,00 TL");
     await expect(page.getByText("Henüz doğrulanmadı")).toBeVisible();
+    // Kullanıcı yazmadıysa alınan tutar alanı sunucunun yeni beklenen tutarını izler; hâlâ onay yok.
+    await expect(page.getByLabel("Aldığım tutar (TL)")).toHaveValue("7.800,00");
     expect(patches).toHaveLength(1);
     const body = JSON.parse(patches[0]!);
     expect(body).toMatchObject({ version: 1, grossCents: "1200000" });
@@ -160,12 +187,15 @@ test.describe("Sahip kayıt düzenleme (/sahip/kayitlar/:id)", () => {
 
     await expect(detailRow(page, "Şoför payı")).toContainText("0,00 TL");
     await expect(page.getByText("Onay gerekmiyor")).toBeVisible();
+    // Sahibin kendi kaydında teslim onayı yok.
+    await expect(page.getByLabel("Aldığım tutar (TL)")).toHaveCount(0);
+    await expect(page.getByRole("button", { name: CONFIRM })).toHaveCount(0);
+    await openEditForm(page);
     await expect(page.getByLabel("Kim çalıştı?")).toHaveCount(0);
 
     await page.getByLabel("Hasılat").fill("9.000");
     await page.getByRole("button", { name: SAVE }).click();
     await expect(page.getByText("Değişiklikler kaydedildi")).toBeVisible();
-    await expect(page.getByText("Sürüm 2")).toBeVisible();
     await expect(detailRow(page, "Hasılat")).toContainText("9.000,00 TL");
     await expect(detailRow(page, "Şoför payı")).toContainText("0,00 TL");
     await expect(detailRow(page, "Giderlerden sonra kalan")).toContainText("7.200,00 TL");
@@ -186,15 +216,16 @@ test.describe("Sahip kayıt düzenleme (/sahip/kayitlar/:id)", () => {
     await login(other, SEED_RAW_PLATES.vehicleA1, SEED_TEST_PASSWORDS.owner, "/sahip");
     await other.goto(page.url());
     await other.waitForLoadState("networkidle");
+    await openEditForm(other);
     await other.getByLabel("Hasılat").fill("12.000");
     await other.getByRole("button", { name: SAVE }).click();
-    await expect(other.getByText("Sürüm 2")).toBeVisible();
+    await expect(detailRow(other, "Hasılat")).toContainText("12.000,00 TL");
 
+    await openEditForm(page);
     await page.getByLabel("Hasılat").fill("13.000");
     await page.getByRole("button", { name: SAVE }).click();
 
     await expect(page.getByText(CONFLICT_TEXT).first()).toBeVisible();
-    await expect(page.getByText("Sürüm 2")).toBeVisible();
     await expect(detailRow(page, "Hasılat")).toContainText("12.000,00 TL");
     await expect(page.getByLabel("Hasılat")).toHaveValue("13.000");
     await expect(page.getByLabel("Hasılat")).toBeDisabled();
@@ -205,7 +236,6 @@ test.describe("Sahip kayıt düzenleme (/sahip/kayitlar/:id)", () => {
     await expect(page.getByLabel("Hasılat")).toBeEnabled();
     await page.getByRole("button", { name: SAVE }).click();
     await expect(page.getByText("Değişiklikler kaydedildi")).toBeVisible();
-    await expect(page.getByText("Sürüm 3")).toBeVisible();
     await expect(detailRow(page, "Hasılat")).toContainText("13.000,00 TL");
     expect(JSON.parse(patches[1]!)).toMatchObject({ version: 2 });
   });
@@ -221,10 +251,12 @@ test.describe("Sahip kayıt düzenleme (/sahip/kayitlar/:id)", () => {
     await login(other, SEED_RAW_PLATES.vehicleA1, SEED_TEST_PASSWORDS.owner, "/sahip");
     await other.goto(page.url());
     await other.waitForLoadState("networkidle");
+    await openEditForm(other);
     await other.getByLabel("Mazot").fill("2.000");
     await other.getByRole("button", { name: SAVE }).click();
-    await expect(other.getByText("Sürüm 2")).toBeVisible();
+    await expect(detailRow(other, "Mazot")).toContainText("2.000,00 TL");
 
+    await openEditForm(page);
     await page.getByLabel("Hasılat").fill("11.000");
     await page.getByRole("button", { name: SAVE }).click();
     await expect(page.getByText(CONFLICT_TEXT).first()).toBeVisible();
@@ -244,14 +276,15 @@ test.describe("Sahip kayıt düzenleme (/sahip/kayitlar/:id)", () => {
     const second = await context.newPage();
     await second.goto(page.url());
     await second.waitForLoadState("networkidle");
-    await expect(second.getByText("Sürüm 1")).toBeVisible();
+    await expect(detailRow(second, "Hasılat")).toContainText("10.000,00 TL");
 
+    await openEditForm(page);
     await page.getByLabel("Hasılat").fill("8.000");
     await page.getByRole("button", { name: SAVE }).click();
-    await expect(page.getByText("Sürüm 2")).toBeVisible();
+    await expect(page.getByText("Değişiklikler kaydedildi")).toBeVisible();
 
-    await expect(second.getByText("Sürüm 2")).toBeVisible();
     await expect(detailRow(second, "Hasılat")).toContainText("8.000,00 TL");
+    await openEditForm(second);
     await expect(second.getByLabel("Hasılat")).toHaveValue("8.000,00");
   });
 
@@ -276,6 +309,7 @@ test.describe("Sahip kayıt düzenleme (/sahip/kayitlar/:id)", () => {
       await route.fulfill({ response });
     });
 
+    await openEditForm(page);
     await page.getByLabel("Hasılat").fill("9.500");
     await page.getByRole("button", { name: SAVE }).click();
     await expect(page.getByText(/Değişikliğin gönderilip gönderilmediği bilinmiyor/)).toBeVisible();
@@ -288,12 +322,195 @@ test.describe("Sahip kayıt düzenleme (/sahip/kayitlar/:id)", () => {
 
     await page.getByRole("button", { name: "Değişikliği tekrar dene" }).click();
     await expect(page.getByText("Değişiklikler kaydedildi")).toBeVisible();
-    // Sunucu değişikliği yalnız BİR kez uyguladı: sürüm 2.
-    await expect(page.getByText("Sürüm 2")).toBeVisible();
+    // Sunucu değişikliği yalnız BİR kez uyguladı: iki gönderim, aynı gövde.
     await expect(detailRow(page, "Hasılat")).toContainText("9.500,00 TL");
     expect(patches).toHaveLength(2);
     expect(patches[1]).toBe(patches[0]);
     expect(JSON.parse(patches[0]!)).toMatchObject({ version: 1 });
+  });
+
+  test("teslim onayı: bekleyen şoför kaydı beklenen tutar ve ön dolumla görünür, düğmeye basana dek doğrulanmaz; tek POST açık receivedCents ile gider; onaydan sonra sunucunun tutarı ve zamanı görünür, form salt okunur; 320 px'te yatay kaydırma yok", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 320, height: 700 });
+    await login(page, SEED_RAW_PLATES.vehicleA1, SEED_TEST_PASSWORDS.owner, "/sahip");
+    await createOwnerEntry(page, { date: "2026-06-10", kind: "driver" });
+    const confirms = captureConfirms(page);
+
+    await expect(page.getByText(/Hüseyin Ak · /)).toBeVisible();
+    await expect(page.getByText(/10 Haziran 2026 · 08:00–17:00/)).toBeVisible();
+    await expect(page.getByText("Henüz doğrulanmadı")).toBeVisible();
+    await expect(detailRow(page, "Hasılat")).toContainText("10.000,00 TL");
+    await expect(detailRow(page, "Mazot")).toContainText("1.500,00 TL");
+    await expect(detailRow(page, "Diğer masraf")).toContainText("300,00 TL");
+    await expect(detailRow(page, "Şoför payı")).toContainText("2.000,00 TL");
+    await expect(detailRow(page, "Beklenen teslim")).toContainText("6.200,00 TL");
+    await expect(page.getByLabel("Aldığım tutar (TL)")).toHaveValue("6.200,00");
+    await expect(page.getByRole("button", { name: CONFIRM })).toBeEnabled();
+    await expectNoHorizontalScroll(page);
+
+    // Ön dolum onay değildir: yenilemede de istek gitmez, durum değişmez.
+    await page.reload();
+    await page.waitForLoadState("networkidle");
+    await expect(page.getByText("Henüz doğrulanmadı")).toBeVisible();
+    expect(confirms).toHaveLength(0);
+
+    // Fark metni yazdıkça güncellenir.
+    await page.getByLabel("Aldığım tutar (TL)").fill("6.000");
+    await expect(page.getByText("Beklenenden 200,00 TL az.")).toBeVisible();
+    await page.getByLabel("Aldığım tutar (TL)").fill("6.200");
+    await expect(page.getByText(/Beklenenden/)).toHaveCount(0);
+
+    await page.getByRole("button", { name: CONFIRM }).dblclick();
+    await expect(page.getByText("Teslim doğrulandı")).toBeVisible();
+    expect(confirms).toHaveLength(1);
+    expect(JSON.parse(confirms[0]!)).toEqual({
+      requestId: expect.any(String),
+      version: 1,
+      receivedCents: "620000",
+    });
+    await expect(page.getByText("Alınan tutar")).toBeVisible();
+    await expect(page.locator("section", { hasText: "Alınan tutar" })).toContainText("6.200,00 TL");
+    await expect(page.locator("section", { hasText: "Doğrulama zamanı" })).toContainText(/\d{1,2} \S+ \d{4} · \d\d:\d\d/);
+    await expect(page.getByText("Henüz doğrulanmadı")).toHaveCount(0);
+    await expect(page.getByRole("button", { name: CONFIRM })).toHaveCount(0);
+    await expect(page.getByLabel("Aldığım tutar (TL)")).toHaveCount(0);
+    // Düzenleme formu salt okunur: açılamaz, kayıtlı alan yok.
+    await expect(page.getByRole("button", { name: "Kaydı düzenle", exact: true })).toHaveCount(0);
+    await expect(page.getByLabel("Hasılat (TL)")).toHaveCount(0);
+    await expectNoHorizontalScroll(page);
+  });
+
+  test("teslim onayı: yazılan tutar korunur ve gövdede açık gider (eksik teslim)", async ({ page }) => {
+    await login(page, SEED_RAW_PLATES.vehicleA1, SEED_TEST_PASSWORDS.owner, "/sahip");
+    await createOwnerEntry(page, { date: "2026-06-11", kind: "driver" });
+    const confirms = captureConfirms(page);
+
+    // Geçersiz/eksi tutar alan hatasıdır, istek gitmez.
+    await page.getByLabel("Aldığım tutar (TL)").fill("-5");
+    await page.getByRole("button", { name: CONFIRM }).click();
+    await expect(page.getByText("Tutar eksi olamaz.")).toBeVisible();
+    expect(confirms).toHaveLength(0);
+
+    await page.getByLabel("Aldığım tutar (TL)").fill("6.000");
+    await page.getByRole("button", { name: CONFIRM }).click();
+    await expect(page.getByText("Teslim doğrulandı")).toBeVisible();
+    expect(confirms).toHaveLength(1);
+    expect(JSON.parse(confirms[0]!)).toMatchObject({ version: 1, receivedCents: "600000" });
+    await expect(page.locator("section", { hasText: "Alınan tutar" })).toContainText("6.000,00 TL");
+  });
+
+  test("teslim onayı: istek sunucuya ulaşmadıysa sonuç belirsiz kalır; yenileme sonrası tekrar aynı requestId ve gövdeyle gider", async ({
+    page,
+  }) => {
+    await login(page, SEED_RAW_PLATES.vehicleA1, SEED_TEST_PASSWORDS.owner, "/sahip");
+    await createOwnerEntry(page, { date: "2026-06-12", kind: "driver" });
+    const confirms = captureConfirms(page);
+    let dropNext = true;
+    await page.route("**/api/v1/work-entries/*/confirm", async (route) => {
+      if (dropNext) {
+        dropNext = false;
+        await route.abort("failed");
+        return;
+      }
+      await route.continue();
+    });
+
+    await page.getByLabel("Aldığım tutar (TL)").fill("6.000");
+    await page.getByRole("button", { name: CONFIRM }).click();
+    await expect(page.getByText(CHECKING_TEXT)).toBeVisible();
+    await expect(page.getByRole("button", { name: CONFIRM })).toBeDisabled();
+    await expect(page.getByLabel("Aldığım tutar (TL)")).toBeDisabled();
+
+    await page.reload();
+    await page.waitForLoadState("networkidle");
+    await expect(page.getByText(CHECKING_TEXT)).toBeVisible();
+    await expect(page.getByLabel("Aldığım tutar (TL)")).toHaveValue("6.000,00");
+    await expect(page.getByText("Henüz doğrulanmadı")).toBeVisible();
+    expect(confirms).toHaveLength(1); // yenileme kendiliğinden göndermez
+
+    await page.getByRole("button", { name: "Sonucu şimdi kontrol et" }).click();
+    await expect(page.getByText("Teslim doğrulandı")).toBeVisible();
+    expect(confirms).toHaveLength(2);
+    expect(confirms[1]).toBe(confirms[0]);
+    expect(JSON.parse(confirms[0]!)).toMatchObject({ version: 1, receivedCents: "600000" });
+    await expect(page.locator("section", { hasText: "Alınan tutar" })).toContainText("6.000,00 TL");
+  });
+
+  test("teslim onayı: yanıt kaybolur ama sunucu onaylamışsa tekrar deneme aynı gövdeyle yanıtı yeniden oynatır; tek onay", async ({
+    page,
+  }) => {
+    await login(page, SEED_RAW_PLATES.vehicleA1, SEED_TEST_PASSWORDS.owner, "/sahip");
+    await createOwnerEntry(page, { date: "2026-06-15", kind: "driver" });
+    const confirms = captureConfirms(page);
+    let dropNext = true;
+    await page.route("**/api/v1/work-entries/*/confirm", async (route) => {
+      const response = await route.fetch();
+      if (dropNext) {
+        dropNext = false;
+        await route.abort("failed");
+        return;
+      }
+      await route.fulfill({ response });
+    });
+
+    await page.getByRole("button", { name: CONFIRM }).click();
+    await expect(page.getByText(CHECKING_TEXT)).toBeVisible();
+    await page.getByRole("button", { name: "Sonucu şimdi kontrol et" }).click();
+    await expect(page.getByText("Teslim doğrulandı")).toBeVisible();
+    expect(confirms).toHaveLength(2);
+    expect(confirms[1]).toBe(confirms[0]);
+    await expect(page.locator("section", { hasText: "Alınan tutar" })).toContainText("6.200,00 TL");
+    await expect(page.getByText(CHECKING_TEXT)).toHaveCount(0);
+  });
+
+  test("teslim onayı: başka cihaz kaydı değiştirmişse 409 kanonik metni ve güncel kayıt görünür; sonra yeni sürümle onaylanır", async ({
+    page,
+    browser,
+  }, testInfo) => {
+    await login(page, SEED_RAW_PLATES.vehicleA1, SEED_TEST_PASSWORDS.owner, "/sahip");
+    await createOwnerEntry(page, { date: "2026-06-13", kind: "driver" });
+    const confirms = captureConfirms(page);
+
+    const other = await (await browser.newContext({ baseURL: testInfo.project.use.baseURL })).newPage();
+    await login(other, SEED_RAW_PLATES.vehicleA1, SEED_TEST_PASSWORDS.owner, "/sahip");
+    await other.goto(page.url());
+    await other.waitForLoadState("networkidle");
+    await openEditForm(other);
+    await other.getByLabel("Hasılat").fill("12.000");
+    await other.getByRole("button", { name: SAVE }).click();
+    await expect(detailRow(other, "Beklenen teslim")).toContainText("7.800,00 TL");
+
+    await page.getByRole("button", { name: CONFIRM }).click();
+    await expect(page.getByText(CONFLICT_TEXT).first()).toBeVisible();
+    await expect(detailRow(page, "Hasılat")).toContainText("12.000,00 TL");
+    await expect(detailRow(page, "Beklenen teslim")).toContainText("7.800,00 TL");
+    await expect(page.getByText("Henüz doğrulanmadı")).toBeVisible();
+    expect(JSON.parse(confirms[0]!)).toMatchObject({ version: 1, receivedCents: "620000" });
+
+    // Kullanıcı yazmadığı için ön dolum güncel beklenen tutara geçer; yeni sürümle onaylanır.
+    await expect(page.getByLabel("Aldığım tutar (TL)")).toHaveValue("7.800,00");
+    await page.getByRole("button", { name: CONFIRM }).click();
+    await expect(page.getByText("Teslim doğrulandı")).toBeVisible();
+    expect(confirms).toHaveLength(2);
+    expect(JSON.parse(confirms[1]!)).toMatchObject({ version: 2, receivedCents: "780000" });
+    expect(JSON.parse(confirms[1]!).requestId).not.toBe(JSON.parse(confirms[0]!).requestId);
+  });
+
+  test("teslim onayı: eksi beklenen tutar uyarı ile gösterilir ve alan boş başlar; boş alanla istek gitmez", async ({
+    page,
+  }) => {
+    await login(page, SEED_RAW_PLATES.vehicleA1, SEED_TEST_PASSWORDS.owner, "/sahip");
+    await createOwnerEntry(page, { date: "2026-06-14", kind: "driver", gross: "1.000", fuel: "1.500" });
+    const confirms = captureConfirms(page);
+
+    await expect(detailRow(page, "Beklenen teslim")).toContainText("-1.000,00 TL");
+    await expect(page.getByText(/teslim edilecek tutar eksi görünür/)).toBeVisible();
+    await expect(page.getByLabel("Aldığım tutar (TL)")).toHaveValue("");
+    await page.getByRole("button", { name: CONFIRM }).click();
+    await expect(page.getByText("Tutarı gir. Yoksa 0 yaz.")).toBeVisible();
+    expect(confirms).toHaveLength(0);
+    await expect(page.getByText("Henüz doğrulanmadı")).toBeVisible();
   });
 
   test("bilinmeyen kayıt 404; şoför oturumu /sofor'a, ekip /yonetim'e, oturumsuz /giris'e yönlenir", async ({

@@ -15,7 +15,8 @@
  * Değiştiren her komut ortak işletim kilidini (`./lib/ops-lock.ts`, alınamazsa
  * 75) tutar ve yayın durumunu (`release-state/state.json`: release_id,
  * previous_release_id, pre_migration, migrations_applied, phase, fingerprint,
- * traffic_opened_at, verified_at; zamanlar UTC ISO) her fazda atomik yazar.
+ * traffic_opened_at, verified_at, rollback, inherited; zamanlar UTC ISO) her
+ * fazda atomik yazar.
  * Başarısızlıkta bakım işareti YERİNDE kalır ve başarısız faz kaydedilir.
  *
  * ## `deploy`
@@ -39,7 +40,13 @@
  *
  * `deploy --under-maintenance`: bakım işareti ZATEN varken (RELEASE §7 F5
  * ileri düzeltmesi, işareti bir insan koydu) yalnız bu bayrakla yayımlanır ve
- * işaret mali kontrolden sonra kalkar; işaret yoksa bayrak reddedilir.
+ * işaret mali kontrolden sonra kalkar; işaret yoksa bayrak reddedilir. Önceki
+ * yayın çözülmemişse (`previous_release_unresolved`) veya durum dosyası
+ * okunamıyorsa (`state_unreadable`) düz `deploy` reddeder; bu bayrak o durumu
+ * DEVRALIR: eski `state.json` baytları üzerine yazılmadan aynı dizine
+ * `taken-over-<zaman>.json` olarak kopyalanır, sha256'sı ve özeti (release,
+ * faz, hata, `pre_migration`, `traffic_opened_at`) yeni durumun `inherited`
+ * listesine yazılır. Kurtarma kilidi yine reddeder.
  *
  * ## `rollback --code` | `rollback --code-and-db`
  *
@@ -49,17 +56,23 @@
  * varken, servis durmuşken okunan canlı DB parmak izi kayıtlı olanla aynıysa;
  * yayın öncesi kopya ESKİ release'in `db-restore.ts install`'ıyla yerleşir
  * (canlı DB/WAL `preserved/` altına taşınır, bütün oturumlar uygulama
- * başlamadan iptal edilir; kilit devralınan tanıtıcıyla). Durum dosyası
- * okunamıyorsa müşteri yazması kabul edilmiş sayılır: DB geri dönüşü yok.
- * Sonra `current` eski release'e, başlat, live/ready, mali kontrol, trafik.
+ * başlamadan iptal edilir; kilit devralınan tanıtıcıyla) ve yerleşen DB'nin
+ * parmak izi servis başlamadan `rollback.restored_fingerprint`'e yazılır.
+ * Sonraki bir adım düşerse aynı komut yeniden denenir: canlı parmak izi bu
+ * kayda eşitse `install` tekrarlanmadan `current` değişiminden devam edilir,
+ * ikisinden de farklıysa `fingerprint_mismatch`. Durum dosyası okunamıyorsa
+ * müşteri yazması kabul edilmiş sayılır: DB geri dönüşü yok. Sonra `current`
+ * eski release'e, başlat, live/ready, mali kontrol, trafik.
  *
  * ## `mark-verified`, `cleanup`
  *
  * `mark-verified`: trafiği açık yayının yayın sonrası doğrulandığını kaydeder.
  * `cleanup`: `current`, bu dizin, durumun release'i, doğrulanmadan önce önceki
- * release ve yayın öncesi kopyası ile `backup-ready`/`pre-migration`'da tutulan
- * bir manifestin `release_id`'si SİLİNMEZ; okunamayan/yarım manifest varsa
- * hiçbir şey silinmez.
+ * release ve yayın öncesi kopyası ile devralınan (`inherited`) durumların
+ * release'leri ve yayın öncesi kopyası, `backup-ready`/`pre-migration`'da
+ * tutulan bir manifestin `release_id`'si SİLİNMEZ; doğrulanmadan önce
+ * devralınan durumlardan biri okunamamışsa hiçbir kopya/release, okunamayan/
+ * yarım manifest varsa hiçbir şey silinmez.
  *
  * ## `inspect [--release <dizin>]` (servis kullanıcısıyla; aracın kendi adımı)
  *
@@ -315,14 +328,65 @@ interface ReleaseState {
   fingerprint: string | null;
   traffic_opened_at: string | null;
   verified_at: string | null;
-  rollback: { mode: "code" | "code-and-db"; started_at: string; finished_at: string | null; preserved: string | null } | null;
+  rollback: {
+    mode: "code" | "code-and-db";
+    started_at: string;
+    finished_at: string | null;
+    preserved: string | null;
+    /** `db-restore install`'ın yerleştirdiği DB'nin parmak izi (servis durmuşken okundu). */
+    restored_fingerprint: string | null;
+  } | null;
   failure: { phase: Phase; reason: string; at: string } | null;
+  /** `deploy --under-maintenance`'ın devraldığı çözülmemiş/okunamayan durumlar (RELEASE §7 F5). */
+  inherited: InheritedState[];
+}
+
+interface InheritedState {
+  kind: "unresolved" | "unreadable";
+  /** Devralınan `state.json` baytlarının release-state dizinindeki kopyası ve sha256'sı. */
+  file: string;
+  sha256: string;
+  taken_over_at: string;
+  release_id: string | null;
+  previous_release_id: string | null;
+  phase: Phase | null;
+  failure: string | null;
+  pre_migration: string | null;
+  traffic_opened_at: string | null;
 }
 
 type StateRead = { kind: "absent" } | { kind: "unreadable" } | { kind: "ok"; state: ReleaseState };
 
+const TAKEN_OVER_FILE_PATTERN = /^taken-over-\d{8}T\d{9}Z\.json$/u;
+
 const isIsoOrNull = (value: unknown): boolean =>
   value === null || (typeof value === "string" && !Number.isNaN(Date.parse(value)));
+
+const isStringOrAbsent = (value: unknown): boolean => value === undefined || value === null || typeof value === "string";
+
+const isReleaseIdOrNull = (value: unknown): boolean =>
+  value === null || (typeof value === "string" && RELEASE_ID_PATTERN.test(value));
+
+function isInheritedState(value: unknown): boolean {
+  const e = value as Record<string, unknown> | null;
+  return (
+    typeof e === "object" &&
+    e !== null &&
+    (e.kind === "unresolved" || e.kind === "unreadable") &&
+    typeof e.file === "string" &&
+    TAKEN_OVER_FILE_PATTERN.test(e.file) &&
+    typeof e.sha256 === "string" &&
+    /^[0-9a-f]{64}$/u.test(e.sha256) &&
+    typeof e.taken_over_at === "string" &&
+    isIsoOrNull(e.taken_over_at) &&
+    isReleaseIdOrNull(e.release_id) &&
+    isReleaseIdOrNull(e.previous_release_id) &&
+    (e.phase === null || PHASES.includes(e.phase as Phase)) &&
+    (e.failure === null || typeof e.failure === "string") &&
+    (e.pre_migration === null || typeof e.pre_migration === "string") &&
+    isIsoOrNull(e.traffic_opened_at)
+  );
+}
 
 function readState(paths: Paths): StateRead {
   const file = path.join(paths.stateDir, STATE_FILE);
@@ -349,8 +413,20 @@ function readState(paths: Paths): StateRead {
     isIsoOrNull(s.traffic_opened_at) &&
     isIsoOrNull(s.verified_at) &&
     (s.failure === null || typeof s.failure === "object") &&
-    (s.rollback === null || typeof s.rollback === "object");
-  return valid ? { kind: "ok", state: s as unknown as ReleaseState } : { kind: "unreadable" };
+    (s.rollback === null ||
+      (typeof s.rollback === "object" && isStringOrAbsent((s.rollback as Record<string, unknown>).restored_fingerprint))) &&
+    (s.inherited === undefined || (Array.isArray(s.inherited) && s.inherited.every(isInheritedState)));
+  if (!valid) return { kind: "unreadable" };
+  // Bu alanlardan önce yazılmış durum dosyaları: kayıt yok = null / boş liste.
+  const state = s as unknown as ReleaseState;
+  return {
+    kind: "ok",
+    state: {
+      ...state,
+      rollback: state.rollback === null ? null : { ...state.rollback, restored_fingerprint: state.rollback.restored_fingerprint ?? null },
+      inherited: state.inherited ?? [],
+    },
+  };
 }
 
 /** Geçici dosya + fsync + rename + dizin fsync: yarım yazılmış durum dosyası olmaz. */
@@ -749,7 +825,49 @@ function takePreMigrationCopy(paths: Paths, previousDir: string, previousId: str
   return readPreMigrationManifest(paths, stem, previousId);
 }
 
-function newState(releaseId: string, previousId: string): ReleaseState {
+/**
+ * F5 devralması: önceki `state.json`'un baytları üzerine yazılmadan önce aynı
+ * (0700) dizine `taken-over-<zaman>.json` olarak kopyalanır ve hash'lenir;
+ * `traffic_opened_at`, yayın öncesi kopya ve başarısız faz insanın inceleyeceği
+ * kanıttır (RELEASE §7 F5 adım 3).
+ */
+function keepTakenOverState(paths: Paths, prior: StateRead): InheritedState {
+  const bytes = fs.readFileSync(path.join(paths.stateDir, STATE_FILE));
+  const at = nowIso();
+  const file = `taken-over-${at.replace(/[-:.]/gu, "")}.json`;
+  const fd = fs.openSync(path.join(paths.stateDir, file), "wx", 0o600);
+  try {
+    fs.writeSync(fd, bytes);
+    fs.fsyncSync(fd);
+  } finally {
+    fs.closeSync(fd);
+  }
+  fsyncPath(paths.stateDir);
+  const state = prior.kind === "ok" ? prior.state : null;
+  const entry: InheritedState = {
+    kind: state === null ? "unreadable" : "unresolved",
+    file,
+    sha256: crypto.createHash("sha256").update(bytes).digest("hex"),
+    taken_over_at: at,
+    release_id: state?.release_id ?? null,
+    previous_release_id: state?.previous_release_id ?? null,
+    phase: state?.phase ?? null,
+    failure: state?.failure?.reason ?? null,
+    pre_migration: state?.pre_migration ?? null,
+    traffic_opened_at: state?.traffic_opened_at ?? null,
+  };
+  log("warn", "release_state_taken_over", {
+    kind: entry.kind,
+    file: entry.file,
+    sha256: entry.sha256,
+    release_id: entry.release_id ?? "unknown",
+    phase: entry.phase ?? "unknown",
+    failure: entry.failure ?? "none",
+  });
+  return entry;
+}
+
+function newState(releaseId: string, previousId: string, inherited: InheritedState[]): ReleaseState {
   const at = nowIso();
   return {
     state_version: 1,
@@ -765,6 +883,7 @@ function newState(releaseId: string, previousId: string): ReleaseState {
     verified_at: null,
     rollback: null,
     failure: null,
+    inherited,
   };
 }
 
@@ -813,8 +932,12 @@ async function runDeploy(paths: Paths, env: Env, underMaintenance: boolean): Pro
   const holder: { state: ReleaseState | null } = { state: null };
   try {
     const prior = readState(paths);
-    if (prior.kind === "unreadable") reject("state_unreadable", "Önceki yayın durumu okunamıyor.");
-    if (prior.kind === "ok" && !isResolved(prior.state)) {
+    // Çözülmemiş veya okunamayan önceki durumu yalnız F5 kararı (--under-maintenance, işaret varken) devralır.
+    const takeOver = prior.kind === "unreadable" || (prior.kind === "ok" && !isResolved(prior.state));
+    if (!underMaintenance && prior.kind === "unreadable") {
+      reject("state_unreadable", "Önceki yayın durumu okunamıyor (F5 düzeltmesi: --under-maintenance).");
+    }
+    if (!underMaintenance && prior.kind === "ok" && !isResolved(prior.state)) {
       reject("previous_release_unresolved", "Önceki yayın çözülmedi (bakımda); önce geri dönüş veya ekip kararı.", {
         release_id: prior.state.release_id,
         phase: prior.state.phase,
@@ -840,7 +963,11 @@ async function runDeploy(paths: Paths, env: Env, underMaintenance: boolean): Pro
       previous_release_id: previousId,
       under_maintenance: underMaintenance,
     });
-    holder.state = writeState(paths, newState(releaseId, previousId));
+    // Devralınan durumun kendi devraldıkları da taşınır: zincir doğrulanana dek hepsi korunur.
+    const inherited = takeOver
+      ? [...(prior.kind === "ok" ? prior.state.inherited : []), keepTakenOverState(paths, prior)]
+      : [];
+    holder.state = writeState(paths, newState(releaseId, previousId, inherited));
     await withFailureRecord(paths, holder, async () => {
       // İşaret servis durmadan ÖNCE: Caddy yeni istekleri keser, süreç SIGTERM'de süren istekleri bitirir.
       ensureMarker(paths);
@@ -970,10 +1097,18 @@ async function runRollback(paths: Paths, env: Env, mode: "code" | "code-and-db")
     }
 
     log("info", "release_rollback_start", { mode, release_id: state.release_id, target: state.previous_release_id });
+    // Önceki denemenin yerleştirdiği DB'nin kaydı taşınır: yeniden deneme yalnız ona dayanır.
+    const earlier = state.rollback;
     holder.state = writeState(paths, {
       ...state,
       phase: "rolling_back",
-      rollback: { mode, started_at: nowIso(), finished_at: null, preserved: null },
+      rollback: {
+        mode,
+        started_at: nowIso(),
+        finished_at: null,
+        preserved: earlier?.preserved ?? null,
+        restored_fingerprint: earlier?.restored_fingerprint ?? null,
+      },
       failure: null,
     });
     await withFailureRecord(paths, holder, async () => {
@@ -983,26 +1118,41 @@ async function runRollback(paths: Paths, env: Env, mode: "code" | "code-and-db")
       if (mode === "code-and-db") {
         // Parmak izi kilit altında, işaret varken ve servis durmuşken okunur.
         const live = inspectLiveDb(paths, null);
-        if (live.fingerprint !== state.fingerprint) {
-          reject("fingerprint_mismatch", "Canlı DB kayıtlı parmak izinden farklı; yazma kabul edilmiş olabilir, eski DB'ye dönülmez.");
-        }
-        const install = runAsServiceUser(
-          paths,
-          previousDir,
-          ["scripts/db-restore.ts", "install", "--manifest", path.join(paths.preMigrationDir, manifestFileName(state.pre_migration!))],
-          { lockFd },
-        );
-        const preserved = install.status === 0 ? eventField(install.stdout, "restore_installed", "preserved") : undefined;
-        if (preserved === undefined) {
-          reject("db_restore_failed", "Önceki release yayın öncesi kopyayı yerleştiremedi.", {
-            exit: install.status ?? "signal",
-            child_reason: childReason(install.stdout),
+        if (
+          typeof earlier?.preserved === "string" &&
+          typeof earlier.restored_fingerprint === "string" &&
+          live.fingerprint === earlier.restored_fingerprint
+        ) {
+          // Önceki deneme kopyayı yerleştirdi ve DB o andan beri değişmedi: install tekrarlanmaz.
+          log("info", "release_rollback_resume", { preserved: earlier.preserved });
+        } else {
+          if (live.fingerprint !== state.fingerprint) {
+            reject("fingerprint_mismatch", "Canlı DB kayıtlı parmak izinden farklı; yazma kabul edilmiş olabilir, eski DB'ye dönülmez.");
+          }
+          const install = runAsServiceUser(
+            paths,
+            previousDir,
+            ["scripts/db-restore.ts", "install", "--manifest", path.join(paths.preMigrationDir, manifestFileName(state.pre_migration!))],
+            { lockFd },
+          );
+          const preserved = install.status === 0 ? eventField(install.stdout, "restore_installed", "preserved") : undefined;
+          if (preserved === undefined) {
+            reject("db_restore_failed", "Önceki release yayın öncesi kopyayı yerleştiremedi.", {
+              exit: install.status ?? "signal",
+              child_reason: childReason(install.stdout),
+            });
+          }
+          holder.state = writeState(paths, {
+            ...holder.state!,
+            rollback: { ...holder.state!.rollback!, preserved, restored_fingerprint: null },
+          });
+          // Yerleşen DB'nin parmak izi servis başlamadan okunur; sonraki bir adım düşerse yeniden deneme buna dayanır.
+          const restored = inspectLiveDb(paths, null);
+          holder.state = writeState(paths, {
+            ...holder.state!,
+            rollback: { ...holder.state!.rollback!, restored_fingerprint: restored.fingerprint },
           });
         }
-        holder.state = writeState(paths, {
-          ...holder.state!,
-          rollback: { ...holder.state!.rollback!, preserved },
-        });
       }
 
       switchCurrent(paths, previousDir);
@@ -1089,6 +1239,10 @@ function runCleanup(paths: Paths, env: Env): void {
     if (read.kind === "unreadable") reject("state_unreadable", "Yayın durumu okunamıyor; hiçbir şey silinmez.");
     const state = read.kind === "ok" ? read.state : null;
     const unverified = state !== null && state.verified_at === null;
+    // F5'te devralınan durumların kopyası ve release'leri bu yayın doğrulanana dek tutulur.
+    const inherited = unverified ? state!.inherited : [];
+    // Okunamayan bir durum devralındıysa neyi koruduğu bilinmez: doğrulanana dek hiçbir kopya/release silinmez.
+    const keepAll = inherited.some((entry) => entry.kind === "unreadable");
 
     const keepReleases = new Map<string, string>();
     keepReleases.set(path.basename(currentReleaseDir(paths)), "current");
@@ -1099,6 +1253,11 @@ function runCleanup(paths: Paths, env: Env): void {
         keepReleases.set(state.previous_release_id, "previous_not_verified");
       }
     }
+    for (const entry of inherited) {
+      for (const id of [entry.release_id, entry.previous_release_id]) {
+        if (id !== null && !keepReleases.has(id)) keepReleases.set(id, "inherited_state");
+      }
+    }
 
     const preMigration = readKeptManifests(paths.preMigrationDir);
     const backups = readKeptManifests(paths.backupReadyDir);
@@ -1107,6 +1266,9 @@ function runCleanup(paths: Paths, env: Env): void {
     for (const set of preMigration) {
       if (unverified && set.stem === state!.pre_migration) {
         log("info", "cleanup_kept", { pre_migration: set.stem, reason: "previous_not_verified" });
+        kept.push(set.manifest);
+      } else if (keepAll || inherited.some((entry) => entry.pre_migration === set.stem)) {
+        log("info", "cleanup_kept", { pre_migration: set.stem, reason: keepAll ? "inherited_state_unreadable" : "inherited_state" });
         kept.push(set.manifest);
       } else {
         removeCopies.push(set.stem);
@@ -1138,7 +1300,7 @@ function runCleanup(paths: Paths, env: Env): void {
       }
       if (removedCopies > 0) fsyncPath(paths.preMigrationDir);
       for (const id of [...releaseIds].sort()) {
-        const reason = keepReleases.get(id);
+        const reason = keepReleases.get(id) ?? (keepAll ? "inherited_state_unreadable" : undefined);
         if (reason !== undefined) {
           log("info", "cleanup_kept", { release_id: id, reason });
           continue;

@@ -27,11 +27,15 @@ import { createDb, openDatabaseConnection } from "../../src/server/data/db";
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const SLOW = 60_000;
 
-/** Çalışan release, migration'sız yeni release, 1 migration'lı yeni release, mali veriyi değiştiren migration'lı release. */
+/**
+ * Çalışan release, migration'sız yeni release, 1 migration'lı yeni release, mali veriyi değiştiren migration'lı
+ * release, MIG'in üstüne ikinci migration'lı F5 ileri düzeltme release'i.
+ */
 const OLD = "1111111a";
 const SAME = "2222222b";
 const MIG = "3333333c";
 const BAD = "4444444d";
+const FIX = "7777777a";
 
 interface CliResult {
   status: number | null;
@@ -248,11 +252,18 @@ function insertSession(sqlite: InstanceType<typeof Database>, id: string): void 
 
 beforeAll(async () => {
   template = fs.mkdtempSync(path.join(os.tmpdir(), "dolmus-takip-release-apply-template-"));
-  for (const id of [OLD, SAME, MIG, BAD]) buildRelease(path.join(template, id));
+  for (const id of [OLD, SAME, MIG, BAD, FIX]) buildRelease(path.join(template, id));
+  for (const id of [MIG, FIX]) {
+    addMigration(
+      path.join(template, id),
+      "0099_release_apply_probe",
+      "CREATE TABLE `release_apply_probe` (`id` integer PRIMARY KEY NOT NULL);\n",
+    );
+  }
   addMigration(
-    path.join(template, MIG),
-    "0099_release_apply_probe",
-    "CREATE TABLE `release_apply_probe` (`id` integer PRIMARY KEY NOT NULL);\n",
+    path.join(template, FIX),
+    "0100_release_apply_fix",
+    "CREATE TABLE `release_apply_fix` (`id` integer PRIMARY KEY NOT NULL);\n",
   );
   addMigration(
     path.join(template, BAD),
@@ -278,7 +289,7 @@ beforeEach(async () => {
   root = fs.mkdtempSync(path.join(os.tmpdir(), "dolmus-takip-release-apply-"));
   releasesDir = path.join(root, "releases");
   fs.mkdirSync(releasesDir);
-  for (const id of [OLD, SAME, MIG, BAD]) {
+  for (const id of [OLD, SAME, MIG, BAD, FIX]) {
     // Sabit bağlantılı kopya: release dosyaları testte değişmez, kopyalama maliyeti yok.
     const copy = spawnSync("cp", ["-al", path.join(template, id), path.join(releasesDir, id)]);
     expect(copy.status).toBe(0);
@@ -498,6 +509,127 @@ describe("scripts/release-apply.ts deploy", () => {
     expect(fs.existsSync(markerPath)).toBe(false);
   }, SLOW);
 
+  describe("F5: --under-maintenance çözülmemiş/okunamayan durumu devralır", () => {
+    const takenOverFiles = (): string[] => fs.readdirSync(stateDir).filter((name) => name.startsWith("taken-over-"));
+
+    it("fingerprint_mismatch sonrası: düz deploy reddedilir, --under-maintenance devralır ve kanıtı saklar; cleanup doğrulanmadan devralınanı silmez", async () => {
+      health.ready = 503;
+      expectRefused(await deploy(MIG), "readiness_failed");
+      const firstCopy = readState().pre_migration as string;
+      withDb((sqlite) => insertEntry(sqlite, "entry-after-release", 90_000, "owner"));
+      health.ready = 200;
+      expectRefused(await runApply(MIG, ["rollback", "--code-and-db"]), "fingerprint_mismatch");
+      expect(fs.existsSync(markerPath)).toBe(true);
+      const priorBytes = fs.readFileSync(path.join(stateDir, "state.json"));
+
+      const plain = expectRefused(await deploy(FIX), "previous_release_unresolved");
+      expect(plain).toContain(`release_id=${MIG}`);
+      expect(plain).toContain("failure=fingerprint_mismatch");
+      expect(fs.readFileSync(path.join(stateDir, "state.json"))).toEqual(priorBytes);
+      expect(takenOverFiles()).toEqual([]);
+
+      const result = await runApply(FIX, ["deploy", "--under-maintenance"]);
+      expectOk(result);
+      expect(result.stdout).toMatch(/event=release_state_taken_over .*kind=unresolved /);
+      const [kept] = takenOverFiles();
+      expect(fs.readFileSync(path.join(stateDir, kept!))).toEqual(priorBytes);
+      expect(fs.statSync(path.join(stateDir, kept!)).mode & 0o777).toBe(0o600);
+
+      const state = readState();
+      expect(state).toMatchObject({
+        release_id: FIX,
+        previous_release_id: MIG,
+        phase: "traffic_open",
+        migrations_applied: 1,
+        failure: null,
+        inherited: [
+          {
+            kind: "unresolved",
+            file: kept,
+            sha256: crypto.createHash("sha256").update(priorBytes).digest("hex"),
+            release_id: MIG,
+            previous_release_id: OLD,
+            phase: "rolling_back",
+            failure: "fingerprint_mismatch",
+            pre_migration: firstCopy,
+            traffic_opened_at: null,
+          },
+        ],
+      });
+      expect(state.pre_migration).not.toBe(firstCopy);
+      expect(currentRelease()).toBe(FIX);
+      expect(fs.existsSync(markerPath)).toBe(false);
+      expect(withDb((sqlite) => sqlite.prepare("SELECT COUNT(*) AS c FROM work_entries WHERE id = 'entry-after-release'").get())).toEqual({ c: 1 });
+
+      // Doğrulanmadan: devralınan durumun kopyası ve release'leri (MIG, OLD) kalır; ilgisizler silinir.
+      const copies = fs.readdirSync(preMigrationDir).sort();
+      expect(copies).toHaveLength(4);
+      const cleanup = await runApply(FIX, ["cleanup"]);
+      expectOk(cleanup);
+      expect(cleanup.stdout).toContain(`pre_migration=${firstCopy} reason=inherited_state`);
+      expect(fs.readdirSync(preMigrationDir).sort()).toEqual(copies);
+      expect(fs.readdirSync(releasesDir).sort()).toEqual(
+        [OLD, `${OLD}.manifest.json`, MIG, `${MIG}.manifest.json`, FIX, `${FIX}.manifest.json`].sort(),
+      );
+      expect(takenOverFiles()).toEqual([kept]);
+    }, SLOW);
+
+    it("okunamayan durum: düz deploy reddedilir, işaret yokken bayrak da reddedilir; devralınca cleanup doğrulanana dek hiçbir kopya/release silmez", async () => {
+      health.ready = 503;
+      expectRefused(await deploy(MIG), "readiness_failed");
+      health.ready = 200;
+      fs.writeFileSync(path.join(stateDir, "state.json"), "{ bozuk");
+
+      expectRefused(await deploy(FIX), "state_unreadable");
+      fs.rmSync(markerPath);
+      expectRefused(await runApply(FIX, ["deploy", "--under-maintenance"]), "maintenance_off");
+      expect(takenOverFiles()).toEqual([]);
+      expect(fs.readFileSync(path.join(stateDir, "state.json"), "utf8")).toBe("{ bozuk");
+      fs.writeFileSync(markerPath, "");
+
+      const result = await runApply(FIX, ["deploy", "--under-maintenance"]);
+      expectOk(result);
+      expect(result.stdout).toMatch(/event=release_state_taken_over .*kind=unreadable /);
+      const [kept] = takenOverFiles();
+      expect(fs.readFileSync(path.join(stateDir, kept!), "utf8")).toBe("{ bozuk");
+      expect(readState()).toMatchObject({
+        release_id: FIX,
+        previous_release_id: MIG,
+        phase: "traffic_open",
+        inherited: [
+          {
+            kind: "unreadable",
+            file: kept,
+            sha256: crypto.createHash("sha256").update("{ bozuk").digest("hex"),
+            release_id: null,
+            previous_release_id: null,
+            phase: null,
+            failure: null,
+            pre_migration: null,
+            traffic_opened_at: null,
+          },
+        ],
+      });
+      expect(currentRelease()).toBe(FIX);
+      expect(fs.existsSync(markerPath)).toBe(false);
+
+      const copies = fs.readdirSync(preMigrationDir).sort();
+      const releases = fs.readdirSync(releasesDir).sort();
+      const cleanup = await runApply(FIX, ["cleanup"]);
+      expectOk(cleanup);
+      expect(cleanup.stdout).toContain(`release_id=${BAD} reason=inherited_state_unreadable`);
+      expect(fs.readdirSync(preMigrationDir).sort()).toEqual(copies);
+      expect(fs.readdirSync(releasesDir).sort()).toEqual(releases);
+
+      // Doğrulandıktan sonra koruma kalkar.
+      expectOk(await runApply(FIX, ["mark-verified"]));
+      expectOk(await runApply(FIX, ["cleanup"]));
+      expect(fs.readdirSync(preMigrationDir)).toEqual([]);
+      expect(fs.readdirSync(releasesDir).sort()).toEqual([FIX, `${FIX}.manifest.json`]);
+      expect(takenOverFiles()).toEqual([kept]);
+    }, SLOW);
+  });
+
   describe("ön kontroller: hiçbir şey değişmez", () => {
     function expectUntouched(): void {
       expect(calls().filter((line) => /^systemctl (stop|start)/.test(line))).toEqual([]);
@@ -707,6 +839,74 @@ describe("scripts/release-apply.ts rollback", () => {
     expect(state.traffic_opened_at).not.toBeNull();
     // İkinci geri dönüş yok.
     expectRefused(await runApply(MIG, ["rollback", "--code-and-db"]), "already_rolled_back");
+  }, SLOW);
+
+  /** Trafik açılmadan kalmış yayında --code-and-db kopyayı yerleştirir, sonra hazırlıkta (ready 503) düşer. */
+  async function rollbackFailingAfterInstall(): Promise<string> {
+    health.ready = 503;
+    expectRefused(await deploy(MIG), "readiness_failed");
+    const migrated = readState().fingerprint as string;
+    expectRefused(await runApply(MIG, ["rollback", "--code-and-db"]), "readiness_failed");
+    const state = readState();
+    expect(state).toMatchObject({
+      phase: "rolling_back",
+      fingerprint: migrated,
+      traffic_opened_at: null,
+      rollback: { mode: "code-and-db", finished_at: null },
+      failure: { phase: "rolling_back", reason: "readiness_failed" },
+    });
+    expect(path.dirname(state.rollback.preserved)).toBe(preservedDir);
+    expect(state.rollback.restored_fingerprint).toMatch(/^[0-9a-f]{64}$/);
+    expect(state.rollback.restored_fingerprint).not.toBe(migrated);
+    expect(currentRelease()).toBe(OLD);
+    expect(migrationCount()).toBe(4);
+    expect(fs.existsSync(markerPath)).toBe(true);
+    return state.rollback.preserved as string;
+  }
+
+  const installCalls = (): string[] => calls().filter((line) => line.includes("scripts/db-restore.ts install"));
+
+  it("--code-and-db: kopya yerleştikten sonra düşen geri dönüş yeniden denenir; install tekrarlanmaz, aynı preserved", async () => {
+    const preserved = await rollbackFailingAfterInstall();
+    const movedBefore = fs.readdirSync(preservedDir);
+    health.ready = 200;
+
+    const result = await runApply(MIG, ["rollback", "--code-and-db"]);
+    expectOk(result);
+    expect(result.stdout).toContain("event=release_rollback_resume");
+    expect(installCalls()).toHaveLength(1);
+    // Yeniden deneme parmak izini de servis durmuşken, işaret varken okudu.
+    const lastStop = calls().lastIndexOf("systemctl stop marker=1");
+    expect(lastStop).toBeGreaterThan(calls().findIndex((line) => line.includes("scripts/db-restore.ts install")));
+    expect(fs.readdirSync(preservedDir)).toEqual(movedBefore);
+
+    const state = readState();
+    expect(state).toMatchObject({ phase: "rolled_back", failure: null, rollback: { mode: "code-and-db", preserved } });
+    expect(state.rollback.finished_at).not.toBeNull();
+    expect(state.traffic_opened_at).not.toBeNull();
+    expect(currentRelease()).toBe(OLD);
+    expect(migrationCount()).toBe(4);
+    expect(withDb((sqlite) => sqlite.prepare("SELECT COUNT(*) AS c FROM sessions WHERE revoked_at IS NULL").get())).toEqual({ c: 0 });
+    expect(fs.existsSync(markerPath)).toBe(false);
+  }, SLOW);
+
+  it("--code-and-db: yeniden denemede canlı DB iki kayıtlı parmak izinden de farklıysa reddedilir; kayıt korunur", async () => {
+    const preserved = await rollbackFailingAfterInstall();
+    const recorded = readState().rollback.restored_fingerprint as string;
+    withDb((sqlite) => insertEntry(sqlite, "entry-after-restore", 90_000, "owner"));
+    health.ready = 200;
+
+    expectRefused(await runApply(MIG, ["rollback", "--code-and-db"]), "fingerprint_mismatch");
+    expect(installCalls()).toHaveLength(1);
+    expect(fs.readdirSync(preservedDir)).toHaveLength(1);
+    expect(withDb((sqlite) => sqlite.prepare("SELECT COUNT(*) AS c FROM work_entries WHERE id = 'entry-after-restore'").get())).toEqual({ c: 1 });
+    expect(fs.existsSync(markerPath)).toBe(true);
+    // Reddedilen deneme önceki yerleştirmenin kaydını düşürmez.
+    expect(readState()).toMatchObject({
+      phase: "rolling_back",
+      rollback: { preserved, restored_fingerprint: recorded },
+      failure: { reason: "fingerprint_mismatch" },
+    });
   }, SLOW);
 
   it("geri alınan release'in dizininden çalıştırılmazsa reddedilir", async () => {

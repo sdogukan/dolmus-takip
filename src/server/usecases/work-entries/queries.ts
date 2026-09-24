@@ -81,13 +81,13 @@ export function toWorkEntryView({ entry: e, fullName, confirmation }: WorkEntryR
   };
 }
 
-function requireEntryVehicleScope(scope: Scope): void {
+export function requireEntryVehicleScope(scope: Scope): void {
   if (!scope.vehicleId) {
     throw new Error("work-entries: scope.vehicleId eksik (programlama hatası — hedef 'vehicle' olmalı).");
   }
 }
 
-const entryScopeWhere = (scope: Scope): SQL =>
+export const entryScopeWhere = (scope: Scope): SQL =>
   scopeFilter(scope, { businessId: workEntries.businessId, vehicleId: workEntries.vehicleId });
 
 /** K1: yalnız şoför oturumuna uygulanır; sahip/ekip için koşul yoktur. */

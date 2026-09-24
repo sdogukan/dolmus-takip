@@ -21,7 +21,8 @@ import { UnsavedChangesProvider } from "../../../../_components/unsaved-changes"
  * /yonetim/araclar/[id]/soforler — ekip için Şoförlerim (T2.5). `../page.tsx`
  * İLE AYNI oturum/rol denetimi; hedef araç ve işletme URL'deki araç kimliğinden
  * sunucuda türetilir (`resolveAdminScope`). Şifre sıfırlama bağlantısı araç
- * detayındaki bölüme (`#sifre-sifirlama`) gider.
+ * detayındaki bölüme (`#sifre-sifirlama`) gider. KVKK "Adı anonimleştir"
+ * yalnız yönetici oturumunda açılır (`canAnonymize`, sunucudaki rol).
  */
 export const metadata: Metadata = {
   title: "Şoförler — Dolmuş Takip",
@@ -115,6 +116,8 @@ export default async function VehicleDriversPage({
           initialView={initialView}
           affectedVehicles={affectedVehicles}
           passwordResetHref={`/yonetim/araclar/${vehicleId}#sifre-sifirlama`}
+          canAnonymize={context.role === "admin"}
+          businessId={resolved.scope.businessId}
         />
       </UnsavedChangesProvider>
     </main>

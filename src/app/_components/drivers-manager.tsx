@@ -5,7 +5,9 @@
  * oturumu) ile `/yonetim/araclar/[id]/soforler` (ekip) İKİSİ de AYNI bileşeni
  * kullanır; fark yalnız `mode`dur: ekip isteklerine `X-Target-Vehicle`
  * eklenir, küresel kişi aktifliği (tüm araçlarda pasife alma) ve şifre
- * sıfırlama bağlantısı YALNIZ ekipte görünür. Bir düğmeyi gizlemek
+ * sıfırlama bağlantısı YALNIZ ekipte görünür; KVKK "Adı anonimleştir" yalnız
+ * ekip modunda VE sunucu sayfası `canAnonymize` (yönetici rolü) verdiğinde
+ * görünür — destek de aynı ekip modunu kullanır. Bir düğmeyi gizlemek
  * yetkilendirme DEĞİLDİR — sunucu sahip oturumunda `active` alanını 403 ile
  * reddeder (`../api/v1/drivers/[personId]/route.ts`).
  *
@@ -33,6 +35,7 @@ import {
   findSimilarCandidates,
   isAmbiguousStatus,
   isOpStale,
+  rowNameActions,
   splitDrivers,
   validateDriverName,
   type AffectedVehicleRow,
@@ -42,7 +45,7 @@ import {
   type DriversDraft,
   type DriversView,
 } from "../../lib/drivers-ui";
-import { DRIVER_SCREEN_MESSAGES } from "../../lib/messages";
+import { DRIVER_SCREEN_MESSAGES, PERSON_ANONYMIZE_MESSAGES } from "../../lib/messages";
 import { useStoredDraft } from "../../lib/use-stored-draft";
 import { ConfirmDialog } from "./confirm-dialog";
 import { useUnsavedChanges } from "./unsaved-changes";
@@ -116,6 +119,8 @@ export function DriversManager({
   initialView,
   affectedVehicles,
   passwordResetHref,
+  canAnonymize,
+  businessId,
 }: {
   mode: "owner" | "staff";
   vehicleId: string;
@@ -127,8 +132,13 @@ export function DriversManager({
    * `router.refresh()` ile tazelenir). */
   affectedVehicles?: Record<string, AffectedVehicleRow[]>;
   passwordResetHref?: string;
+  /** Yalnız ekip: sunucu sayfasının oturum rolünden (yönetici) hesapladığı
+   * anonimleştirme izni ve anonimleştirme ucunun işletme kimliği. */
+  canAnonymize?: boolean;
+  businessId?: string;
 }) {
   const isStaff = mode === "staff";
+  const anonymizeAllowed = isStaff && canAnonymize === true && businessId !== undefined;
   const targetVehicleId = isStaff ? vehicleId : undefined;
   const router = useRouter();
   const scope: ClientStateScope = { scopeKey };
@@ -144,6 +154,7 @@ export function DriversManager({
   const [showInactive, setShowInactive] = useState(false);
   const [showSharedPasswordWarning, setShowSharedPasswordWarning] = useState(false);
   const [affectedNotice, setAffectedNotice] = useState<AffectedVehicleRow[] | null>(null);
+  const [anonymizedNotice, setAnonymizedNotice] = useState(false);
   const [dialogPersonId, setDialogPersonId] = useState<string | null>(null);
   const addInputRef = useRef<HTMLInputElement>(null);
 
@@ -180,10 +191,11 @@ export function DriversManager({
   async function executeOp(target: DriverOpDraft): Promise<void> {
     setBanner(null);
     setRenameError(null);
+    setAnonymizedNotice(false);
     setIsBusy(true);
     const sent: DriverOpDraft = { ...target, pending: true };
     persistOp(sent);
-    const outcome = await send(buildOpRequest(sent, vehicleId), csrfToken, targetVehicleId);
+    const outcome = await send(buildOpRequest(sent, vehicleId, businessId), csrfToken, targetVehicleId);
     if (outcome.kind === "ambiguous") {
       setIsBusy(false);
       return;
@@ -193,6 +205,7 @@ export function DriversManager({
       setShowSharedPasswordWarning(!isStaff && sent.kind === "assignment" && !sent.active);
       const affected = outcome.data.affectedVehicles as AffectedVehicleRow[] | undefined;
       setAffectedNotice(sent.kind === "person" && !sent.active && affected ? affected : null);
+      setAnonymizedNotice(sent.kind === "anonymize");
       await loadView();
       setIsBusy(false);
       return;
@@ -285,7 +298,9 @@ export function DriversManager({
     : [];
 
   function renderRow(row: DriverRow, isActiveList: boolean) {
-    const editing = op?.kind === "rename" && op.personId === row.personId ? op : null;
+    const nameActions = rowNameActions(row, anonymizeAllowed);
+    const editing =
+      nameActions.rename && op?.kind === "rename" && op.personId === row.personId ? op : null;
     return (
       <li
         key={row.personId}
@@ -309,6 +324,10 @@ export function DriversManager({
             Kişi tüm araçlarda pasif.
             {!isStaff && " Ekipten aktifleştirilmesini iste."}
           </p>
+        )}
+
+        {row.anonymized && (
+          <p className="text-base text-[var(--color-text-secondary)]">{PERSON_ANONYMIZE_MESSAGES.anonymizedNote}</p>
         )}
 
         {editing ? (
@@ -368,25 +387,27 @@ export function DriversManager({
           </form>
         ) : (
           <div className="flex flex-wrap items-center gap-3">
-            <button
-              type="button"
-              disabled={locked}
-              onClick={() => {
-                setRenameError(null);
-                persistOp(
-                  startOp({
-                    kind: "rename",
-                    personId: row.personId,
-                    baseVersion: row.personVersion,
-                    fullName: row.fullName,
-                    active: true,
-                  }),
-                );
-              }}
-              className={secondaryButtonClass}
-            >
-              Düzenle
-            </button>
+            {nameActions.rename && (
+              <button
+                type="button"
+                disabled={locked}
+                onClick={() => {
+                  setRenameError(null);
+                  persistOp(
+                    startOp({
+                      kind: "rename",
+                      personId: row.personId,
+                      baseVersion: row.personVersion,
+                      fullName: row.fullName,
+                      active: true,
+                    }),
+                  );
+                }}
+                className={secondaryButtonClass}
+              >
+                Düzenle
+              </button>
+            )}
             {isActiveList ? (
               <>
                 <button
@@ -456,6 +477,27 @@ export function DriversManager({
                 Kişiyi yeniden aktifleştir
               </button>
             )}
+            {nameActions.anonymize && (
+              <button
+                type="button"
+                disabled={locked}
+                onClick={() => {
+                  persistOp(
+                    startOp({
+                      kind: "anonymize",
+                      personId: row.personId,
+                      baseVersion: row.personVersion,
+                      fullName: row.fullName,
+                      active: row.personActive,
+                    }),
+                  );
+                  setDialogPersonId(row.personId);
+                }}
+                className={secondaryButtonClass}
+              >
+                {PERSON_ANONYMIZE_MESSAGES.action}
+              </button>
+            )}
           </div>
         )}
       </li>
@@ -487,6 +529,11 @@ export function DriversManager({
       {showSharedPasswordWarning && (
         <p role="status" className="rounded-[var(--radius-control)] bg-[var(--color-warning-surface)] px-3 py-2 text-base text-[var(--color-warning)]">
           {DRIVER_SCREEN_MESSAGES.sharedPasswordWarning}
+        </p>
+      )}
+      {anonymizedNotice && (
+        <p role="status" className="rounded-[var(--radius-control)] bg-[var(--color-success-surface)] px-3 py-2 text-base text-[var(--color-success)]">
+          {PERSON_ANONYMIZE_MESSAGES.done}
         </p>
       )}
       {affectedNotice && (
@@ -641,6 +688,28 @@ export function DriversManager({
           const confirmed = op;
           setDialogPersonId(null);
           if (confirmed?.kind === "person") void executeOp(confirmed);
+        }}
+        onCancel={() => {
+          setDialogPersonId(null);
+          persistOp(null);
+        }}
+      />
+
+      <ConfirmDialog
+        open={dialogPersonId !== null && op?.kind === "anonymize" && op.personId === dialogPersonId}
+        title={PERSON_ANONYMIZE_MESSAGES.dialogTitle}
+        description={
+          <div className="flex flex-col gap-2">
+            <p>{PERSON_ANONYMIZE_MESSAGES.dialogDescription(dialogRow?.fullName ?? "")}</p>
+            <p>{PERSON_ANONYMIZE_MESSAGES.dialogKeepsRecords}</p>
+          </div>
+        }
+        confirmLabel={PERSON_ANONYMIZE_MESSAGES.confirm}
+        isSubmitting={isBusy}
+        onConfirm={() => {
+          const confirmed = op;
+          setDialogPersonId(null);
+          if (confirmed?.kind === "anonymize") void executeOp(confirmed);
         }}
         onCancel={() => {
           setDialogPersonId(null);

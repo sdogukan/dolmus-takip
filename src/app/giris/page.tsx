@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { LoginForm } from "../_components/login-form";
+import { PrivacyNoticeLink } from "../_components/privacy-notice-link";
 import { LOGIN_HELP_TEXT, VEHICLE_LOGIN_RESULT_MESSAGES } from "../../lib/messages";
 
 /**
@@ -22,7 +23,7 @@ export const metadata: Metadata = {
 
 export default function GirisPage() {
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-[30rem] flex-col justify-center px-4 py-10">
+    <main className="mx-auto flex min-h-dvh w-full max-w-[30rem] flex-col justify-center gap-4 px-4 py-10">
       <LoginForm
         heading="Dolmuş Takip"
         subheading="Günlük hesabını kolayca kaydet"
@@ -44,6 +45,7 @@ export default function GirisPage() {
         redirectPathByRole={{ owner: "/sahip" }}
         defaultRedirectPath="/sofor"
       />
+      <PrivacyNoticeLink />
     </main>
   );
 }

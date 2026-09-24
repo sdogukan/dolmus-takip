@@ -86,6 +86,7 @@ export default async function BusinessDetailPage({
         initialDetail={detail}
         csrfToken={context.csrfToken}
         scopeKey={computeScopeKey(context)}
+        canAnonymize={context.role === "admin"}
       />
     </main>
   );

@@ -9,6 +9,7 @@ import {
   isAmbiguousStatus,
   isOpStale,
   normalizeDriverName,
+  rowNameActions,
   splitDrivers,
   validateDriverName,
   type DriverOpDraft,
@@ -22,6 +23,7 @@ function row(overrides: Partial<DriverRow> & { personId: string }): DriverRow {
     fullName: "Ad Soyad",
     personActive: true,
     personVersion: 1,
+    anonymized: false,
     assignment: { active: true, version: 1 },
     ...overrides,
   };
@@ -214,5 +216,61 @@ describe("ekran metinleri ve etkilenen araç", () => {
     expect(describeAffectedVehicle({ vehicleId: "v", plateNormalized: "34AAA001", assignmentActive: false })).toBe(
       "34 AAA 001 (pasif atama)",
     );
+  });
+});
+
+describe("KVKK ad anonimleştirme", () => {
+  it("anonymize: POST işletme kapsamlı yönetici ucuna, gövde TAM OLARAK requestId + sürüm", () => {
+    const request = buildOpRequest(op({ kind: "anonymize", baseVersion: 3 }), "v-1", "b-1");
+    expect(request).toEqual({
+      method: "POST",
+      url: "/api/v1/admin/businesses/b-1/people/p1/anonymize",
+      body: { requestId: "rid-1", version: 3 },
+    });
+    for (const forbidden of ["personId", "businessId", "vehicleId", "role", "actor", "fullName", "active"]) {
+      expect(request.body).not.toHaveProperty(forbidden);
+    }
+  });
+
+  it("belirsiz sonuçtan sonraki tekrar, saklanan taslaktan AYNI URL ve AYNI gövdeyi kurar", () => {
+    const first = op({ kind: "anonymize", requestId: "rid-anon", baseVersion: 4 });
+    const stored: DriverOpDraft = JSON.parse(JSON.stringify({ ...first, pending: true }));
+    expect(buildOpRequest(stored, "v-1", "b-1")).toEqual(buildOpRequest(first, "v-1", "b-1"));
+    // Sunucuda sürüm ilerlemiş olsa da bekleyen taslak bayat sayılmaz — dondurulmuş sürüm korunur.
+    const view: DriversView = {
+      drivers: [row({ personId: "p1", personVersion: 9 })],
+      candidates: [],
+    };
+    expect(isOpStale(stored, view)).toBe(false);
+    expect(buildOpRequest(stored, "v-1", "b-1").body).toEqual({ requestId: "rid-anon", version: 4 });
+  });
+
+  it("anonymize: kişi sürümü değiştiyse bekleyen olmayan taslak bayattır", () => {
+    const view: DriversView = { drivers: [row({ personId: "p1", personVersion: 3 })], candidates: [] };
+    expect(isOpStale(op({ kind: "anonymize", baseVersion: 3 }), view)).toBe(false);
+    expect(isOpStale(op({ kind: "anonymize", baseVersion: 2 }), view)).toBe(true);
+  });
+
+  it("işletme ve kişi kimlikleri URL'de kaçışlanır", () => {
+    expect(buildOpRequest(op({ kind: "anonymize", personId: "a/b" }), "v-1", "c?d").url).toBe(
+      "/api/v1/admin/businesses/c%3Fd/people/a%2Fb/anonymize",
+    );
+  });
+
+  it("businessId olmadan anonymize isteği kurulmaz (programlama hatası)", () => {
+    expect(() => buildOpRequest(op({ kind: "anonymize" }), "v-1")).toThrow(/businessId/);
+  });
+
+  it("rowNameActions: anonimleştirme yalnız izin varken; anonim satırda ne düzenleme ne anonimleştirme", () => {
+    const plain = row({ personId: "p1" });
+    const anonymized = row({ personId: "p2", fullName: "Anonim kişi P2ABCD", anonymized: true });
+    expect(rowNameActions(plain, true)).toEqual({ rename: true, anonymize: true });
+    expect(rowNameActions(plain, false)).toEqual({ rename: true, anonymize: false });
+    expect(rowNameActions(anonymized, true)).toEqual({ rename: false, anonymize: false });
+    expect(rowNameActions(anonymized, false)).toEqual({ rename: false, anonymize: false });
+  });
+
+  it("409 PERSON_ANONYMIZED ekran metnine çevrilir", () => {
+    expect(driverErrorMessage(409, "PERSON_ANONYMIZED")).toBe("Bu kişinin adı anonimleştirildi; değiştirilemez.");
   });
 });

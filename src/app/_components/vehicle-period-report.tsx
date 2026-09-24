@@ -2,7 +2,9 @@
 
 /**
  * Sahip araç dönem raporu: hafta/ay/yıl sekmeleri, önceki/sonraki dönem,
- * "Hesaplanan kalan" ile "Teslim alınan (onaylı)" ve açılır hesap dökümü.
+ * "Hesaplanan kalan" ile "Teslim alınan (onaylı)" ve açılır hesap dökümü, altında
+ * "Kişiler" / "Gün gün" bölüm sekmeleri (özet dönemin tamamıdır, bölümlerin
+ * süzgeçlerinden etkilenmez).
  * Aralık metni ve gezinme çapaları sunucunun döndürdüğü dönemden gelir
  * (`../../lib/report-ui.ts`); hiçbir şey tarayıcı depolamasına yazılmaz.
  * Her istek öncekini keser (AbortController) ve eski yanıt yeni dönemi EZEMEZ.
@@ -20,6 +22,7 @@ import {
   vehiclePeriodReportView,
   type VehiclePeriodReportView,
 } from "../../lib/report-ui";
+import { DailyEntriesReport } from "./daily-entries-report";
 import { PeoplePeriodReport } from "./people-period-report";
 import { secondaryButtonClass } from "./work-entry-form";
 
@@ -28,6 +31,8 @@ type ReportState =
   | { status: "loaded"; view: VehiclePeriodReportView }
   | { status: "error" }
   | { status: "unauthorized" };
+
+type ReportSection = "people" | "daily";
 
 interface ReportQuery {
   period: ReportPeriodKind;
@@ -68,10 +73,16 @@ const tabClass = (active: boolean): string =>
       : "border-[var(--color-input-border)] text-[var(--color-text)]"
   }`;
 
+const SECTIONS: { key: ReportSection; label: string }[] = [
+  { key: "people", label: TEXT.people.tab },
+  { key: "daily", label: TEXT.daily.tab },
+];
+
 export function VehiclePeriodReport() {
   const [query, setQuery] = useState<ReportQuery>({ period: "month", date: undefined });
   const [attempt, setAttempt] = useState(0);
   const [state, setState] = useState<ReportState>({ status: "loading" });
+  const [section, setSection] = useState<ReportSection>("people");
 
   useEffect(() => {
     const controller = new AbortController();
@@ -193,6 +204,7 @@ export function VehiclePeriodReport() {
                   </p>
                   <p className="text-base text-[var(--color-text-secondary)]">{TEXT.receivedHelp}</p>
                 </div>
+                <p className="text-base text-[var(--color-text-secondary)]">{TEXT.summaryScope}</p>
               </div>
               <details className="rounded-[var(--radius-card)] border border-[var(--color-divider)] bg-[var(--color-surface)]">
                 <summary className="flex min-h-[var(--control-min-height)] cursor-pointer items-center px-4 text-base font-medium text-[var(--color-text)]">
@@ -207,7 +219,27 @@ export function VehiclePeriodReport() {
                   ))}
                 </dl>
               </details>
-              <PeoplePeriodReport key={`${query.period}|${view.startDate}`} period={query.period} date={view.startDate} />
+              <div role="tablist" aria-label={TEXT.people.sectionTabsLabel} className="grid grid-cols-2 gap-2">
+                {SECTIONS.map(({ key, label }) => (
+                  <button
+                    key={key}
+                    type="button"
+                    role="tab"
+                    aria-selected={section === key}
+                    onClick={() => setSection(key)}
+                    className={tabClass(section === key)}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <div role="tabpanel" aria-label={SECTIONS.find(({ key }) => key === section)!.label} className="flex flex-col gap-4">
+                {section === "people" ? (
+                  <PeoplePeriodReport key={`${query.period}|${view.startDate}`} period={query.period} date={view.startDate} />
+                ) : (
+                  <DailyEntriesReport key={`${query.period}|${view.startDate}`} period={query.period} date={view.startDate} />
+                )}
+              </div>
             </>
           )}
         </section>

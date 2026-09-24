@@ -7,9 +7,16 @@
  * hesabı yapmaz. Kuruş toplamları üst sınırsız BigInt'tir; `Number()` YOK.
  */
 import { REPORT_MESSAGES as TEXT } from "./messages";
-import { formatTlAmount, parseApiTotalCents } from "./money";
+import { formatTlAmount, parseApiCents, parseApiTotalCents } from "./money";
 import { REPORT_PERIOD_KINDS, isValidReportDate, type ReportPeriod, type ReportPeriodKind } from "./report-period";
-import { deliveryStatusLabel, formatWorkTimeRange, workEntryDetailHref } from "./work-entry-ui";
+import {
+  deliveryStatusLabel,
+  deliveryStatusView,
+  formatWorkTimeRange,
+  parseWorkEntryList,
+  workEntryDetailHref,
+  type WorkEntryDetail,
+} from "./work-entry-ui";
 import { addDays, formatDuration, formatWorkDate } from "./work-time";
 
 export interface VehiclePeriodReportData {
@@ -406,5 +413,66 @@ export function personDetailView(report: PersonPeriodReportData): PersonDetailVi
     ],
     entries: report.entries.map(personEntryView),
     nextCursor: report.nextCursor,
+  };
+}
+
+export type DailyEntriesStatusFilter = WorkEntryDetail["status"];
+
+export interface DailyEntriesFilters {
+  personId?: string;
+  status?: DailyEntriesStatusFilter;
+}
+
+/**
+ * Gün gün listesi adresi; `date` yüklü raporun sunucudan gelen ilk günüdür.
+ * `cursor` yalnız AYNI dönem + süzgeçler için sunucunun verdiği `nextCursor`dır.
+ */
+export function buildDailyEntriesUrl(
+  period: ReportPeriodKind,
+  date: string,
+  filters: DailyEntriesFilters = {},
+  cursor?: string,
+): string {
+  const params = new URLSearchParams({ period, date });
+  if (filters.personId) params.set("workerPersonId", filters.personId);
+  if (filters.status) params.set("status", filters.status);
+  if (cursor !== undefined) params.set("cursor", cursor);
+  return `/api/v1/work-entries?${params.toString()}`;
+}
+
+/** `GET /api/v1/work-entries` sayfası; bozuk kayıt veya boş `nextCursor` metni `null` (kısmi liste gösterilmez). */
+export function parseDailyEntriesPage(body: unknown): { entries: WorkEntryDetail[]; nextCursor: string | null } | null {
+  const page = parseWorkEntryList(body);
+  return page === null || page.nextCursor === "" ? null : page;
+}
+
+export interface DailyEntryCardView {
+  id: string;
+  dateText: string;
+  personName: string;
+  timeText: string;
+  grossText: string;
+  expectedLabel: string;
+  expectedText: string;
+  /** Yalnız onaylı kayıtta; onaysızda `null` (alınan tutar hiç basılmaz). */
+  receivedText: string | null;
+  statusText: string;
+  href: string;
+}
+
+export function dailyEntryCardView(entry: WorkEntryDetail): DailyEntryCardView {
+  const delivery = deliveryStatusView(entry, "owner");
+  const gross = parseApiCents(entry.grossCents);
+  return {
+    id: entry.id,
+    dateText: formatWorkDate(entry.workDate),
+    personName: entry.person.fullName,
+    timeText: formatWorkTimeRange(entry.startsAt, entry.endsAt),
+    grossText: gross === null ? "—" : formatTlAmount(gross),
+    expectedLabel: delivery.expectedLabel,
+    expectedText: delivery.expectedText,
+    receivedText: delivery.confirmed?.receivedText ?? null,
+    statusText: delivery.statusText,
+    href: workEntryDetailHref("owner", entry.id, ""),
   };
 }

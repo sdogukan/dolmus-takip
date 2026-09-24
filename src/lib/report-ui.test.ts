@@ -1,9 +1,12 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildDailyEntriesUrl,
   buildPeoplePeriodReportUrl,
   buildPersonPeriodReportUrl,
   buildVehiclePeriodReportUrl,
+  dailyEntryCardView,
   formatReportPeriodRange,
+  parseDailyEntriesPage,
   parsePeoplePeriodReport,
   parsePersonPeriodReport,
   parseVehiclePeriodReport,
@@ -351,5 +354,102 @@ describe("personDetailView", () => {
     expect(view.entries[0]?.remainder).toBe("-400,00 TL");
     const text = JSON.stringify(view).toLocaleLowerCase("tr");
     for (const word of ["net kâr", "bakiye", "kasa"]) expect(text).not.toContain(word);
+  });
+});
+
+describe("buildDailyEntriesUrl", () => {
+  it("dönem ve tarihi taşır; süzgeç yoksa başka parametre yok", () => {
+    expect(buildDailyEntriesUrl("month", "2026-09-01")).toBe("/api/v1/work-entries?period=month&date=2026-09-01");
+  });
+
+  it("kişi, durum ve imleci ekler; boş kişi/durum eklenmez", () => {
+    expect(buildDailyEntriesUrl("week", "2026-09-28", { personId: "p 1", status: "confirmed" }, "c1")).toBe(
+      "/api/v1/work-entries?period=week&date=2026-09-28&workerPersonId=p+1&status=confirmed&cursor=c1",
+    );
+    expect(buildDailyEntriesUrl("year", "2026-01-01", { personId: "", status: undefined })).toBe(
+      "/api/v1/work-entries?period=year&date=2026-01-01",
+    );
+  });
+});
+
+const entryBody = (override: Record<string, unknown> = {}) => ({
+  id: "e1",
+  version: 1,
+  status: "pending",
+  workKind: "driver",
+  workDate: "2026-09-10",
+  startsAt: "2026-09-10T05:00:00.000Z",
+  endsAt: "2026-09-10T14:30:00.000Z",
+  durationMinutes: 570,
+  grossCents: "1000000",
+  fuelCents: "150000",
+  otherExpenseCents: "30000",
+  shareCents: "100000",
+  remainderCents: "720000",
+  otherExpenseNote: null,
+  person: { id: "p1", fullName: "Ahmet Yılmaz" },
+  confirmation: null,
+  ...override,
+});
+
+describe("parseDailyEntriesPage", () => {
+  it("kayıtları ve nextCursor'ı okur", () => {
+    const page = parseDailyEntriesPage({ workEntries: [entryBody()], nextCursor: "c1" });
+    expect(page?.entries).toHaveLength(1);
+    expect(page?.nextCursor).toBe("c1");
+    expect(parseDailyEntriesPage({ workEntries: [], nextCursor: null })).toEqual({ entries: [], nextCursor: null });
+  });
+
+  it("bozuk gövde, bozuk kayıt ve boş imleç metni null döner", () => {
+    expect(parseDailyEntriesPage(null)).toBeNull();
+    expect(parseDailyEntriesPage({ workEntries: {}, nextCursor: null })).toBeNull();
+    expect(parseDailyEntriesPage({ workEntries: [entryBody({ grossCents: "1.5" })], nextCursor: null })).toBeNull();
+    expect(parseDailyEntriesPage({ workEntries: [], nextCursor: "" })).toBeNull();
+    expect(parseDailyEntriesPage({ workEntries: [], nextCursor: 5 })).toBeNull();
+  });
+});
+
+describe("dailyEntryCardView", () => {
+  const view = (override: Record<string, unknown>) => {
+    const page = parseDailyEntriesPage({ workEntries: [entryBody(override)], nextCursor: null });
+    return dailyEntryCardView(page!.entries[0]!);
+  };
+
+  it("onaysız şoför kaydı: beklenen teslim var, alınan tutar yok", () => {
+    expect(view({})).toEqual({
+      id: "e1",
+      dateText: expect.any(String),
+      personName: "Ahmet Yılmaz",
+      timeText: expect.any(String),
+      grossText: "10.000,00 TL",
+      expectedLabel: "Teslim edilecek tutar",
+      expectedText: "7.200,00 TL",
+      receivedText: null,
+      statusText: "Henüz doğrulanmadı",
+      href: "/sahip/kayitlar/e1",
+    });
+  });
+
+  it("onaylı kayıt: alınan tutar onaydan gelir, beklenenin yerine geçmez", () => {
+    const card = view({
+      status: "confirmed",
+      version: 2,
+      confirmation: { receivedCents: "600000", confirmedAt: "2026-09-10T15:00:00.000Z", entryVersion: 2, actor: null },
+    });
+    expect(card.receivedText).toBe("6.000,00 TL");
+    expect(card.expectedText).toBe("7.200,00 TL");
+    expect(card.statusText).toBe("Teslim doğrulandı");
+  });
+
+  it("mal sahibi kaydı: 'Onay gerekmiyor', teslim/bekleme dili yok", () => {
+    const card = view({ status: "not_required", workKind: "owner", shareCents: "0", remainderCents: "850000" });
+    expect(card.statusText).toBe("Onay gerekmiyor");
+    expect(card.expectedLabel).toBe("Giderlerden sonra kalan");
+    expect(card.receivedText).toBeNull();
+    expect(JSON.stringify(card)).not.toMatch(/Teslim edilecek|Henüz doğrulanmadı/u);
+  });
+
+  it("eksi kalan eksi işaretini korur", () => {
+    expect(view({ remainderCents: "-40000" }).expectedText).toBe("-400,00 TL");
   });
 });

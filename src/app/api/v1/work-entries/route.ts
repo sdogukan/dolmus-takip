@@ -28,14 +28,27 @@ import {
   pickSearchParams,
 } from "../admin/_list-query";
 import { WORK_ENTRY_MESSAGES } from "../../../../lib/messages";
+import { REPORT_PERIOD_KINDS, isValidReportDate, resolveReportPeriod } from "../../../../lib/report-period";
+import { istanbulToday } from "../../../../lib/work-time";
 import { workEntryFailureResponse } from "./_http";
 
 const requestEnvelopeSchema = scopeSafeObject({ requestId: requestIdSchema });
 
-// Sorgu YALNIZ URL'den okunur. Şoför oturumunda `workerPersonId` seçilebilir bir
-// kişi olmak ZORUNDADIR (K1); sahip/ekip için isteğe bağlı süzgeçtir.
+// GET /work-entries — sorgu YALNIZ URL'den okunur; bilinmeyen parametreler
+// (vehicleId, businessId ...) yok sayılır, kapsamı genişletemez. Şoför oturumunda
+// `workerPersonId` seçilebilir bir kişi olmak ZORUNDADIR (K1); sahip/ekip için
+// isteğe bağlı süzgeçtir. Süzgeçler kapsam koşuluna EK `AND`'dir ve birleşir:
+//   period  week|month|year — `date`'i içeren dönem (varsayılan month)
+//   date    YYYY-MM-DD — dönem referansı (varsayılan bugün, İstanbul)
+//           period veya date verilirse `work_date` yarı açık aralığa
+//           `[başlangıç, sonraki başlangıç)` daraltılır; ikisi de yoksa tarih sınırı YOK
+//   status  pending|confirmed|not_required
+// Sıralama (work_date desc, id desc); cursor bu sıranın keyset'idir.
 const getWorkEntriesQuerySchema = z.object({
   workerPersonId: z.string().trim().min(1).max(64).optional(),
+  period: z.enum(REPORT_PERIOD_KINDS).optional(),
+  date: z.string().refine(isValidReportDate).optional(),
+  status: z.enum(["pending", "confirmed", "not_required"]).optional(),
   cursor: cursorParamSchema(2).optional(),
   limit: limitParamSchema.optional(),
 });
@@ -43,6 +56,9 @@ const getWorkEntriesQuerySchema = z.object({
 const LIST_FIELD_MESSAGES: Record<string, string> = {
   ...LIST_QUERY_FIELD_MESSAGES,
   workerPersonId: WORK_ENTRY_MESSAGES.personUnavailable,
+  period: "Dönem week, month veya year olmalıdır.",
+  date: "Tarih geçerli bir YYYY-MM-DD günü olmalıdır.",
+  status: "Durum pending, confirmed veya not_required olmalıdır.",
 };
 
 export const GET = withProtectedRoute({
@@ -53,7 +69,7 @@ export const GET = withProtectedRoute({
     throw new Error("GET /work-entries: scope eksik (programlama hatası).");
   }
   const parsed = getWorkEntriesQuerySchema.safeParse(
-    pickSearchParams(ctx.request, ["workerPersonId", "cursor", "limit"] as const),
+    pickSearchParams(ctx.request, ["workerPersonId", "period", "date", "status", "cursor", "limit"] as const),
   );
   if (!parsed.success) {
     return jsonErrorResponse(422, "VALIDATION_ERROR", "Geçersiz veri.", {
@@ -62,8 +78,14 @@ export const GET = withProtectedRoute({
     });
   }
 
+  const { period: periodKind, date, ...filters } = parsed.data;
+  const period =
+    periodKind || date ? resolveReportPeriod(periodKind ?? "month", date ?? istanbulToday()) : undefined;
+  if (period === null) throw new Error("GET /work-entries: doğrulanmış tarih çözülemedi (programlama hatası).");
+
   const page = listWorkEntriesForScope(ctx.db, ctx.scope, {
-    ...parsed.data,
+    ...filters,
+    period,
     limit: parsed.data.limit ?? DEFAULT_LIST_LIMIT,
   });
   if (!page.ok) {

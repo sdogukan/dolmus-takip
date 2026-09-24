@@ -1,7 +1,8 @@
 "use client";
 
 /**
- * Sahip raporunun "Kişiler" bölümü: kişi kartları ve kişi ayrıntısı. Üst bileşen
+ * Sahip raporunun "Kişiler" bölümü: kişi kartları ve kişi ayrıntısı. Bölüm
+ * sekmelerini üst bileşen çizer; bu dosya yalnız sekme panelini taşır. Üst bileşen
  * (`./vehicle-period-report.tsx`) bunu YALNIZ araç raporu yüklendiğinde ve
  * (dönem, dönem ilk günü) anahtarıyla oluşturur; dönem değişince bileşen sökülür
  * ve hiçbir önceki durum kalmaz. Ayrıntı da kişi kimliğiyle anahtarlanır, her
@@ -32,10 +33,10 @@ import { secondaryButtonClass } from "./work-entry-form";
 
 const TEXT = REPORT_TEXT.people;
 
-type FetchResult<T> = { kind: "ok"; value: T } | { kind: "unauthorized" } | { kind: "error" };
+export type FetchResult<T> = { kind: "ok"; value: T } | { kind: "unauthorized" } | { kind: "error" };
 
 /** İstek + durum/gövde sınıflaması; kesilen istek `throw` eder (çağıran yok sayar). */
-async function fetchParsed<T>(url: string, parse: (body: unknown) => T | null, signal: AbortSignal): Promise<FetchResult<T>> {
+export async function fetchParsed<T>(url: string, parse: (body: unknown) => T | null, signal: AbortSignal): Promise<FetchResult<T>> {
   let response: Response;
   try {
     response = await fetch(url, { signal, credentials: "same-origin" });
@@ -56,13 +57,10 @@ async function fetchParsed<T>(url: string, parse: (body: unknown) => T | null, s
   return value === null ? { kind: "error" } : { kind: "ok", value };
 }
 
-const tabClass =
-  "min-h-[var(--control-min-height)] rounded-[var(--radius-control)] border border-[var(--color-primary)] bg-[var(--color-primary)] px-4 text-base font-medium text-[var(--color-on-primary)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]";
-
-const cardClass =
+export const cardClass =
   "flex flex-col gap-2 rounded-[var(--radius-card)] border border-[var(--color-divider)] bg-[var(--color-surface)] p-4 text-[var(--color-text)]";
 
-function Problem({ unauthorized, onRetry }: { unauthorized: boolean; onRetry: () => void }) {
+export function Problem({ unauthorized, onRetry }: { unauthorized: boolean; onRetry: () => void }) {
   if (unauthorized) {
     return (
       <div className="flex flex-col gap-3">
@@ -269,64 +267,57 @@ export function PeoplePeriodReport({ period, date }: { period: ReportPeriodKind;
   }
 
   return (
-    <section className="flex flex-col gap-4">
-      <div role="tablist" aria-label={TEXT.sectionTabsLabel} className="grid grid-cols-1 gap-2">
-        <button type="button" role="tab" aria-selected="true" className={tabClass}>
-          {TEXT.tab}
-        </button>
-      </div>
-      <div role="tabpanel" className="flex flex-col gap-4">
-        {selected ? (
-          <PersonDetail
-            key={selected.personId}
-            personId={selected.personId}
-            fullName={selected.fullName}
-            period={period}
-            date={date}
-            onBack={() => setSelected(null)}
-          />
-        ) : (
-          <>
-            {state.status === "loading" && (
-              <p role="status" className="text-base text-[var(--color-text-secondary)]">
-                {TEXT.loading}
-              </p>
-            )}
-            {(state.status === "error" || state.status === "unauthorized") && (
-              <Problem unauthorized={state.status === "unauthorized"} onRetry={retry} />
-            )}
-            {state.status === "loaded" && state.view.isEmpty && (
-              <p role="status" className="text-base text-[var(--color-text-secondary)]">
-                {TEXT.empty}
-              </p>
-            )}
-            {state.status === "loaded" && !state.view.isEmpty && (
-              <ul className="m-0 flex list-none flex-col gap-3 p-0">
-                {state.view.cards.map((card) => (
-                  <li key={card.personId} className={cardClass}>
-                    <p id={`person-${card.personId}`} className="m-0 flex flex-wrap gap-x-2 text-lg font-semibold">
-                      <span className="break-words">{card.fullName}</span>
-                      {card.ownerLabel !== null && (
-                        <span className="text-[var(--color-text-secondary)]">{card.ownerLabel}</span>
-                      )}
-                    </p>
-                    <p className="m-0 text-base">{card.summary}</p>
-                    <p className="m-0 text-base tabular-nums">{card.amounts}</p>
-                    <button
-                      type="button"
-                      aria-describedby={`person-${card.personId}`}
-                      onClick={() => setSelected({ personId: card.personId, fullName: card.fullName })}
-                      className={secondaryButtonClass}
-                    >
-                      {TEXT.openDetail}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </>
-        )}
-      </div>
-    </section>
+    <div className="flex flex-col gap-4">
+      {selected ? (
+        <PersonDetail
+          key={selected.personId}
+          personId={selected.personId}
+          fullName={selected.fullName}
+          period={period}
+          date={date}
+          onBack={() => setSelected(null)}
+        />
+      ) : (
+        <>
+          {state.status === "loading" && (
+            <p role="status" className="text-base text-[var(--color-text-secondary)]">
+              {TEXT.loading}
+            </p>
+          )}
+          {(state.status === "error" || state.status === "unauthorized") && (
+            <Problem unauthorized={state.status === "unauthorized"} onRetry={retry} />
+          )}
+          {state.status === "loaded" && state.view.isEmpty && (
+            <p role="status" className="text-base text-[var(--color-text-secondary)]">
+              {TEXT.empty}
+            </p>
+          )}
+          {state.status === "loaded" && !state.view.isEmpty && (
+            <ul className="m-0 flex list-none flex-col gap-3 p-0">
+              {state.view.cards.map((card) => (
+                <li key={card.personId} className={cardClass}>
+                  <p id={`person-${card.personId}`} className="m-0 flex flex-wrap gap-x-2 text-lg font-semibold">
+                    <span className="break-words">{card.fullName}</span>
+                    {card.ownerLabel !== null && (
+                      <span className="text-[var(--color-text-secondary)]">{card.ownerLabel}</span>
+                    )}
+                  </p>
+                  <p className="m-0 text-base">{card.summary}</p>
+                  <p className="m-0 text-base tabular-nums">{card.amounts}</p>
+                  <button
+                    type="button"
+                    aria-describedby={`person-${card.personId}`}
+                    onClick={() => setSelected({ personId: card.personId, fullName: card.fullName })}
+                    className={secondaryButtonClass}
+                  >
+                    {TEXT.openDetail}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </>
+      )}
+    </div>
   );
 }

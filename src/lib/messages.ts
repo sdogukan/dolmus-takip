@@ -335,6 +335,21 @@ export const REPORT_MESSAGES = {
     entryCount: "Kayıt sayısı",
   },
   dayCount: (days: number): string => `${days} gün`,
+  /** Özet tutarlarının kapsamı: tüm dönem, süzgeçten bağımsız. */
+  summaryScope: "Bu tutarlar dönemin tamamındaki araç toplamıdır; günlük kayıt süzgeçlerinden etkilenmez.",
+  /** "Gün gün" bölümü (`../app/_components/daily-entries-report.tsx`). */
+  daily: {
+    tab: "Gün gün",
+    loading: "Günlük kayıtlar yükleniyor…",
+    empty: "Bu dönem ve süzgeçler için kayıt yok.",
+    filterLegend: "Günlük kayıtları filtrele",
+    personLabel: "Kişi",
+    allPeople: "Tüm kişiler",
+    statusLabel: "Teslim durumu",
+    allStatuses: "Tüm durumlar",
+    gross: "Hasılat",
+    received: "Teslim alınan",
+  },
   /** "Kişiler" bölümü (`../app/_components/people-period-report.tsx`). */
   people: {
     sectionTabsLabel: "Rapor bölümü",

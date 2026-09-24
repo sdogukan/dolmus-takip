@@ -62,6 +62,12 @@ export default async function SahipEntryPage({ params }: { params: Promise<{ id:
         csrfToken={context.csrfToken}
         plate={plate}
       />
+      <Link
+        href={`/sahip/kayitlar/${entryId}/gecmis`}
+        className="text-base font-medium text-[var(--color-primary)] underline"
+      >
+        {WORK_ENTRY_MESSAGES.historyLink}
+      </Link>
     </main>
   );
 }

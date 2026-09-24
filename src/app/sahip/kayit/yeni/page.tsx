@@ -51,6 +51,7 @@ export default async function SahipWorkEntryPage() {
       <h1 className="text-2xl font-semibold text-[var(--color-text)]">{WORK_ENTRY_MESSAGES.pageTitle}</h1>
       <WorkEntryForm
         today={istanbulToday()}
+        plate={plate}
         mode="owner"
         ownerName={owner?.fullName}
         vehicleId={context.vehicleId}

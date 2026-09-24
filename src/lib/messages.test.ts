@@ -3,6 +3,7 @@ import {
   COMMON_SCREEN_MESSAGES,
   ERROR_CODE_MESSAGES,
   getErrorMessage,
+  WORK_ENTRY_MESSAGES,
   VEHICLE_LOGIN_FIELD_MESSAGES,
   VEHICLE_LOGIN_RESULT_MESSAGES,
 } from "./messages";
@@ -116,5 +117,24 @@ describe("messages", () => {
     expect(getErrorMessage("VALIDATION_ERROR")).toBe(
       "Girilen bilgiler geçersiz. Alanları kontrol edip tekrar dene.",
     );
+  });
+
+  it("T3.7 — kayıt sonucu ve belirsiz sonuç metinleri onaylı ekran metinleriyle birebir", () => {
+    expect(WORK_ENTRY_MESSAGES.connectionFailed).toBe("Bağlantı yok. Henüz kaydedilmedi.");
+    expect(WORK_ENTRY_MESSAGES.checking).toBe("Kaydın sonucu kontrol ediliyor.");
+    expect(WORK_ENTRY_MESSAGES.checking).toBe(COMMON_SCREEN_MESSAGES.checkingResultAfterDisconnect);
+    expect(WORK_ENTRY_MESSAGES.saved).toBe("Kaydedildi");
+    expect(WORK_ENTRY_MESSAGES.refresh).toBe("Yenile");
+    expect(WORK_ENTRY_MESSAGES.openEntry).toBe("Kaydı aç");
+    expect(WORK_ENTRY_MESSAGES.newEntry).toBe("Başka bir çalışma kaydı gir");
+    expect(WORK_ENTRY_MESSAGES.resultHint).toBe("Mal sahibi parayı aldığında burada görebileceksin.");
+    expect(WORK_ENTRY_MESSAGES.savedWho("Ahmet Yılmaz", "35 ABC 123")).toBe("Ahmet Yılmaz · 35 ABC 123");
+    expect(WORK_ENTRY_MESSAGES.savedWhen("14 Eylül 2026", "08:00–17:30")).toBe("14 Eylül 2026 · 08:00–17:30");
+  });
+
+  it("T3.7 — belirsiz sonuç 'Henüz kaydedilmedi' DEMEZ; 'Yenile' hatası kaydın silindiğini iddia etmez", () => {
+    expect(WORK_ENTRY_MESSAGES.stillOffline).not.toMatch(/Henüz kaydedilmedi/);
+    expect(WORK_ENTRY_MESSAGES.checkHint).not.toMatch(/Henüz kaydedilmedi/);
+    expect(WORK_ENTRY_MESSAGES.refreshFailed).not.toMatch(/sil/i);
   });
 });

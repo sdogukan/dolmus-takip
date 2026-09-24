@@ -172,9 +172,11 @@ export function buildWorkEntryBody(
 /** Sunucunun döndürdüğü kayıt (201); yalnız ekranın gösterdiği alanlar. */
 export interface SavedWorkEntry {
   id: string;
-  status: "pending" | "not_required";
+  status: "pending" | "confirmed" | "not_required";
   workKind: WorkKind;
   workDate: string;
+  startsAt: string;
+  endsAt: string;
   durationMinutes: number;
   remainderCents: string;
   shareCents: string;
@@ -227,6 +229,8 @@ function savedEntryFromBody(body: Record<string, unknown> | null): SavedWorkEntr
     (entry.status !== "pending" && entry.status !== "not_required") ||
     (entry.workKind !== "owner" && entry.workKind !== "driver") ||
     typeof entry.workDate !== "string" ||
+    typeof entry.startsAt !== "string" ||
+    typeof entry.endsAt !== "string" ||
     typeof entry.durationMinutes !== "number" ||
     typeof entry.remainderCents !== "string" ||
     typeof entry.shareCents !== "string" ||
@@ -239,11 +243,79 @@ function savedEntryFromBody(body: Record<string, unknown> | null): SavedWorkEntr
     status: entry.status,
     workKind: entry.workKind,
     workDate: entry.workDate,
+    startsAt: entry.startsAt,
+    endsAt: entry.endsAt,
     durationMinutes: entry.durationMinutes,
     remainderCents: entry.remainderCents,
     shareCents: entry.shareCents,
     personName: person.fullName,
   };
+}
+
+/** "Yenile" ile okunan güncel kayıttan sonuç ekranı verisi. */
+export function savedEntryFromDetail(entry: WorkEntryDetail): SavedWorkEntry {
+  return {
+    id: entry.id,
+    status: entry.status,
+    workKind: entry.workKind,
+    workDate: entry.workDate,
+    startsAt: entry.startsAt,
+    endsAt: entry.endsAt,
+    durationMinutes: entry.durationMinutes,
+    remainderCents: entry.remainderCents,
+    shareCents: entry.shareCents,
+    personName: entry.person.fullName,
+  };
+}
+
+/** "08:00–17:30"; bitiş başka bir takvim gününe düşüyorsa "(ertesi gün)" eklenir. */
+export function formatWorkTimeRange(startsAt: string, endsAt: string): string {
+  const start = istanbulWallClock(startsAt);
+  const end = istanbulWallClock(endsAt);
+  const range = `${start.time}–${end.time}`;
+  return end.date === start.date ? range : `${range} ${TEXT.nextDaySuffix}`;
+}
+
+/**
+ * Sonucu belirsiz gönderim şimdi kontrol edilebilir mi (düğme, sayfa açılışı,
+ * çevrimiçi olayı)? Yalnız daha önce ulaşmış olabilecek, dondurulmuş gövdesi
+ * olan bekleyen taslak, form kilitli değilken ve çevrimiçiyken; çevrimdışı
+ * hiçbir şey yollanmaz (sonuç bilinmeyen kalır).
+ */
+export function canResolveUnknown(
+  draft: Pick<WorkEntryDraft, "pending" | "frozenBody" | "attemptSent">,
+  state: { online: boolean; disabled: boolean },
+): boolean {
+  return (
+    state.online && !state.disabled && draft.frozenBody !== null && hasEarlierAttempt(draft)
+  );
+}
+
+/**
+ * Kayıt oluştu: taslak yalnız HÂLÂ bu `requestId`'ye aitse boşaltılır. Başka
+ * sekme aynı isteği çoktan çözüp yeni bir kayda başlamışsa onun taslağı silinmez.
+ */
+export function draftAfterCreated(
+  current: WorkEntryDraft,
+  requestId: string,
+  fresh: () => WorkEntryDraft,
+): WorkEntryDraft {
+  return current.requestId === requestId ? fresh() : current;
+}
+
+/** Kesin hata formu serbest bırakır: yalnız taslak hâlâ bu `requestId`'ye aitse yeni `requestId`. */
+export function draftAfterRelease(
+  current: WorkEntryDraft,
+  requestId: string,
+  newRequestId: string,
+): WorkEntryDraft {
+  if (current.requestId !== requestId) return current;
+  return { ...current, pending: false, frozenBody: null, attemptSent: false, requestId: newRequestId };
+}
+
+/** Oturum bitince gidilecek sabit iç yol (dönüş adresi/parametre TAŞIMAZ). */
+export function workEntryLoginHref(mode: "driver" | "owner" | "staff"): string {
+  return mode === "staff" ? "/yonetim/giris" : "/giris";
 }
 
 /**

@@ -98,6 +98,7 @@ export default async function VehicleWorkEntryPage({
         )}
         <WorkEntryForm
           today={istanbulToday()}
+          plate={formatPlateForDisplay(detail.vehicle.plateNormalized)}
           mode="staff"
           ownerName={detail.owner.fullName}
           targetVehicleId={vehicleId}

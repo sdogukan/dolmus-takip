@@ -12,7 +12,10 @@ import { SEED_RAW_PLATES, SEED_TEST_PASSWORDS, SEED_USERNAMES } from "../../scri
  */
 
 const WORK_ENTRIES_URL = "**/api/v1/work-entries";
-const UNKNOWN_RESULT = /Kaydın gönderilip gönderilmediği bilinmiyor/;
+const CHECKING = "Kaydın sonucu kontrol ediliyor.";
+const CHECK_NOW = "Sonucu şimdi kontrol et";
+const NOT_SENT = "Bağlantı yok. Henüz kaydedilmedi.";
+const PLATE_DISPLAY = "34 AAA 001";
 const EMPTY_TEXT = "Bu araçta seçilebilir şoför yok. Araç sahibinden şoför eklemesini iste.";
 const SESSION_ENDED = "Oturumun sona erdi. Yeniden giriş yap.";
 const CONNECTION_ERROR = "Bağlantı kurulamadı. Tekrar dene.";
@@ -174,9 +177,17 @@ test.describe("Şoför günlük kayıt formu (/sofor)", () => {
     await page.getByRole("button", { name: "Kaydet", exact: true }).click();
 
     await expect(page.getByText("Kaydedildi", { exact: true })).toBeVisible();
+    // Sonuç ekranı sunucunun kişi/plaka/gün/saat/tutarını gösterir; odak "Kaydedildi"de.
+    await expect(page.getByText("Kaydedildi", { exact: true })).toBeFocused();
+    await expect(page.getByText(`Hüseyin Ak · ${PLATE_DISPLAY}`, { exact: true })).toBeVisible();
+    await expect(page.getByText("3 Ağustos 2026 · 08:00–17:30", { exact: true })).toBeVisible();
+    await expect(page.getByText("Teslim edilecek tutar").locator("..")).toContainText("6.500,00 TL");
     await expect(page.getByText("Henüz doğrulanmadı")).toBeVisible();
+    await expect(page.getByText("Mal sahibi parayı aldığında burada görebileceksin.")).toBeVisible();
     await expect(page.getByText("Onay gerekmiyor")).toHaveCount(0);
-    await expect(page.getByText(/Hüseyin Ak · 3 Ağustos 2026 · 9 saat 30 dakika/)).toBeVisible();
+    // Şoföre "teslim ettim"/"onaya gönder" eylemi sunulmaz.
+    await expect(page.getByRole("button", { name: /Teslim ettim|Onaya gönder/ })).toHaveCount(0);
+    await expect(page.getByRole("link", { name: "Kaydı aç" })).toBeVisible();
     expect(posts).toHaveLength(1);
     expect(csrf).toBeTruthy();
     expect(reads).toBe(1);
@@ -220,21 +231,28 @@ test.describe("Şoför günlük kayıt formu (/sofor)", () => {
     await fillValidForm(page, "2026-08-04");
     await page.getByRole("button", { name: "Kaydet", exact: true }).click();
 
-    await expect(page.getByText(UNKNOWN_RESULT)).toBeVisible();
+    await expect(page.getByText(CHECKING)).toBeVisible();
+    await expect(page.getByRole("status").filter({ hasText: CHECKING })).toBeVisible();
     await expect(page.getByText("Kaydedildi", { exact: true })).toHaveCount(0);
     await expect(page.getByLabel("Hasılat")).toBeDisabled();
     await expect(page.getByLabel("Kim çalıştı?")).toBeDisabled();
+    // Sonuç bilinmezken yeni kayıt başlatılamaz.
+    await expect(page.getByRole("button", { name: "Başka bir çalışma kaydı gir" })).toHaveCount(0);
 
-    await page.getByRole("button", { name: "Kaydı tekrar dene" }).click();
+    await page.getByRole("button", { name: CHECK_NOW }).click();
     await expect(page.getByText("Kaydedildi", { exact: true })).toBeVisible();
     await expect(page.getByText("Henüz doğrulanmadı")).toBeVisible();
     expect(posts).toHaveLength(2);
     expect(posts[1]).toBe(posts[0]);
     expect(ids).toHaveLength(2);
     expect(ids[1]).toBe(ids[0]);
+
+    // Bilinen sonuçtan sonra yeni kayıt sunulur ve kişi ÖNCEDEN seçili gelmez.
+    await page.getByRole("button", { name: "Başka bir çalışma kaydı gir" }).click();
+    await expect(page.getByLabel("Kim çalıştı?")).toHaveValue("");
   });
 
-  test("belirsiz sonuç sayfa yenilemesinden sonra da kilitli kalır; tekrar dene aynı gövdeyi yollar", async ({
+  test("belirsiz sonuç sayfa yenilemesinde kendiliğinden bir kez kontrol edilir; hâlâ belirsizse kilitli kalır, düğme aynı gövdeyi yollar", async ({
     page,
   }) => {
     await openSeedForm(page);
@@ -242,27 +260,67 @@ test.describe("Şoför günlük kayıt formu (/sofor)", () => {
     await page.route(WORK_ENTRIES_URL, (route) => route.abort("failed"));
     await fillValidForm(page, "2026-08-05");
     await page.getByRole("button", { name: "Kaydet", exact: true }).click();
-    await expect(page.getByText(UNKNOWN_RESULT)).toBeVisible();
+    await expect(page.getByText(CHECKING)).toBeVisible();
     expect(posts).toHaveLength(1);
 
-    await page.unroute(WORK_ENTRIES_URL);
+    // Yenileme: sayfa açılışında AYNI istek bir kez kendiliğinden gider (hâlâ kopuk → belirsiz).
     await page.reload();
     await expect(page.getByRole("option", { name: "Hüseyin Ak" })).toBeAttached();
-    await expect(page.getByText(UNKNOWN_RESULT)).toBeVisible();
+    await expect.poll(() => posts.length).toBe(2);
+    await expect(page.getByText(CHECKING)).toBeVisible();
     await expect(page.getByLabel("Hasılat")).toBeDisabled();
     await expect(page.getByLabel("Hasılat")).toHaveValue("10.000");
     await expect(page.getByLabel("Kim çalıştı?")).toHaveValue(/.+/);
+    await expect(page.getByRole("button", { name: CHECK_NOW })).toBeEnabled();
+    expect(posts).toHaveLength(2);
 
+    await page.unroute(WORK_ENTRIES_URL);
     let reads = 0;
     await page.route("**/api/v1/drivers", async (route) => {
       reads += 1;
       await route.continue();
     });
-    await page.getByRole("button", { name: "Kaydı tekrar dene" }).click();
+    await page.getByRole("button", { name: CHECK_NOW }).click();
     await expect(page.getByText("Kaydedildi", { exact: true })).toBeVisible();
+    expect(posts).toHaveLength(3);
+    expect(new Set(posts).size).toBe(1);
+    expect(reads).toBe(0);
+  });
+
+  test("belirsiz sonuç sayfa yenilemesinde bağlantı varsa kendiliğinden çözülür: aynı requestId, tek kayıt", async ({
+    page,
+  }) => {
+    await openSeedForm(page);
+    const posts = capturePosts(page);
+    const ids: string[] = [];
+    let dropNext = true;
+    await page.route(WORK_ENTRIES_URL, async (route) => {
+      const response = await route.fetch();
+      const json = (await response.json()) as { workEntry?: { id: string } };
+      if (json.workEntry) ids.push(json.workEntry.id);
+      if (dropNext) {
+        dropNext = false;
+        await route.abort("failed");
+        return;
+      }
+      await route.fulfill({ response });
+    });
+    await fillValidForm(page, "2026-08-09");
+    await page.getByRole("button", { name: "Kaydet", exact: true }).click();
+    await expect(page.getByText(CHECKING)).toBeVisible();
+
+    await page.reload();
+    await expect(page.getByText("Kaydedildi", { exact: true })).toBeVisible();
+    await expect(page.getByText("Kaydedildi", { exact: true })).toBeFocused();
     expect(posts).toHaveLength(2);
     expect(posts[1]).toBe(posts[0]);
-    expect(reads).toBe(0);
+    expect(ids).toHaveLength(2);
+    expect(ids[1]).toBe(ids[0]);
+    // Sonuç yalnız React durumundadır: yenileme boş form verir, yeni POST gitmez.
+    await page.reload();
+    await expect(page.getByRole("option", { name: "Hüseyin Ak" })).toBeAttached();
+    await expect(page.getByLabel("Hasılat")).toHaveValue("");
+    expect(posts).toHaveLength(2);
   });
 
   test("5xx belirsizdir: kilitlenir, tekrar dene aynı gövdeyle kaydeder", async ({ page }) => {
@@ -283,10 +341,10 @@ test.describe("Şoför günlük kayıt formu (/sofor)", () => {
     });
     await fillValidForm(page, "2026-08-06");
     await page.getByRole("button", { name: "Kaydet", exact: true }).click();
-    await expect(page.getByText(UNKNOWN_RESULT)).toBeVisible();
+    await expect(page.getByText(CHECKING)).toBeVisible();
     await expect(page.getByLabel("Mazot")).toBeDisabled();
 
-    await page.getByRole("button", { name: "Kaydı tekrar dene" }).click();
+    await page.getByRole("button", { name: CHECK_NOW }).click();
     await expect(page.getByText("Kaydedildi", { exact: true })).toBeVisible();
     expect(posts[1]).toBe(posts[0]);
   });
@@ -326,19 +384,21 @@ test.describe("Şoför günlük kayıt formu (/sofor)", () => {
     });
     await fillValidForm(page, "2026-08-08");
     await page.getByRole("button", { name: "Kaydet", exact: true }).click();
-    await expect(page.getByText(UNKNOWN_RESULT)).toBeVisible();
+    await expect(page.getByText(CHECKING)).toBeVisible();
 
-    const retry = page.getByRole("button", { name: "Kaydı tekrar dene" });
+    const retry = page.getByRole("button", { name: CHECK_NOW });
     await retry.click();
     await expect(page.getByRole("alert").filter({ hasText: SESSION_ENDED })).toBeVisible();
+    // Oturum bitti: sabit iç yola giriş bağlantısı; taslak bekleyen kalır.
+    await expect(page.getByRole("link", { name: "Yeniden giriş yap" })).toHaveAttribute("href", "/giris");
     await expect(page.getByLabel("Hasılat")).toBeDisabled();
     await expect(retry).toBeVisible();
 
-    // İşaret depolamada: yenileme sonrası da 404 taslağı serbest bırakmaz.
+    // İşaret depolamada: yenilemede kendiliğinden giden kontrol 404 alır, taslak serbest kalmaz.
     await page.reload();
     await expect(page.getByRole("option", { name: "Hüseyin Ak" })).toBeAttached();
-    await expect(page.getByText(UNKNOWN_RESULT)).toBeVisible();
-    await retry.click();
+    await expect.poll(() => posts.length).toBe(3);
+    await expect(page.getByText(CHECKING)).toBeVisible();
     await expect(page.getByLabel("Hasılat")).toBeDisabled();
     await expect(retry).toBeVisible();
     await expect(page.getByText("Kaydedildi", { exact: true })).toHaveCount(0);
@@ -376,7 +436,7 @@ test.describe("Şoför günlük kayıt formu (/sofor)", () => {
     await save.click();
     await expect(page.getByText("Geçerli bir tarih gir.")).toBeVisible();
     await expect(page.getByLabel("Hasılat")).toBeEnabled();
-    await expect(page.getByText(UNKNOWN_RESULT)).toHaveCount(0);
+    await expect(page.getByText(CHECKING)).toHaveCount(0);
 
     await save.click();
     await expect(page.getByRole("alert").filter({ hasText: "Bu işlem için erişimin yok." })).toBeVisible();
@@ -643,6 +703,238 @@ test.describe("Şoför günlük kayıt formu (/sofor)", () => {
 
     await page.getByLabel("Hasılat").fill("1.5");
     await expect(page.locator("#work-gross-error")).toContainText("Nokta yalnız binlik ayracıdır");
+  });
+
+  test("çift dokunuş tek POST yollar (senkron koruma), yavaş yanıtta da", async ({ page }) => {
+    await openSeedForm(page);
+    const posts = capturePosts(page);
+    await page.route(WORK_ENTRIES_URL, async (route) => {
+      await new Promise((resolve) => setTimeout(resolve, 600));
+      await route.continue();
+    });
+    await fillValidForm(page, "2026-08-10");
+    // İki gönderim olayı aynı görevde: ikincisi ilk isteğin render'ını beklemez.
+    await page.evaluate(() => {
+      const form = document.querySelector("form") as HTMLFormElement;
+      form.requestSubmit();
+      form.requestSubmit();
+    });
+    await expect(page.getByText("Kaydedildi", { exact: true })).toBeVisible();
+    expect(posts).toHaveLength(1);
+  });
+
+  test("çevrimdışı gönderim hiçbir şey yollamaz, alanlar korunur; bağlantı gelince Kaydet tek kayıt yazar", async ({
+    page,
+  }) => {
+    await openSeedForm(page);
+    const posts = capturePosts(page);
+    await fillValidForm(page, "2026-08-11");
+    await page.context().setOffline(true);
+    await page.getByRole("button", { name: "Kaydet", exact: true }).click();
+
+    await expect(page.getByRole("alert").filter({ hasText: NOT_SENT })).toBeVisible();
+    expect(posts).toHaveLength(0);
+    await expect(page.getByText(CHECKING)).toHaveCount(0);
+    await expect(page.getByLabel("Hasılat")).toBeEnabled();
+    await expect(page.getByLabel("Hasılat")).toHaveValue("10.000");
+    await expect(page.getByLabel("Mazot")).toHaveValue("1.500");
+    await expect(page.getByLabel("Başlangıç saati")).toHaveValue("08:00");
+    await expect(page.getByLabel("Kim çalıştı?")).toHaveValue(/.+/);
+
+    await page.context().setOffline(false);
+    await page.getByRole("button", { name: "Kaydet", exact: true }).click();
+    await expect(page.getByText("Kaydedildi", { exact: true })).toBeVisible();
+    expect(posts).toHaveLength(1);
+  });
+
+  test("belirsiz sonuç çevrimdışıyken düğmeyle de göndermez ('Henüz kaydedilmedi' DEMEZ); çevrimiçi olayı aynı gövdeyi yollar", async ({
+    page,
+  }) => {
+    await openSeedForm(page);
+    const posts = capturePosts(page);
+    const ids: string[] = [];
+    let dropNext = true;
+    await page.route(WORK_ENTRIES_URL, async (route) => {
+      const response = await route.fetch();
+      const json = (await response.json()) as { workEntry?: { id: string } };
+      if (json.workEntry) ids.push(json.workEntry.id);
+      if (dropNext) {
+        dropNext = false;
+        await route.abort("failed");
+        return;
+      }
+      await route.fulfill({ response });
+    });
+    await fillValidForm(page, "2026-08-12");
+    await page.getByRole("button", { name: "Kaydet", exact: true }).click();
+    await expect(page.getByText(CHECKING)).toBeVisible();
+
+    await page.context().setOffline(true);
+    await page.getByRole("button", { name: CHECK_NOW }).click();
+    await expect(page.getByRole("alert").filter({ hasText: "Sonuç bağlantı gelince kontrol edilecek." })).toBeVisible();
+    await expect(page.getByText(NOT_SENT)).toHaveCount(0);
+    await expect(page.getByText(CHECKING)).toBeVisible();
+    expect(posts).toHaveLength(1);
+
+    await page.context().setOffline(false);
+    await page.evaluate(() => window.dispatchEvent(new Event("online")));
+    await expect(page.getByText("Kaydedildi", { exact: true })).toBeVisible();
+    expect(posts).toHaveLength(2);
+    expect(posts[1]).toBe(posts[0]);
+    expect(ids).toHaveLength(2);
+    expect(ids[1]).toBe(ids[0]);
+  });
+
+  test("401 sonrası giriş bağlantısı çıkar; aynı araç girişi bekleyen kaydı çözer, tek kayıtla biter", async ({
+    page,
+  }) => {
+    await openSeedForm(page);
+    const posts = capturePosts(page);
+    const ids: string[] = [];
+    const answers: Array<"drop" | "401" | "pass"> = ["drop", "401"];
+    await page.route(WORK_ENTRIES_URL, async (route) => {
+      const answer = answers.shift() ?? "pass";
+      if (answer === "401") {
+        await route.fulfill({
+          status: 401,
+          contentType: "application/json",
+          body: JSON.stringify({ error: { code: "SESSION_REVOKED", message: "x" } }),
+        });
+        return;
+      }
+      const response = await route.fetch();
+      const json = (await response.json()) as { workEntry?: { id: string } };
+      if (json.workEntry) ids.push(json.workEntry.id);
+      if (answer === "drop") {
+        await route.abort("failed");
+        return;
+      }
+      await route.fulfill({ response });
+    });
+    await fillValidForm(page, "2026-08-13");
+    await page.getByRole("button", { name: "Kaydet", exact: true }).click();
+    await expect(page.getByText(CHECKING)).toBeVisible();
+    await page.getByRole("button", { name: CHECK_NOW }).click();
+    const loginLink = page.getByRole("link", { name: "Yeniden giriş yap" });
+    await expect(loginLink).toBeVisible();
+
+    await page.context().clearCookies();
+    await loginLink.click();
+    await page.waitForURL("**/giris");
+    await page.getByLabel("Plaka").fill(SEED_RAW_PLATES.vehicleA1);
+    await page.getByLabel("Şifre").fill(SEED_TEST_PASSWORDS.driver);
+    await page.getByRole("button", { name: "Giriş yap", exact: true }).click();
+    await page.waitForURL("**/sofor");
+
+    await expect(page.getByText("Kaydedildi", { exact: true })).toBeVisible();
+    expect(posts).toHaveLength(3);
+    expect(new Set(posts).size).toBe(1);
+    expect(ids).toHaveLength(2);
+    expect(ids[1]).toBe(ids[0]);
+  });
+
+  test("başka bir aracın girişi bekleyen taslağı görmez ve göndermez", async ({ page }) => {
+    await openSeedForm(page);
+    const posts = capturePosts(page);
+    await page.route(WORK_ENTRIES_URL, (route) => route.abort("failed"));
+    await fillValidForm(page, "2026-08-14");
+    await page.getByRole("button", { name: "Kaydet", exact: true }).click();
+    await expect(page.getByText(CHECKING)).toBeVisible();
+    expect(posts).toHaveLength(1);
+
+    await page.context().clearCookies();
+    await loginAsDriver(page, SEED_RAW_PLATES.vehicleB1, SEED_TEST_PASSWORDS.driver);
+    await expect(page.getByLabel("Hasılat")).toBeVisible();
+    await expect(page.getByLabel("Hasılat")).toHaveValue("");
+    await expect(page.getByLabel("Hasılat")).toBeEnabled();
+    await expect(page.getByText(CHECKING)).toHaveCount(0);
+    expect(posts).toHaveLength(1);
+  });
+
+  test("Yenile kaydı yeniden okur; okunamazsa 'silindi' demez ve sonuç ekranı kalır", async ({ page }) => {
+    await openSeedForm(page);
+    await fillValidForm(page, "2026-08-15");
+    await page.getByRole("button", { name: "Kaydet", exact: true }).click();
+    await expect(page.getByText("Kaydedildi", { exact: true })).toBeVisible();
+
+    const reads: string[] = [];
+    await page.route("**/api/v1/work-entries/*", async (route) => {
+      reads.push(route.request().method());
+      if (reads.length === 1) {
+        await route.fulfill({
+          status: 404,
+          contentType: "application/json",
+          body: JSON.stringify({ error: { code: "WORK_ENTRY_NOT_FOUND", message: "x" } }),
+        });
+        return;
+      }
+      await route.continue();
+    });
+    await page.getByRole("button", { name: "Yenile" }).click();
+    await expect(page.getByRole("alert").filter({ hasText: "Güncel kayıt okunamadı. Tekrar dene." })).toBeVisible();
+    await expect(page.getByText(/silin/i)).toHaveCount(0);
+    await expect(page.getByText("Kaydedildi", { exact: true })).toBeVisible();
+
+    await page.getByRole("button", { name: "Yenile" }).click();
+    await expect(page.getByRole("alert").filter({ hasText: "Güncel kayıt okunamadı" })).toHaveCount(0);
+    await expect(page.getByText("Henüz doğrulanmadı")).toBeVisible();
+    expect(reads).toEqual(["GET", "GET"]);
+  });
+
+  test("320 px: form ve sonuç ekranında yatay kaydırma yok; uzun ad + büyük tutar; kontroller ≥ 48 px, Kaydet ≥ 56 px", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 320, height: 720 });
+    await openSeedForm(page);
+    await page.route(WORK_ENTRIES_URL, (route) =>
+      route.fulfill({
+        status: 201,
+        contentType: "application/json",
+        body: JSON.stringify({
+          workEntry: {
+            id: "11111111-1111-4111-8111-111111111111",
+            version: 1,
+            status: "pending",
+            workKind: "driver",
+            workDate: "2026-08-16",
+            startsAt: "2026-08-16T05:00:00.000Z",
+            endsAt: "2026-08-16T14:30:00.000Z",
+            durationMinutes: 570,
+            grossCents: "99999999999",
+            fuelCents: "0",
+            otherExpenseCents: "0",
+            shareCents: "19999999999",
+            remainderCents: "79999999999",
+            otherExpenseNote: null,
+            person: { id: "p", fullName: "Abdurrahmanoğulları Hüseyinbeyzade Mehmetcikoğlu" },
+          },
+        }),
+      }),
+    );
+    await fillValidForm(page, "2026-08-16");
+    await fillMoney(page, "999.999.999,99", "0");
+    const scrollWidth = () => page.evaluate(() => document.scrollingElement?.scrollWidth ?? 0);
+    const height = async (locator: ReturnType<Page["locator"]>) => (await locator.boundingBox())?.height ?? 0;
+
+    await expect.poll(scrollWidth).toBeLessThanOrEqual(320);
+    const save = page.getByRole("button", { name: "Kaydet", exact: true });
+    expect(await height(save)).toBeGreaterThanOrEqual(56);
+    expect(await height(page.getByLabel("Hasılat"))).toBeGreaterThanOrEqual(48);
+    expect(await height(page.getByLabel("Kim çalıştı?"))).toBeGreaterThanOrEqual(48);
+    expect(await height(page.getByRole("button", { name: "+ Masraf ekle" }))).toBeGreaterThanOrEqual(48);
+
+    await save.click();
+    await expect(page.getByText("Kaydedildi", { exact: true })).toBeVisible();
+    await expect(page.getByText(/Abdurrahmanoğulları/)).toBeVisible();
+    await expect(page.getByText("799.999.999,99 TL")).toBeVisible();
+    await expect.poll(scrollWidth).toBeLessThanOrEqual(320);
+    for (const control of [
+      page.getByRole("button", { name: "Yenile" }),
+      page.getByRole("link", { name: "Kaydı aç" }),
+      page.getByRole("button", { name: "Başka bir çalışma kaydı gir" }),
+    ]) {
+      expect(await height(control)).toBeGreaterThanOrEqual(48);
+    }
   });
 
   test("320 px viewport'ta yatay kaydırma yok", async ({ page }) => {

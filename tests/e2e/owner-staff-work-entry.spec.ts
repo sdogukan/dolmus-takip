@@ -152,7 +152,13 @@ test.describe("Sahip çalışma kaydı (/sahip/kayit/yeni)", () => {
     await expect(page.getByText("Kaydedildi", { exact: true })).toBeVisible();
     await expect(page.getByText("Onay gerekmiyor")).toBeVisible();
     await expect(page.getByText("Henüz doğrulanmadı")).toHaveCount(0);
-    await expect(page.getByText(/^Ali Kaya · 1 Temmuz 2026 · 9 saat$/)).toBeVisible();
+    await expect(page.getByText("Ali Kaya · 34 AAA 001", { exact: true })).toBeVisible();
+    await expect(page.getByText("1 Temmuz 2026 · 08:00–17:00", { exact: true })).toBeVisible();
+    await expect(page.getByText("Giderlerden sonra kalan").locator("..")).toContainText("8.200,00 TL");
+    await expect(page.getByText("Kaydedildi", { exact: true })).toBeFocused();
+    // Sahip kaydında şoför ekranının ipucu ve teslim eylemleri yoktur.
+    await expect(page.getByText("Mal sahibi parayı aldığında burada görebileceksin.")).toHaveCount(0);
+    await expect(page.getByRole("button", { name: /Teslim ettim|Onaya gönder/ })).toHaveCount(0);
     expect(posts).toHaveLength(1);
     const body = JSON.parse(posts[0]!);
     expect(body).toMatchObject({ workType: "owner", otherExpenseCents: "30000" });
@@ -177,10 +183,11 @@ test.describe("Sahip çalışma kaydı (/sahip/kayit/yeni)", () => {
     await page.getByRole("button", { name: "Kaydet", exact: true }).click();
     await expect(page.getByText("Kaydedildi", { exact: true })).toBeVisible();
     await expect(page.getByText("Henüz doğrulanmadı")).toBeVisible();
-    await expect(page.getByText(/^Hüseyin Ak · 2 Temmuz 2026/)).toBeVisible();
+    await expect(page.getByText("Hüseyin Ak · 34 AAA 001", { exact: true })).toBeVisible();
+    await expect(page.getByText("2 Temmuz 2026 · 08:00–17:00", { exact: true })).toBeVisible();
   });
 
-  test("yanıt kaybolursa form kilitlenir; yenileme sonrası tekrar dene aynı gövde ve requestId ile tek kayıtla biter", async ({
+  test("yanıt kaybolursa form kilitlenir; yenilemede sayfa açılışındaki kontrol aynı gövde ve requestId ile tek kayıtla bitirir", async ({
     page,
   }) => {
     await login(page, SEED_RAW_PLATES.vehicleA1, SEED_TEST_PASSWORDS.owner, "/sahip");
@@ -208,17 +215,15 @@ test.describe("Sahip çalışma kaydı (/sahip/kayit/yeni)", () => {
     await fillMoney(page);
     await page.getByRole("button", { name: "Kendim çalıştım" }).click();
     await page.getByRole("button", { name: "Kaydet", exact: true }).click();
-    await expect(page.getByText(/Kaydın gönderilip gönderilmediği bilinmiyor/)).toBeVisible();
-    await expect(page.getByLabel("Hasılat")).toBeDisabled();
-
-    await openHydrated(page, "/sahip/kayit/yeni");
-    await expect(page.getByText(/Kaydın gönderilip gönderilmediği bilinmiyor/)).toBeVisible();
+    await expect(page.getByText("Kaydın sonucu kontrol ediliyor.")).toBeVisible();
     await expect(page.getByLabel("Hasılat")).toBeDisabled();
     await expect(page.getByRole("button", { name: "Kendim çalıştım" })).toBeDisabled();
+    await expect(page.getByRole("button", { name: "Başka bir çalışma kaydı gir" })).toHaveCount(0);
 
-    await page.getByRole("button", { name: "Kaydı tekrar dene" }).click();
+    await openHydrated(page, "/sahip/kayit/yeni");
     await expect(page.getByText("Kaydedildi", { exact: true })).toBeVisible();
     await expect(page.getByText("Onay gerekmiyor")).toBeVisible();
+    await expect(page.getByText("Ali Kaya · 34 AAA 001", { exact: true })).toBeVisible();
     expect(posts).toHaveLength(2);
     expect(posts[1]).toBe(posts[0]);
     expect(ids).toHaveLength(2);
@@ -301,6 +306,7 @@ test.describe("Ekip çalışma kaydı (/yonetim/araclar/:id/kayit/yeni)", () => 
 
     await expect(page.getByText("Kaydedildi", { exact: true })).toBeVisible();
     await expect(page.getByText("Onay gerekmiyor")).toBeVisible();
+    await expect(page.getByText("Ali Kaya · 34 AAA 001", { exact: true })).toBeVisible();
     expect(posts).toHaveLength(1);
     expect(posts[0]!.target).toBe(SEED_IDS.vehicleA1);
     expect(posts[0]!.csrf).toBeTruthy();

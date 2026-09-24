@@ -19,6 +19,14 @@
  * bırakır ve yeni `requestId` üretir; belirsiz bir denemeden sonra yalnız 422 ve
  * 409 REQUEST_ID_REUSED bırakır, 401/403/404 vb. taslağı bekleyen tutar.
  *
+ * T3.7: sonuç ekranı ("Kaydedildi" + sunucunun kişi/plaka/gün/saat/tutarı, "Yenile",
+ * "Kaydı aç"); `navigator.onLine === false` tek "gönderilmedi" kanıtıdır (hiçbir
+ * şey yollanmaz, alanlar korunur). Belirsiz sonuç; düğme, sayfa açılışında bir
+ * kez ve çevrimiçi olayı ile AYNI `requestId` ve dondurulmuş gövdeyle çözülür.
+ * Senkron `inFlightRef` çift dokunuşu ve paralel çözümleri keser; taslak yalnız
+ * hâlâ bu isteğe aitse boşaltılır/serbest bırakılır (bayat sekme yenisini silmez).
+ * 401'de taslak bekleyen kalır ve sabit iç yola giriş bağlantısı çıkar.
+ *
  * Liste durumları AYRIDIR: loading / loaded / empty / error. Ağ hatası,
  * 401/403 veya 5xx "boş liste" metnini ASLA göstermez; yalnız `200` +
  * `drivers: []` boş durumdur. Üst üste binen istekler: her istek bir sıra
@@ -35,22 +43,29 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { adminReadErrorMessage } from "../../lib/admin-search";
-import type { ClientStateScope } from "../../lib/client-state";
+import { readClientState, type ClientStateScope } from "../../lib/client-state";
 import { COMMON_SCREEN_MESSAGES, WORK_ENTRY_MESSAGES as TEXT } from "../../lib/messages";
 import { formatTlAmount, parseApiCents, parseTlAmount, type ParseTlResult } from "../../lib/money";
 import { useStoredDraft } from "../../lib/use-stored-draft";
 import { AmountOutOfRangeError, calculateWorkEntryAmounts, type WorkKind } from "../../lib/work-calculation";
 import {
   buildWorkEntryBody,
+  canResolveUnknown,
   classifyWorkEntryResponse,
+  draftAfterCreated,
+  draftAfterRelease,
   emptyWorkEntryDraft,
+  formatWorkTimeRange,
   hasEarlierAttempt,
   isWorkEntryDraftDirty,
+  parseWorkEntryDetail,
+  savedEntryFromDetail,
   selectableFromDriversResponse,
   shouldReleaseAfterError,
   workEntryDetailHref,
   workEntryDraftName,
   workEntryErrorMessage,
+  workEntryLoginHref,
   type SavedWorkEntry,
   type SelectableDriver,
   type WorkEntryDraft,
@@ -139,6 +154,38 @@ async function postWorkEntry(
   return classifyWorkEntryResponse({ status: response.status, body });
 }
 
+type RefreshResult =
+  | { ok: true; entry: SavedWorkEntry }
+  | { ok: false; message: string; sessionEnded: boolean };
+
+/** "Yenile": kaydı okur (yazmaz). Sunucunun `error.message`'ı BASILMAZ; 404 "silindi" DEMEZ. */
+async function fetchSavedEntry(
+  entryId: string,
+  targetVehicleId: string | undefined,
+): Promise<RefreshResult> {
+  const failed: RefreshResult = { ok: false, message: TEXT.refreshFailed, sessionEnded: false };
+  let response: Response;
+  try {
+    response = await fetch(`/api/v1/work-entries/${encodeURIComponent(entryId)}`, {
+      headers: targetVehicleId ? { "X-Target-Vehicle": targetVehicleId } : undefined,
+    });
+  } catch {
+    return failed;
+  }
+  if (response.status === 401) {
+    return { ok: false, message: COMMON_SCREEN_MESSAGES.sessionEnded, sessionEnded: true };
+  }
+  let body: unknown;
+  try {
+    body = await response.json();
+  } catch {
+    return failed;
+  }
+  if (!response.ok) return failed;
+  const entry = parseWorkEntryDetail((body as { workEntry?: unknown } | null)?.workEntry);
+  return entry ? { ok: true, entry: savedEntryFromDetail(entry) } : failed;
+}
+
 export const labelClass = "block text-lg font-medium text-[var(--color-text)]";
 export const controlClass =
   "mt-1 min-h-[var(--control-min-height)] w-full rounded-[var(--radius-control)] border border-[var(--color-input-border)] bg-[var(--color-surface)] px-3 text-[length:var(--font-size-body)] text-[var(--color-text)] disabled:opacity-70 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]";
@@ -147,6 +194,9 @@ export const secondaryButtonClass =
   "min-h-[var(--control-min-height)] self-start rounded-[var(--radius-control)] border border-[var(--color-input-border)] px-4 text-base font-medium text-[var(--color-text)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)] disabled:opacity-70";
 export const primaryButtonClass =
   "min-h-14 w-full rounded-[var(--radius-control)] bg-[var(--color-primary)] px-4 text-lg font-semibold text-[var(--color-on-primary)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)] focus-visible:ring-offset-2 disabled:opacity-70";
+
+const linkButtonClass =
+  "inline-flex min-h-[var(--control-min-height)] items-center self-start rounded-[var(--radius-control)] px-1 text-base font-medium text-[var(--color-primary)] underline focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]";
 
 export const OTHER_NOTE_MAX_LENGTH = 200;
 export const amountInputProps = { type: "text", inputMode: "decimal", autoComplete: "off" } as const;
@@ -185,6 +235,7 @@ export function computeSummary(
 
 export function WorkEntryForm({
   today,
+  plate,
   mode = "driver",
   ownerName,
   targetVehicleId,
@@ -194,6 +245,8 @@ export function WorkEntryForm({
   csrfToken,
 }: {
   today: string;
+  /** Sonuç ekranındaki plaka (sunucuda doğrulanmış, gösterim biçiminde). */
+  plate: string;
   mode?: WorkEntryMode;
   /** Sahibin adı (sunucudan); sahip/ekip modunda "sahip çalıştı" için. */
   ownerName?: string;
@@ -234,7 +287,18 @@ export function WorkEntryForm({
   const [serverFields, setServerFields] = useState<Record<string, string>>({});
   const [saved, setSaved] = useState<SavedWorkEntry | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  // Sürmekte olan gönderim belirsiz bir sonucun kontrolü mü (ilk gönderim değil).
+  const [checking, setChecking] = useState(false);
+  const [sessionEnded, setSessionEnded] = useState(false);
+  const [refresh, setRefresh] = useState<
+    { status: "loading" } | { status: "error"; message: string } | null
+  >(null);
   const [workTypeError, setWorkTypeError] = useState<string | null>(null);
+  // `submitting` render kapanışından okunur; çift dokunuşu yalnız senkron ref keser.
+  const inFlightRef = useRef(false);
+  const refreshingRef = useRef(false);
+  const savedHeadingRef = useRef<HTMLParagraphElement | null>(null);
+  const resolveRef = useRef<(frozenBody: string, requestId: string) => Promise<void>>(async () => {});
   const sequenceRef = useRef(0);
   const controllerRef = useRef<AbortController | null>(null);
   const draftRef = useRef(draft);
@@ -298,6 +362,38 @@ export function WorkEntryForm({
     // Yalnız mount'ta bir kez; request/applyList ref/set fonksiyonlarını kullanır.
   }, []);
 
+  useEffect(() => {
+    resolveRef.current = (frozenBody, requestId) =>
+      guarded(() => resolveUnknown(frozenBody, requestId, false));
+  });
+
+  useEffect(() => {
+    // Sayfa açılışında bir kez: sonucu belirsiz taslak varsa AYNI istek kontrol edilir.
+    // Hydration'da `draft` henüz sunucu anlık görüntüsü olabilir; depo doğrudan okunur.
+    const stored = readClientState<WorkEntryDraft>(
+      window.localStorage,
+      { scopeKey },
+      workEntryDraftName(vehicleId),
+    );
+    if (stored && stored.frozenBody !== null && canResolveUnknown(stored, { online: navigator.onLine, disabled })) {
+      void resolveRef.current(stored.frozenBody, stored.requestId);
+    }
+    function onOnline(): void {
+      const current = draftRef.current;
+      if (current.frozenBody !== null && canResolveUnknown(current, { online: true, disabled })) {
+        void resolveRef.current(current.frozenBody, current.requestId);
+      }
+    }
+    window.addEventListener("online", onOnline);
+    return () => window.removeEventListener("online", onOnline);
+    // Yalnız mount'ta; en güncel çözümleyici `resolveRef` üzerinden çağrılır.
+  }, []);
+
+  const hasSaved = saved !== null;
+  useEffect(() => {
+    if (hasSaved) savedHeadingRef.current?.focus();
+  }, [hasSaved]);
+
   function touch(): void {
     setFormMessage(null);
     setServerFields({});
@@ -354,15 +450,35 @@ export function WorkEntryForm({
     touch();
   }
 
+  /** Aynı anda tek istek: ikinci dokunuş, çevrimiçi olayı veya sayfa açılışı paralel başlatmaz. */
+  async function guarded(run: () => Promise<void>): Promise<void> {
+    if (inFlightRef.current) return;
+    inFlightRef.current = true;
+    try {
+      await run();
+    } finally {
+      inFlightRef.current = false;
+    }
+  }
+
   /** Dondurulmuş gövdeyi yollar ve sonucu işler; çağıran gövdeyi ÖNCEDEN taslağa dondurmuştur. */
-  async function send(frozenBody: string, earlierAttempt: boolean): Promise<void> {
+  async function send(
+    frozenBody: string,
+    requestId: string,
+    earlierAttempt: boolean,
+  ): Promise<void> {
     setSubmitting(true);
+    setChecking(earlierAttempt);
     setFormMessage(null);
+    setSessionEnded(false);
     const outcome = await postWorkEntry(frozenBody, csrfToken, targetVehicleId);
     setSubmitting(false);
-    if (outcome.kind === "ambiguous") return; // taslak `pending` kalır: form kilitli, tekrar dene.
+    setChecking(false);
+    if (outcome.kind === "ambiguous") return; // taslak `pending` kalır: form kilitli, sonuç kontrol edilir.
     if (outcome.kind === "created") {
-      persistDraft(() => emptyWorkEntryDraft(today, randomRequestId));
+      persistDraft((current) =>
+        draftAfterCreated(current, requestId, () => emptyWorkEntryDraft(today, randomRequestId)),
+      );
       setSubmitted(false);
       setPersonError(null);
       setServerFields({});
@@ -370,11 +486,13 @@ export function WorkEntryForm({
       return;
     }
     setFormMessage(workEntryErrorMessage(outcome.status, outcome.code));
+    if (outcome.status === 401) setSessionEnded(true);
     // Daha önce ulaşmış olabilecek denemede kayıt yokluğu kanıtlanmadıysa taslak
     // bekleyen kalır: aynı requestId ve dondurulmuş gövde korunur.
     if (!shouldReleaseAfterError(outcome, earlierAttempt)) return;
     // Kesin hata: form serbest kalır, sonraki kayıt yeni requestId ile gider.
-    update({ pending: false, frozenBody: null, attemptSent: false, requestId: randomRequestId() });
+    const newRequestId = randomRequestId();
+    persistDraft((current) => draftAfterRelease(current, requestId, newRequestId));
     if (outcome.status === 422) {
       setServerFields(outcome.fields);
       if (outcome.fields.workerPersonId) {
@@ -385,16 +503,44 @@ export function WorkEntryForm({
     }
   }
 
-  async function handleSubmit(event: React.FormEvent<HTMLFormElement>): Promise<void> {
-    event.preventDefault();
-    if (submitting || disabled) return;
-    if (draft.pending && draft.frozenBody !== null) {
-      // Belirsiz sonuç: dondurulmuş gövde aynen, aynı requestId ile; liste okunmaz.
-      await send(draft.frozenBody, hasEarlierAttempt(draft));
+  /**
+   * Sonucu belirsiz gönderimi çözer: dondurulmuş gövde AYNI requestId ile aynen
+   * yeniden yollanır. Çevrimdışıyken hiçbir şey yollanmaz; sonuç bilinmeyen kalır
+   * ("Henüz kaydedilmedi" DENMEZ — istek daha önce sunucuya ulaşmış olabilir).
+   */
+  async function resolveUnknown(
+    frozenBody: string,
+    requestId: string,
+    manual: boolean,
+  ): Promise<void> {
+    if (!navigator.onLine) {
+      if (manual) setFormMessage(TEXT.stillOffline);
       return;
     }
+    await send(frozenBody, requestId, true);
+  }
+
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>): Promise<void> {
+    event.preventDefault();
+    if (disabled) return;
+    await guarded(async () => {
+      if (draft.pending && draft.frozenBody !== null) {
+        // Belirsiz sonuç: dondurulmuş gövde aynen, aynı requestId ile; liste okunmaz.
+        if (!hasEarlierAttempt(draft)) {
+          await send(draft.frozenBody, draft.requestId, false);
+          return;
+        }
+        await resolveUnknown(draft.frozenBody, draft.requestId, true);
+        return;
+      }
+      await submitNew();
+    });
+  }
+
+  async function submitNew(): Promise<void> {
     setSubmitted(true);
     setFormMessage(null);
+    setSessionEnded(false);
     setServerFields({});
 
     let hasError = !evaluation.ok;
@@ -410,6 +556,12 @@ export function WorkEntryForm({
     if (summary.status === "invalid") hasError = true;
     if (hasError || !evaluation.ok) return;
 
+    // Çevrimdışı = "gönderilmedi"nin tek kanıtı: istek yollanmaz, taslak dondurulmaz, alanlar korunur.
+    if (!navigator.onLine) {
+      setFormMessage(TEXT.connectionFailed);
+      return;
+    }
+
     setSubmitting(true);
     if (workKind === "driver") {
       // Kişi hâlâ seçilebilir mi — istemci listesine GÜVENİLMEZ, taze okunur.
@@ -423,6 +575,7 @@ export function WorkEntryForm({
         setFormMessage(
           result.retryable ? TEXT.connectionFailed : COMMON_SCREEN_MESSAGES.sessionEnded,
         );
+        setSessionEnded(!result.retryable);
         return;
       }
       applyList(result);
@@ -445,7 +598,24 @@ export function WorkEntryForm({
     // `attemptSent` fetch'ten ÖNCE yazılır: ilk istek uçarken yenileme veya başka
     // sekmeden yapılan tekrar, onu görülmemiş bir deneme olarak ele alır.
     update({ pending: true, frozenBody, requestId: body.requestId, attemptSent: true });
-    await send(frozenBody, false);
+    await send(frozenBody, body.requestId, false);
+  }
+
+  async function refreshSaved(): Promise<void> {
+    if (!saved || refreshingRef.current) return;
+    refreshingRef.current = true;
+    const entryId = saved.id;
+    setRefresh({ status: "loading" });
+    setSessionEnded(false);
+    const result = await fetchSavedEntry(entryId, targetVehicleId);
+    refreshingRef.current = false;
+    if (result.ok) {
+      setSaved((current) => (current?.id === entryId ? result.entry : current));
+      setRefresh(null);
+      return;
+    }
+    setRefresh({ status: "error", message: result.message });
+    setSessionEnded(result.sessionEnded);
   }
 
   function chooseWorkType(next: WorkKind): void {
@@ -477,32 +647,77 @@ export function WorkEntryForm({
 
   if (saved) {
     const remainder = parseApiCents(saved.remainderCents);
+    const wrapClass = "[overflow-wrap:anywhere]";
     return (
-      <section aria-live="polite" className="flex flex-col gap-4">
-        <p role="status" className="text-2xl font-semibold text-[var(--color-success)]">
+      <section className="flex min-w-0 flex-col gap-4">
+        <p
+          ref={savedHeadingRef}
+          tabIndex={-1}
+          role="status"
+          className="text-2xl font-semibold text-[var(--color-success)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]"
+        >
           {TEXT.saved}
         </p>
-        <p className="text-lg font-medium text-[var(--color-text)]">
-          {TEXT.savedPerson(
-            saved.personName,
-            formatWorkDate(saved.workDate),
-            formatDuration(saved.durationMinutes),
-          )}
+        <p className={`text-lg font-medium text-[var(--color-text)] ${wrapClass}`}>
+          {TEXT.savedWho(saved.personName, plate)}
         </p>
-        <p className="flex justify-between gap-4 text-lg tabular-nums">
+        <p className={`text-lg text-[var(--color-text)] ${wrapClass}`}>
+          {TEXT.savedWhen(formatWorkDate(saved.workDate), formatWorkTimeRange(saved.startsAt, saved.endsAt))}
+        </p>
+        <p className="flex flex-wrap justify-between gap-x-4 gap-y-1 text-lg tabular-nums">
           <span>{saved.workKind === "owner" ? TEXT.savedOwnerRemainder : TEXT.savedRemainder}</span>
-          <span className="font-semibold">{remainder === null ? "—" : formatTlAmount(remainder)}</span>
+          <span className={`font-semibold ${wrapClass}`}>
+            {remainder === null ? "—" : formatTlAmount(remainder)}
+          </span>
         </p>
         <p className="text-lg font-medium text-[var(--color-text)]">
-          {saved.status === "pending" ? TEXT.statusPending : TEXT.statusNotRequired}
+          {saved.status === "pending"
+            ? TEXT.statusPending
+            : saved.status === "confirmed"
+              ? TEXT.statusConfirmed
+              : TEXT.statusNotRequired}
         </p>
-        <Link
-          href={workEntryDetailHref(mode, saved.id, vehicleId)}
-          className="text-base font-medium text-[var(--color-primary)] underline"
+        {mode === "driver" && saved.status === "pending" && (
+          <p className="text-base text-[var(--color-text-secondary)]">{TEXT.resultHint}</p>
+        )}
+        <div role="status" aria-live="polite">
+          {refresh?.status === "loading" && (
+            <p className="text-base text-[var(--color-text-secondary)]">{TEXT.refreshing}</p>
+          )}
+        </div>
+        {refresh?.status === "error" && (
+          <p
+            role="alert"
+            className="rounded-[var(--radius-control)] bg-[var(--color-error-surface)] px-3 py-2 text-base text-[var(--color-error)]"
+          >
+            {refresh.message}
+          </p>
+        )}
+        {sessionEnded && (
+          <Link href={workEntryLoginHref(mode)} className={linkButtonClass}>
+            {TEXT.loginLink}
+          </Link>
+        )}
+        <button
+          type="button"
+          disabled={refresh?.status === "loading"}
+          onClick={() => void refreshSaved()}
+          className={secondaryButtonClass}
         >
+          {TEXT.refresh}
+        </button>
+        <Link href={workEntryDetailHref(mode, saved.id, vehicleId)} className={linkButtonClass}>
           {TEXT.openEntry}
         </Link>
-        <button type="button" onClick={() => setSaved(null)} className={secondaryButtonClass}>
+        <button
+          type="button"
+          onClick={() => {
+            setSaved(null);
+            setRefresh(null);
+            setSessionEnded(false);
+          }}
+          className={secondaryButtonClass}
+        >
           {TEXT.newEntry}
         </button>
       </section>
@@ -866,14 +1081,25 @@ export function WorkEntryForm({
           {formMessage}
         </p>
       )}
-      {draft.pending && !submitting && (
-        <p role="alert" className="rounded-[var(--radius-control)] bg-[var(--color-warning-surface)] px-3 py-2 text-base text-[var(--color-warning)]">
-          {TEXT.unknownResult}
-        </p>
+      {sessionEnded && (
+        <Link href={workEntryLoginHref(mode)} className={linkButtonClass}>
+          {TEXT.loginLink}
+        </Link>
       )}
+      <div role="status" aria-live="polite" className="flex flex-col gap-2">
+        {submitting && !checking && (
+          <p className="text-base text-[var(--color-text)]">{TEXT.submitting}</p>
+        )}
+        {(checking || (draft.pending && !submitting)) && (
+          <div className="flex flex-col gap-1 rounded-[var(--radius-control)] bg-[var(--color-warning-surface)] px-3 py-2 text-base text-[var(--color-warning)]">
+            <p>{TEXT.checking}</p>
+            <p>{TEXT.checkHint}</p>
+          </div>
+        )}
+      </div>
 
       <button type="submit" disabled={submitting} className={primaryButtonClass}>
-        {submitting ? TEXT.submitting : draft.pending ? TEXT.submitRetry : TEXT.submit}
+        {submitting ? (checking ? TEXT.checkingButton : TEXT.submitting) : draft.pending ? TEXT.checkNow : TEXT.submit}
       </button>
       </fieldset>
     </form>

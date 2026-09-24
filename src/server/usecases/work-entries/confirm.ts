@@ -51,7 +51,7 @@ export type ConfirmWorkEntryResult =
   | Exclude<PrepareWorkEntryCreateResult, { ok: true }>;
 
 /** Alınan tutar: ondalık tam sayı METNİ (sayı tipi, boş, negatif, ondalık → 422). */
-const receivedCentsSchema = scopeSafeObject({
+export const receivedCentsSchema = scopeSafeObject({
   receivedCents: z
     .string({ error: TEXT.moneyRequired })
     .min(1, TEXT.moneyRequired)

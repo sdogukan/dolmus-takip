@@ -47,3 +47,14 @@ export class WorkEntryConfirmationNotRequiredError extends Error {
     this.name = "WorkEntryConfirmationNotRequiredError";
   }
 }
+
+/** Düzelt-ve-onayla yalnız ONAYLI kayıt içindir; bekleyen kayıt `confirm` ile onaylanır. */
+export class WorkEntryNotConfirmedError extends Error {
+  readonly status = 409 as const;
+  readonly code = "ENTRY_NOT_CONFIRMED" as const;
+
+  constructor(message = ERROR_CODE_MESSAGES.ENTRY_NOT_CONFIRMED ?? "Bu kayıt henüz onaylanmamış.") {
+    super(message);
+    this.name = "WorkEntryNotConfirmedError";
+  }
+}

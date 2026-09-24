@@ -128,6 +128,8 @@ export const ERROR_CODE_MESSAGES: Record<string, string> = {
   ENTRY_CONFIRMED: "Bu kayıt onaylanmış; buradan düzenlenemez.",
   // T4.1 — teslim onayı (`../server/usecases/work-entries/confirm.ts`).
   CONFIRMATION_NOT_REQUIRED: "Bu kayıt için teslim onayı gerekmiyor.",
+  // T4.3 — onaylı kaydı düzelt ve onayla (`../server/usecases/work-entries/correct-and-confirm.ts`).
+  ENTRY_NOT_CONFIRMED: "Bu kayıt henüz onaylanmamış; önce teslim onayını ver.",
 };
 
 /**

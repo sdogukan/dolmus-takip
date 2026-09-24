@@ -248,6 +248,10 @@ function bundleDbInitIntoStandalone(): void {
   copyIntoStandalone("src/lib/report-period.ts");
   copyIntoStandalone("src/lib/work-time.ts");
   copyIntoStandalone("src/lib/messages.ts");
+  // Kontrollü yayın (`scripts/release-apply.ts`) yeni release'in dizininden
+  // çalışır; ortak kilit modülü db-restore ile paylaşılır.
+  copyIntoStandalone("scripts/release-apply.ts");
+  copyIntoStandalone("scripts/lib/ops-lock.ts");
 }
 
 /** `node -e "..."` standalone'un KENDİ `node_modules` kökünden çalıştırılır

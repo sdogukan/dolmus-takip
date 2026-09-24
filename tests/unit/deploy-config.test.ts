@@ -359,19 +359,30 @@ describe("deploy/systemd/dolmus-takip-backup.{timer,service}", () => {
     expect(service).not.toContain("[Install]");
   });
 
-  test("yedek birimi ile SERVER-SETUP §4 sürüm değiştirme AYNI kilit dosyasını kullanır", () => {
+  test("yedek birimi ile SERVER-SETUP §4 sürüm değiştirme (release-apply) AYNI kilit dosyasını kullanır", () => {
     const guide = read("docs/SERVER-SETUP.md");
     const releaseSection = guide.slice(
       guide.indexOf("## 4. Sürüm değiştirme"),
       guide.indexOf("## 5. Manuel doğrulama tablosu"),
     );
-    expect(releaseSection).toContain(`flock -w 900 -E 75 ${lockPath} bash -euc`);
-    // Migration kilit altındaki kabuğun içindedir, kilit dışında değil.
-    const locked = releaseSection.slice(releaseSection.indexOf("flock -w 900"));
-    expect(locked.indexOf("scripts/db-init.ts --existing")).toBeGreaterThan(-1);
-    expect(releaseSection.indexOf("flock -w 900")).toBeLessThan(
-      releaseSection.indexOf("scripts/db-init.ts --existing"),
+    // Elle yazılmış kilit bloğu yerine yayın aracı; migration §4'te kilit dışında elle çalıştırılmaz.
+    expect(releaseSection).toContain('cd "$REL" && sudo node scripts/release-apply.ts deploy\n');
+    expect(releaseSection).not.toMatch(/flock .*bash -euc/);
+    expect(releaseSection).not.toMatch(/^[^-#].*scripts\/db-init\.ts --existing/m);
+    expect(releaseSection).toContain(lockPath);
+
+    const tool = read("scripts/release-apply.ts");
+    expect(tool).toContain(`const DEFAULT_OPS_LOCK = "${lockPath}";`);
+    // Kilit, yayın aracındaki migration çağrısından ÖNCE alınır ve 900 sn / 75 ortak kilit modülündedir.
+    const deploy = tool.slice(tool.indexOf("async function runDeploy("));
+    expect(deploy.indexOf("acquireOpsLock(env, DEFAULT_OPS_LOCK)")).toBeGreaterThan(-1);
+    expect(deploy.indexOf("acquireOpsLock(env, DEFAULT_OPS_LOCK)")).toBeLessThan(
+      deploy.indexOf('["scripts/db-init.ts", "--existing"]'),
     );
+    const lock = read("scripts/lib/ops-lock.ts");
+    expect(lock).toContain("export const DEFAULT_OPS_LOCK_WAIT_SECONDS = 900;");
+    expect(lock).toContain("export const LOCK_BUSY_EXIT = 75;");
+    expect(lock).toContain('spawnSync("flock", ["-w", String(wait), "-E", String(LOCK_BUSY_EXIT), "3"]');
   });
 });
 
@@ -554,12 +565,12 @@ describe("docs/SERVER-SETUP.md", () => {
     expect(guide).not.toContain("enable dolmus-takip-health.timer\n");
   });
 
-  test("manuel doğrulama bölümü: 24 kontrol (9 kurulum + 7 sağlık otomasyonu + 5 yedek + 3 bakım kapısı), hepsi doğrulanacak işaretli", () => {
+  test("manuel doğrulama bölümü: 27 kontrol (9 kurulum + 7 sağlık otomasyonu + 5 yedek + 3 bakım kapısı + 3 yayın aracı), hepsi doğrulanacak işaretli", () => {
     const start = guide.indexOf("## 5. Manuel doğrulama tablosu");
     expect(start).toBeGreaterThan(-1);
     const section = guide.slice(start, guide.indexOf("## 6."));
     const rows = section.split("\n").filter((l) => /^\| \d+ \|/.test(l));
-    expect(rows).toHaveLength(24);
+    expect(rows).toHaveLength(27);
     for (const row of rows) {
       expect(row).toContain("elle kurulumda doğrulanacak");
     }
@@ -587,6 +598,9 @@ describe("docs/SERVER-SETUP.md", () => {
       "Bakım kapısı: işaret varken dışarıya 503, reload yok",
       "Bakım kapısı: işaret kalkınca trafik açılır, reload yok",
       "Bakım kapısı açık kalamaz: `caddy` işareti görür; yayın dizinleri",
+      "Yayın aracı: bakım, eski release'in yayın öncesi kopyası, migration, trafik",
+      "Yayın aracı: trafik açılmadan DB geri dönüşü",
+      "Yayın aracı: trafik açıldıktan sonra DB geri dönüşü reddedilir",
     ]) {
       expect(section, topic).toContain(topic);
     }
@@ -656,9 +670,13 @@ describe("docs/SERVER-SETUP.md", () => {
     expect(guide).toContain(
       "sudo -u dolmus-takip node --env-file=/etc/dolmus-takip/app.env scripts/db-init.ts\n",
     );
-    expect(guide).toContain(
-      "sudo -u dolmus-takip node --env-file=/etc/dolmus-takip/app.env scripts/db-init.ts --existing",
-    );
+    // Sürüm geçişinde db-init'i yayın aracı çağırır: servis kullanıcısıyla, app.env ile, --existing.
+    const tool = read("scripts/release-apply.ts");
+    expect(tool).toContain('const SERVICE_USER = "dolmus-takip";');
+    expect(tool).toContain('const DEFAULT_APP_ENV_FILE = "/etc/dolmus-takip/app.env";');
+    expect(tool).toContain('["-u", SERVICE_USER, "--", process.execPath, `--env-file=${paths.appEnvFile}`, ...args]');
+    expect(tool).toContain('runAsServiceUser(paths, selfReleaseDir, ["scripts/db-init.ts", "--existing"])');
+    expect(guide).toContain("Geçişte **`--existing`** kullanılır");
     expect(guide).toContain("mv -T /opt/dolmus-takip/current.tmp /opt/dolmus-takip/current");
     expect(guide).toContain("systemctl enable dolmus-takip.service caddy.service");
     // Root olarak db-init çalıştıran satır yok.
@@ -697,6 +715,59 @@ describe("docs/SERVER-SETUP.md", () => {
       expect(cmd).toContain('--profile "$AWS_PROFILE"');
       expect(cmd).toContain('--region "$AWS_REGION"');
     }
+  });
+
+  test("SERVER-SETUP ve RELEASE'teki release-apply çağrıları aracın gerçek komut/bayraklarıyla, root olarak, release dizininden", () => {
+    const tool = read("scripts/release-apply.ts");
+    const usage = /const USAGE =\n\s*"([^"]+)" \+\n\s*"([^"]+)";/.exec(tool);
+    expect(usage).not.toBeNull();
+    const usageText = `${usage![1]}${usage![2]}`;
+    for (const doc of ["docs/SERVER-SETUP.md", "docs/RELEASE.md"]) {
+      const lines = read(doc)
+        .split("\n")
+        .filter((line) => line.includes("scripts/release-apply.ts "));
+      expect(lines.length, doc).toBeGreaterThan(0);
+      for (const line of lines) {
+        for (const call of line.matchAll(/(\S+) node scripts\/release-apply\.ts (\w[\w-]*)((?: --[a-z-]+)*)/g)) {
+          const [, runner, command, flags] = call;
+          expect(runner, line).toBe("sudo");
+          expect(["deploy", "rollback", "mark-verified", "cleanup"], line).toContain(command);
+          expect(usageText, `${doc}: ${command}`).toContain(`${command} `);
+          if (command === "rollback") expect(flags, line).toMatch(/^ --code(-and-db)?$/);
+          for (const flag of flags!.match(/--[a-z-]+/g) ?? []) {
+            expect(usageText, `${doc}: ${command} ${flag}`).toMatch(new RegExp(`${command} \\[?${flag}\\b`));
+          }
+        }
+        expect(line, line).toMatch(/cd (\/opt\/dolmus-takip\/(current|releases\/<[^>]+>)|"\$REL") && sudo node scripts\/release-apply\.ts/);
+      }
+      expect(read(doc), doc).not.toMatch(/sudo -u dolmus-takip[^\n]*release-apply/);
+    }
+    for (const flag of ["--code", "--code-and-db", "--under-maintenance"]) {
+      expect(tool).toContain(`"${flag}"`);
+    }
+  });
+
+  test("RELEASE §7: araç koşulları ve F5 ileri düzeltme yolu; DECISIONS F5 çözüldü", () => {
+    const release = read("docs/RELEASE.md");
+    const section = release.slice(release.indexOf("## 7. Geri dönüş kararı"), release.indexOf("## 8."));
+    for (const marker of [
+      "### İleri düzeltme (F5)",
+      "Eski DB'ye otomatik dönme",
+      "`traffic_opened_at` yoksa",
+      "DB parmak izi kayıtlı olanla aynıysa",
+      "migration sayısı DB'den ölçülmüş ve 0 ise",
+      "`preserved/<zaman>/` altına taşınır",
+      "deploy --under-maintenance",
+      "yalnız insan kararıyla",
+      "reason=traffic_opened",
+    ]) {
+      expect(section, marker).toContain(marker);
+    }
+    // F5 yolunda canlı DB/WAL silinmez: yalnız kopyalanır.
+    const f5 = section.slice(section.indexOf("### İleri düzeltme (F5)"));
+    expect(f5).toContain('cp -p "$f" "$d/"');
+    expect(f5).not.toMatch(/\brm\b[^\n]*app\.sqlite|\bmv\b[^\n]*app\.sqlite/);
+    expect(read("docs/DECISIONS.md")).toMatch(/- F5: .*\*\*Çözüldü \(T6\.5, 2026-09-24\):\*\* \[RELEASE\.md\]\(RELEASE\.md\) §7 "İleri düzeltme \(F5\)"/);
   });
 
   test("release manifesti ve temizlik kuralı: kopyaya bağlı release ve manifesti silinmez", () => {

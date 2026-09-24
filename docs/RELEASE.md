@@ -58,18 +58,18 @@ Gizli şifre/anahtar bu tabloya veya Git'e yazılmaz. Güvenli saklandığı yer
 
 ## 5. Yayın adımları
 
-Bu işlem sırası T6.1–T6.5'te uygulanacak otomasyona bağlanacaktır. Henüz var olmayan script adları veya kopyalanıp çalıştırılabilecek hayali komutlar verilmez. Gerçek komutlar denendikten sonra bu rehbere eklenir.
+Yayın `scripts/release-apply.ts` ile yapılır (T6.5; arşivin içindedir, root olarak yeni release dizininden çalışır). Komutlar **hazırlandı, gerçek sunucuda denenmedi**; denemeler [SERVER-SETUP](SERVER-SETUP.md) §5 satır 25–27'dedir ve sonuç kayda geçene dek denenmiş gibi sunulmaz. Kurulum komutlarının tamamı [SERVER-SETUP](SERVER-SETUP.md) §4'tedir.
 
-1. **Adayı sabitle:** Commit, çıktı hash'i, şema uyumluluğu ve QA sonucunu seç; çıktı hedef makinedeki yeni release dizinine alınırken bütünlüğünü kontrol et. Mevcut current dizinini doğrudan üzerine yazarak güncelleme.
-2. **Ortak kilidi al:** Yayın, yedek hazırlığı, migration ve restore aynı işletim kilidini kullanır. Başka işlem sürüyorsa üstüne ikinci işlem başlatma; kilidin sahibini doğrulamadan silme.
-3. **Bakımı başlat:** Yeni yazmaları durdur, devam eden kısa işlemleri bitir. Sağlık otomasyonunun bakım modunda yeniden başlatma yapmadığını doğrula; uygulamayı kontrollü durdur.
-4. **Geri dönüş tabanını hazırla:** Mevcut kurulum için migration öncesi tutarlı DB kopyası, hash/şema/son işlem ve mevcut release bilgisi oluştur. Doğrulama başarısızsa yayın ilerlemez. İlk boş kurulum ayrı açık ilk migration yolunu kullanır.
-5. **Migration uygula:** Gerekli migration'ı kontrollü bir kez çalıştır; hata/şema sonucunu kaydet. Başarısızlığı gizleyerek uygulamayı açma.
-6. **Sürümü değiştir:** current yeni doğrulanmış release'e alınır; servis başlatılır. Kalıcı DB ve yedeklerin konumu değişmez. Hazırlanan komutlar: [SERVER-SETUP](SERVER-SETUP.md) §3–4 (denenmedi; manuel kurulumda denenecek).
-7. **İç kontrol yap:** Localhost live/ready, şema ve salt okuma mali tutarlılık kontrollerini uygula. Kayıt/revizyon/güncel onay ilişkisi ve örnek veri toplamı doğru olmadan müşteri yazmasına izin verme.
-8. **Trafiği aç:** Kontroller geçtiyse bakımı kaldır; normal servis/sağlık denetiminin aktifliğini doğrula. Müşteri yazmasına açıldığı zamanı özellikle kaydet; geri dönüş seçeneği bu andan sonra değişir.
-9. **Yayın sonrası doğrula:** Aşağıdaki smoke listesini uygula, izlemeyi kontrol et. Hata varsa durumun veri/yetki/yayın etkisine göre bakıma dön ve §7 yolunu uygula.
-10. **Sonucu kaydet:** Sürüm, test/restore referansı, yayın/trafik zamanları ve sorumlu yazılır. Ortak kilit yalnız işlem sona erip güvenli durum doğrulanınca bırakılır; korunan kopya/release ilişkileri gözetilerek temizlik yapılır.
+1. **Adayı sabitle:** Commit, çıktı hash'i (`artifact_sha256`), şema ve QA sonucunu seç; arşivi yeni `releases/<id>` dizinine aç, sürüm manifestini `releases/<id>.manifest.json` olarak yanına koy. Mevcut `current` dizininin üzerine açılmaz. `deploy` release dizinindeki migration dosyalarını bu manifestteki hash'lerle denetler; uyuşmazsa hiçbir şeye dokunmadan reddeder.
+2. **Yayını başlat:** `cd /opt/dolmus-takip/releases/<id> && sudo node scripts/release-apply.ts deploy`. Aşağıdaki 3–8 bu tek komutun sırasıdır; her faz `/var/lib/dolmus-takip/release-state/state.json`'a yazılır.
+3. **Ortak kilit:** Yayın, günlük yedek ve restore aynı `/var/lib/dolmus-takip/ops.lock` kilidini kullanır; 900 sn içinde alınamazsa araç 75 ile çıkar ve hiçbir adım çalışmaz. Kilidin sahibi doğrulanmadan kilit dosyası silinmez. Önceki yayın çözülmemişse (bakımda kaldıysa) veya bakım işareti zaten varsa yeni yayın başlamaz.
+4. **Bakım:** Bakım işareti konur (Caddy dış istekleri `503` ile keser, sağlık görevi restart yapmaz), sonra uygulama durdurulur; süren istekler `SIGTERM` ile tamamlanır ([SERVER-SETUP](SERVER-SETUP.md) §4).
+5. **Geri dönüş tabanı:** Çalışan **eski** release'in `db-backup.ts pre-migration`'ı doğrulanmış yayın öncesi kopyayı (`/var/lib/dolmus-takip/pre-migration/`, günlük kopyayla aynı manifest biçimi, `release_id` = eski release) üretir; aynı anda DB parmak izi kaydedilir. Kopya başarısızsa migration çalışmaz, eski release `current`'ta kalır ve bakım altında yeniden başlar (§7).
+6. **Migration:** Yeni release'in `db-init.ts --existing`'i servis kullanıcısıyla bir kez çalışır; uygulanan migration sayısı DB'den ölçülüp kaydedilir. Ardından toplamlar, korunan tabloların satır sayısı ve son kayıt kopyanın manifestiyle aynı olmalıdır; değilse `current` değişmeden durulur.
+7. **Sürüm değişimi ve iç kontrol:** `current` atomik değişir, servis başlar; localhost `live` ve `ready` `200` olmalı, ardından salt okunur mali kontrol (integrity, foreign key, şema bu release'inki, pay/kalan yeniden hesabı, toplamlar/son kayıt kopyayla aynı, DB içeriği migration sonrasıyla aynı) geçmelidir. Giriş veya yazma isteği yapılmaz.
+8. **Trafiği aç:** Kontroller geçtiyse önce `traffic_opened_at` yazılır, sonra bakım işareti kalkar. Bu andan sonra müşteri yazması kabul edilmiş sayılır ve eski DB'ye dönüş kapanır (§7).
+9. **Yayın sonrası doğrula:** §6 listesini uygula. Hata varsa §7'ye göre karar ver. Doğrulama bitince `cd /opt/dolmus-takip/current && sudo node scripts/release-apply.ts mark-verified`.
+10. **Sonucu kaydet ve temizle:** §8 kaydına `state.json` alanlarını (sürüm, önceki sürüm, `pre_migration`, `migrations_applied`, `traffic_opened_at`, `verified_at`) yaz. `cd /opt/dolmus-takip/current && sudo node scripts/release-apply.ts cleanup` `mark-verified`'dan önce önceki release'i ve yayın öncesi kopyayı, her zaman da tutulan bir kopyanın bağlı olduğu release'i silmez.
 
 **Süre:** Ölçülmedi; kesin kesinti veya toparlanma süresi vaat edilmez. İlk kurulum ve yeni sürüm geçişi T6.5 denemesinde ayrı ölçülür.
 
@@ -83,16 +83,42 @@ Bu işlem sırası T6.1–T6.5'te uygulanacak otomasyona bağlanacaktır. Henüz
 
 ## 7. Geri dönüş kararı
 
+Geri dönüş komutları geri alınan (yeni) release'in dizininden, root olarak çalışır: `cd /opt/dolmus-takip/releases/<id> && sudo node scripts/release-apply.ts rollback --code` veya `... rollback --code-and-db`. Araç koşulları kendi kanıtıyla denetler; koşul tutmazsa hiçbir şeyi değiştirmeden reddeder.
+
 | Durum | Yapılacak işlem | Sınır |
 |---|---|---|
-| Çıktı/hash/QA sorunu, mevcut uygulama henüz değişmedi | Yeni sürümü yayınlama; mevcut sürümü koru | Bozuk çıktı çalıştırılmaz |
-| Bakım/migration öncesi kopya başarısız | Yayını durdur; mevcut güvenli durumu doğrulayıp bakımdan çık veya müdahale et | Sağlam geri dönüş tabanı olmadan devam edilmez |
-| Yeni kod bozuk, mevcut şema eski kodla uyumlu | Bakım ve kilitle eski uyumlu kodu aç; readiness/smoke sonrası trafiği ver | Kod dönüşü DB dönüşü değildir |
-| Şema uyumsuz; yeni sürüm henüz müşteri yazması almadı | Doğrulanmış yayın öncesi kod+DB'yi birlikte geri al; eski/yeni dosyaları inceleme için koru | Trafik açılmadan önceki kopya ve yazma durumu kanıtlanmalı |
-| Yeni müşteri yazmaları kabul edildi | Eski DB'ye otomatik dönme; bakımı aç, yeni kayıtları koruyan ileri düzeltme veya planlı kurtarma yap | Yeni hesapları eski kopyayla silme |
+| Çıktı/hash/QA sorunu, mevcut uygulama henüz değişmedi | Yeni sürümü yayınlama; mevcut sürümü koru (`deploy` manifest/migration hash uyuşmazlığında ön kontrolde reddeder) | Bozuk çıktı çalıştırılmaz |
+| Bakım/migration öncesi kopya başarısız | `deploy` durur: `db-init` çalışmadı, eski release `current`'ta, bakım işareti yerinde, eski servis bakım altında yeniden başladı. Nedeni giderip `rollback --code` ile eski release'i doğrula ve trafiği aç (uygulanan migration 0) | Sağlam geri dönüş tabanı olmadan devam edilmez |
+| Yeni kod bozuk, mevcut şema eski kodla uyumlu | `rollback --code`: yalnız bu yayının uyguladığı migration sayısı DB'den ölçülmüş ve 0 ise; eski kod açılır, readiness ve mali kontrol sonrası trafik verilir. Trafik açıldıktan sonra da kullanılabilir | Kod dönüşü DB dönüşü değildir; şema uyumu bir bayrağa değil ölçülen migration sayısına dayanır |
+| Şema uyumsuz; yeni sürüm henüz müşteri yazması almadı | `rollback --code-and-db`: yalnız `traffic_opened_at` yoksa ve kilit altında, işaret varken, servis durmuşken okunan DB parmak izi kayıtlı olanla aynıysa. Eski release'in `db-restore.ts install`'ı yayın öncesi kopyayı yerleştirir; yeni DB/WAL `preserved/<zaman>/` altına taşınır, bütün oturumlar uygulama başlamadan iptal edilir | Trafik açılmadan önceki kopya ve yazma durumu kanıtlanmalı; durum dosyası okunamıyorsa araç reddeder |
+| Yeni müşteri yazmaları kabul edildi (`traffic_opened_at` var, parmak izi farklı veya yayın durumu belirsiz) | Eski DB'ye otomatik dönme; aşağıdaki **İleri düzeltme (F5)** yolunu uygula | Yeni hesapları/kayıtları eski kopyayla silme |
 | Makine kaybı veya DB bozulması | OPS.md'deki ayrı makine restore yolunu uygula | RPO son doğrulanmış kopyadan; sıfır kayıp garantisi yok |
 
 DB kopyasına dönüldüğünde kopyadaki oturumlar iptal edilir; parola/pasiflik ve erişim durumunun güncelliği kontrol edilir. Doğrulanamayan girişler yeniden doğrulanıp gerekirse sıfırlanana kadar kapalı kalır; aktör geçmişi silinmez. Hangi kayıtların kabul edildiği belirsizse “hiç yazma olmadı” varsayılmaz. Önce mevcut DB/WAL ve işlem izi korunur, durum incelenir. Kopyalardan kayıtlar otomatik birleştirilmez.
+
+### İleri düzeltme (F5)
+
+Şema uyumsuz bir migration uygulanmış ve trafik açıldıktan sonra sorun görülmüşse eski DB'ye dönülmez: o kopyaya dönmek, trafik açıldıktan sonra kabul edilen kayıtları, onayları ve hesap değişikliklerini siler. Yayın aracı bu durumda `rollback --code-and-db`'yi reddeder (`reason=traffic_opened`, `fingerprint_mismatch` veya `state_unreadable`). Yol:
+
+1. **Bakımı aç:** `sudo install -m 0644 -o root -g root /dev/null /var/lib/dolmus-takip/maintenance`. Caddy yeni dış istekleri keser; sağlık görevi restart yapmaz.
+2. **Canlı DB/WAL'ı koru:** servis durdurulur ve dosyalar silinmeden, üzerine yazılmadan `preserved/<zaman>-f5/` altına **kopyalanır** (canlı dosyalar yerinde kalır, ileri düzeltme onların üzerinde yapılır). Hash'ler kayda yazılır.
+3. **İncele ve kaydet:** `release-state/state.json` (`traffic_opened_at`), `journalctl`, `traffic_opened_at` sonrası kayıt/revizyon/onay ve denetim izi. Kabul edilen müşteri yazmaları listelenir; hangi yazmanın kabul edildiği belirsizse “yazma olmadı” varsayılmaz.
+4. **İleri düzelt:** Şema/kod düzeltmesi yeni bir release'te, var olan kayıtları silmeyen migration ile yapılır ve bakım işareti yerindeyken `cd /opt/dolmus-takip/releases/<düzeltme-id> && sudo node scripts/release-apply.ts deploy --under-maintenance` ile yayımlanır (yeni yayın öncesi kopya, mali kontrol; işaret yalnız kontroller geçince kalkar). Mali toplamları değiştiren bir migration'ı araç trafiği açmadan reddeder: tutar/onay düzeltmesi migration'la değil, trafik açıldıktan sonra uygulamanın denetim izli düzeltme yolu (düzelt-ve-onayla, revizyon, `admin_audit`) ile yapılır.
+5. **Planlı kurtarma yalnız insan kararıyla:** eski bir kopyaya dönmek gerekiyorsa sorumlu karar verir, kayıp aralığı kayda geçer ve [OPS](OPS.md) §4-B üretim restore yolu uygulanır; yayın aracı bunu kendiliğinden yapmaz.
+
+```bash
+# hazırlandı, denenmedi (elle kurulumda denenecek) — adım 1–2
+sudo install -m 0644 -o root -g root /dev/null /var/lib/dolmus-takip/maintenance
+sudo systemctl stop dolmus-takip.service
+sudo flock -w 900 -E 75 /var/lib/dolmus-takip/ops.lock sudo -u dolmus-takip sh -euc '
+  d=/var/lib/dolmus-takip/preserved/$(date -u +%Y%m%dT%H%M%SZ)-f5
+  mkdir -m 0750 "$d"
+  for f in /var/lib/dolmus-takip/data/app.sqlite /var/lib/dolmus-takip/data/app.sqlite-wal /var/lib/dolmus-takip/data/app.sqlite-shm; do
+    if [ -e "$f" ]; then cp -p "$f" "$d/"; fi
+  done
+  sha256sum "$d"/*
+'
+```
 
 ## 8. Yayın notu ve kanıt kaydı
 

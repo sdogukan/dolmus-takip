@@ -12,6 +12,7 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
 import Database from "better-sqlite3";
+import { readMigrationFiles } from "drizzle-orm/migrator";
 import { assertMigrationsApplied } from "../../src/server/data/db.ts";
 import {
   CALCULATION_VERSION,
@@ -169,81 +170,97 @@ export function verifyCopy(copyPath: string, migrationsFolder: string): Verified
         `Kopyanın journal_mode değeri "delete" değil: "${String(journalMode)}".`,
       );
     }
-
-    const integrity = copy.pragma("integrity_check") as { integrity_check: string }[];
-    if (integrity.length !== 1 || integrity[0]!.integrity_check !== "ok") {
-      throw new CopyRejectedError("integrity_check_failed", "Kopyada integrity_check başarısız.", {
-        problems: integrity.length,
-      });
-    }
-
-    const violations = copy.pragma("foreign_key_check") as unknown[];
-    if (violations.length > 0) {
-      throw new CopyRejectedError(
-        "foreign_key_check_failed",
-        "Kopyada foreign_key_check ihlali var.",
-        { violations: violations.length },
-      );
-    }
-
-    try {
-      assertMigrationsApplied(copy, migrationsFolder);
-    } catch (error) {
-      throw new CopyRejectedError(
-        "schema_not_current",
-        error instanceof Error ? error.message : String(error),
-      );
-    }
-
-    const entries = verifyEntryAmounts(copy);
-    if (entries.mismatches > 0) {
-      throw new CopyRejectedError(
-        "entry_amount_mismatch",
-        "Kopyada payı/kalanı yeniden hesapla uyuşmayan iş kaydı var.",
-        { mismatches: entries.mismatches },
-      );
-    }
-
-    const migrations = copy
-      .prepare(
-        "SELECT COUNT(*) AS count, CAST(COALESCE(MAX(created_at), 0) AS TEXT) AS last_created_at FROM __drizzle_migrations",
-      )
-      .get() as { count: number; last_created_at: string };
-    const lastMigration = copy
-      .prepare("SELECT hash FROM __drizzle_migrations ORDER BY created_at DESC, id DESC LIMIT 1")
-      .get() as { hash: string };
-
-    const totals = copy
-      .prepare(
-        `SELECT ${sumText("gross_cents")} AS gross, ${sumText("fuel_cents")} AS fuel, ` +
-          `${sumText("other_expense_cents")} AS other, ${sumText("share_cents")} AS share, ` +
-          `${sumText("remainder_cents")} AS remainder FROM work_entries`,
-      )
-      .get() as Record<"gross" | "fuel" | "other" | "share" | "remainder", string>;
-    const received = copy
-      .prepare(`SELECT ${sumText("received_cents")} AS received FROM cash_confirmations`)
-      .get() as { received: string };
-
-    return {
-      sqliteVersion: (copy.prepare("SELECT sqlite_version() AS v").get() as { v: string }).v,
-      schema: {
-        applied_migrations: migrations.count,
-        last_migration_created_at: migrations.last_created_at,
-        last_migration_hash: lastMigration.hash,
-      },
-      lastRecord: readLastCommittedRecord(copy),
-      rowCounts: readRowCounts(copy),
-      totals: {
-        gross_cents: totals.gross,
-        fuel_cents: totals.fuel,
-        other_expense_cents: totals.other,
-        share_cents: totals.share,
-        remainder_cents: totals.remainder,
-        received_cents: received.received,
-      },
-      uncheckedEntries: entries.unchecked,
-    };
+    return verifyDatabase(copy, migrationsFolder);
   } finally {
     copy.close();
   }
+}
+
+/**
+ * Açık bir bağlantıda kopyadan bağımsız kontroller (integrity, foreign key,
+ * migration'lar, pay/kalan yeniden hesabı) ve toplamlar. `verifyCopy` ve
+ * yayın sonrası salt okunur mali kontrol (`scripts/release-apply.ts`
+ * `inspect`, canlı WAL DB) aynı kontrolleri buradan çalıştırır.
+ */
+export function verifyDatabase(copy: Connection, migrationsFolder: string): VerifiedCopy {
+  const integrity = copy.pragma("integrity_check") as { integrity_check: string }[];
+  if (integrity.length !== 1 || integrity[0]!.integrity_check !== "ok") {
+    throw new CopyRejectedError("integrity_check_failed", "Kopyada integrity_check başarısız.", {
+      problems: integrity.length,
+    });
+  }
+
+  const violations = copy.pragma("foreign_key_check") as unknown[];
+  if (violations.length > 0) {
+    throw new CopyRejectedError(
+      "foreign_key_check_failed",
+      "Kopyada foreign_key_check ihlali var.",
+      { violations: violations.length },
+    );
+  }
+
+  try {
+    assertMigrationsApplied(copy, migrationsFolder);
+  } catch (error) {
+    throw new CopyRejectedError(
+      "schema_not_current",
+      error instanceof Error ? error.message : String(error),
+    );
+  }
+
+  const entries = verifyEntryAmounts(copy);
+  if (entries.mismatches > 0) {
+    throw new CopyRejectedError(
+      "entry_amount_mismatch",
+      "Kopyada payı/kalanı yeniden hesapla uyuşmayan iş kaydı var.",
+      { mismatches: entries.mismatches },
+    );
+  }
+
+  const migrations = copy
+    .prepare(
+      "SELECT COUNT(*) AS count, CAST(COALESCE(MAX(created_at), 0) AS TEXT) AS last_created_at FROM __drizzle_migrations",
+    )
+    .get() as { count: number; last_created_at: string };
+  const lastMigration = copy
+    .prepare("SELECT hash FROM __drizzle_migrations ORDER BY created_at DESC, id DESC LIMIT 1")
+    .get() as { hash: string };
+
+  const totals = copy
+    .prepare(
+      `SELECT ${sumText("gross_cents")} AS gross, ${sumText("fuel_cents")} AS fuel, ` +
+        `${sumText("other_expense_cents")} AS other, ${sumText("share_cents")} AS share, ` +
+        `${sumText("remainder_cents")} AS remainder FROM work_entries`,
+    )
+    .get() as Record<"gross" | "fuel" | "other" | "share" | "remainder", string>;
+  const received = copy
+    .prepare(`SELECT ${sumText("received_cents")} AS received FROM cash_confirmations`)
+    .get() as { received: string };
+
+  return {
+    sqliteVersion: (copy.prepare("SELECT sqlite_version() AS v").get() as { v: string }).v,
+    schema: {
+      applied_migrations: migrations.count,
+      last_migration_created_at: migrations.last_created_at,
+      last_migration_hash: lastMigration.hash,
+    },
+    lastRecord: readLastCommittedRecord(copy),
+    rowCounts: readRowCounts(copy),
+    totals: {
+      gross_cents: totals.gross,
+      fuel_cents: totals.fuel,
+      other_expense_cents: totals.other,
+      share_cents: totals.share,
+      remainder_cents: totals.remainder,
+      received_cents: received.received,
+    },
+    uncheckedEntries: entries.unchecked,
+  };
+}
+
+/** DB'de uygulanmış olup bu release'in `drizzle/` klasöründe OLMAYAN migration sayısı (daha yeni şema). */
+export function countUnknownMigrations(copy: Connection, migrationsFolder: string): number {
+  const releaseHashes = new Set(readMigrationFiles({ migrationsFolder }).map((migration) => migration.hash));
+  const applied = copy.prepare("SELECT hash FROM __drizzle_migrations").all() as { hash: string }[];
+  return applied.filter((row) => !releaseHashes.has(row.hash)).length;
 }

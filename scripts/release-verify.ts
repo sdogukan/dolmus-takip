@@ -22,7 +22,9 @@
  *    import ağacında eksik dosya yalnız sunucuda patlamasın); ardından
  *    arşivin KENDİ `scripts/db-backup.ts run` + `status` komutları ve
  *    üretilen kopyada arşivin KENDİ `scripts/db-restore.ts verify` komutu
- *    (rapor sorgu ağacı ve çözümleyici kancası arşivde eksiksiz mi).
+ *    (rapor sorgu ağacı ve çözümleyici kancası arşivde eksiksiz mi) ve
+ *    geçici DB'de arşivin KENDİ `scripts/release-apply.ts inspect` komutu
+ *    (yayın aracının import ağacı ve salt okunur mali kontrolü).
  * 5. Arşivin KENDİ `server.js`'ini geçici `PORT`/`HOSTNAME=127.0.0.1`/
  *    `APP_ORIGIN`/`DOLMUS_DB_PATH` ile başlatır, `/api/v1/health/live`'dan
  *    200 alır, süreci kapatır.
@@ -218,6 +220,30 @@ function runRestoreVerify(extractDir: string, manifestPath: string): void {
   console.log("[release:verify] Geçici kopyada db-restore verify çalıştı.");
 }
 
+/** Arşivin `scripts/release-apply.ts inspect --release <arşiv dizini>` komutu
+ * geçici DB'de (root olmayan kullanıcıyla) kontrolleri geçmiş tek JSON satırı yazmalı. */
+function runReleaseApplyInspect(extractDir: string, dbPath: string): void {
+  const result = spawnSync(process.execPath, ["scripts/release-apply.ts", "inspect", "--release", extractDir], {
+    cwd: extractDir,
+    encoding: "utf8",
+    env: { ...process.env, DOLMUS_DB_PATH: dbPath },
+  });
+  let checked = false;
+  try {
+    const parsed = JSON.parse(result.stdout.trim()) as { verified: unknown; check_failure: unknown };
+    checked = parsed.verified !== null && parsed.check_failure === null;
+  } catch {
+    checked = false;
+  }
+  if (result.status !== 0 || !checked) {
+    fail(
+      `Arşivin "scripts/release-apply.ts inspect" komutu geçici DB'de başarısız oldu ` +
+        `(exit ${result.status}):\n${result.stdout}\n${result.stderr}`,
+    );
+  }
+  console.log("[release:verify] Geçici DB'de release-apply inspect çalıştı.");
+}
+
 /** Boş bir TCP port bulur (0 numaralı porta bağlanıp OS'in verdiği gerçek
  * portu okur) — sabit bir port numarası varsayılmaz, eşzamanlı koşularla
  * çakışmaz. */
@@ -379,6 +405,7 @@ async function main(): Promise<void> {
     runDbInit(extractDir, dbPath);
     runCreateFirstAdmin(extractDir, dbPath);
     runBackupCommands(extractDir, dbPath, path.join(dbTempDir, "backup-ready"));
+    runReleaseApplyInspect(extractDir, dbPath);
     await startServerAndCheckHealth(extractDir, dbPath);
 
     console.log(

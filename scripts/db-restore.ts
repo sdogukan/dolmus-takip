@@ -49,6 +49,9 @@
  * - `DOLMUS_PRESERVED_DIR`, `DOLMUS_MAINTENANCE_FILE`, `DOLMUS_OPS_LOCK`,
  *   `DOLMUS_OPS_LOCK_WAIT` (sn): varsayılanları SERVER-SETUP §2 yollarıdır ve
  *   900 sn; yalnız test/deneme ortamı için değiştirilir.
+ * - `DOLMUS_OPS_LOCK_FD`: kilidi zaten tutan yayın aracından devralınan
+ *   tanıtıcı (`scripts/release-apply.ts rollback --code-and-db`); bkz.
+ *   `./lib/ops-lock.ts`.
  *
  * Rapor sorgu ağacı (`src/server/usecases/reports/`, `src/lib/work-time.ts`)
  * uzantısız import kullanır; düz `node` onu yalnız `./lib/ts-resolver.mjs`
@@ -63,7 +66,6 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { isDeepStrictEqual } from "node:util";
 import Database from "better-sqlite3";
-import { readMigrationFiles } from "drizzle-orm/migrator";
 import { createDb, resolveDbPathFromEnv } from "../src/server/data/db.ts";
 import { revokeAllSessionsSync } from "../src/server/usecases/session/revoke-session.ts";
 import {
@@ -75,12 +77,14 @@ import {
 } from "./lib/backup-schedule.ts";
 import {
   CopyRejectedError,
+  countUnknownMigrations,
   readLastCommittedRecord,
   sha256OfFile,
   verifyCopy,
   type Fields,
   type VerifiedCopy,
 } from "./lib/copy-verification.ts";
+import { acquireOpsLock, LOCK_BUSY_EXIT } from "./lib/ops-lock.ts";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const migrationsFolder = path.join(path.resolve(__dirname, ".."), "drizzle");
@@ -90,9 +94,6 @@ const STOPPED_SERVICE_STATES: readonly string[] = ["inactive", "failed"];
 const DEFAULT_PRESERVED_DIR = "/var/lib/dolmus-takip/preserved";
 const DEFAULT_MAINTENANCE_FILE = "/var/lib/dolmus-takip/maintenance";
 const DEFAULT_OPS_LOCK = "/var/lib/dolmus-takip/ops.lock";
-const DEFAULT_OPS_LOCK_WAIT_SECONDS = 900;
-/** `flock -E`: kilit süresinde alınamadı (yedek birimiyle aynı kod). */
-const LOCK_BUSY_EXIT = 75;
 /** Canlı DB'nin yanında olabilecek bütün dosyalar; hepsi birlikte taşınır. */
 const LIVE_SUFFIXES = ["", "-wal", "-shm", "-journal"] as const;
 
@@ -277,11 +278,9 @@ function readManifestArg(manifestArg: string): { manifest: BackupManifest; copyP
 
 /** `verifyCopy` yalnız eksik migration'ı yakalar; kopyada bu release'in bilmediği migration da olmamalı. */
 function assertSchemaIsRelease(copyPath: string): void {
-  const releaseHashes = new Set(readMigrationFiles({ migrationsFolder }).map((migration) => migration.hash));
   const copy = new Database(copyPath, { readonly: true, fileMustExist: true });
   try {
-    const applied = copy.prepare("SELECT hash FROM __drizzle_migrations").all() as { hash: string }[];
-    const unknown = applied.filter((row) => !releaseHashes.has(row.hash)).length;
+    const unknown = countUnknownMigrations(copy, migrationsFolder);
     if (unknown > 0) {
       reject("schema_not_current", "Kopyada bu release'in migration'larında olmayan migration var.", {
         unknown_migrations: unknown,
@@ -441,50 +440,6 @@ function existingDir(value: string, reason: string): string {
   return dir;
 }
 
-function lockWaitSeconds(env: Env): number {
-  const raw = env.DOLMUS_OPS_LOCK_WAIT;
-  if (raw === undefined || raw === "") return DEFAULT_OPS_LOCK_WAIT_SECONDS;
-  const seconds = Number(raw);
-  if (!/^\d+$/u.test(raw) || seconds > 3600) {
-    reject("usage", `DOLMUS_OPS_LOCK_WAIT 0–3600 arası tam saniye olmalı: "${raw}".`);
-  }
-  return seconds;
-}
-
-/**
- * Ortak kilidi `flock` ile alır: dosya bu süreçte açılır, `flock` aynı açık
- * dosyayı (fd 3) kilitleyip çıkar; kilit açık dosyaya bağlıdır ve bu süreç
- * kapatana/çıkana dek tutulur. Kilit dosyası yoksa oluşturulmaz.
- */
-function acquireOpsLock(env: Env): number {
-  const lockPath = path.resolve(env.DOLMUS_OPS_LOCK || DEFAULT_OPS_LOCK);
-  const wait = lockWaitSeconds(env);
-  let fd: number;
-  try {
-    fd = fs.openSync(lockPath, "r");
-  } catch (error) {
-    reject("ops_lock_missing", error instanceof Error ? error.message : String(error));
-  }
-  const result = spawnSync("flock", ["-w", String(wait), "-E", String(LOCK_BUSY_EXIT), "3"], {
-    stdio: ["ignore", "ignore", "pipe", fd],
-    encoding: "utf8",
-  });
-  if (result.error) {
-    fs.closeSync(fd);
-    reject("ops_lock_unavailable", `flock çalıştırılamadı: ${result.error.message}`);
-  }
-  if (result.status !== 0) {
-    fs.closeSync(fd);
-    if (result.status === LOCK_BUSY_EXIT) {
-      reject("ops_lock_busy", "Ortak işletim kilidi süresinde alınamadı; başka bir yayın/yedek/restore sürüyor.", {
-        wait_seconds: wait,
-      });
-    }
-    reject("ops_lock_unavailable", `flock başarısız (exit ${result.status}): ${result.stderr.trim()}`);
-  }
-  return fd;
-}
-
 function assertMaintenanceOn(env: Env): void {
   const marker = path.resolve(env.DOLMUS_MAINTENANCE_FILE || DEFAULT_MAINTENANCE_FILE);
   if (!fs.existsSync(marker) || !fs.statSync(marker).isFile()) {
@@ -565,7 +520,7 @@ async function runInstall(manifestArg: string, env: Env): Promise<void> {
   }
   const preservedRoot = existingDir(env.DOLMUS_PRESERVED_DIR || DEFAULT_PRESERVED_DIR, "preserved_dir_missing");
 
-  const lockFd = acquireOpsLock(env);
+  const lockFd = acquireOpsLock(env, DEFAULT_OPS_LOCK);
   try {
     assertMaintenanceOn(env);
     assertServiceStopped("service_active");

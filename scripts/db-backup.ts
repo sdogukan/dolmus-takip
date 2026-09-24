@@ -1,5 +1,5 @@
 /**
- * Günlük tutarlı SQLite kopyası — `node scripts/db-backup.ts [run|status]`
+ * Günlük tutarlı SQLite kopyası — `node scripts/db-backup.ts [run|status|pre-migration]`
  * (T6.4, S6.4; ARCHITECTURE.md "Flow: Daily backup", OPS.md §4).
  *
  * ## `run` (varsayılan)
@@ -29,6 +29,18 @@
  * Çıkış kodu 0 yalnız kopya doğrulanıp yayımlandığında; diğer her sonuç 0
  * dışıdır ve nedenini adlandıran TEK bir `err`/`warn` logfmt satırı yazar.
  *
+ * ## `pre-migration`
+ *
+ * Yayın öncesi kopya (T6.5; `scripts/release-apply.ts deploy` bakım işareti
+ * konmuş ve uygulama durdurulmuşken, ÇALIŞAN ESKİ release'in dizininden
+ * çağırır). `run` ile aynı kopya, doğrulama, yayın sırası ve manifest
+ * (`release_id` = bu eski release); farkları: 02:55–04:00 penceresi ve
+ * önceki manifeste göre satır azalması kuralı UYGULANMAZ (yayın gece de
+ * yapılabilir; kopya bir önceki yayın kopyasıyla değil, canlı DB'yle
+ * karşılaştırılır), kopyalama bütçesi sabit `OFF_WINDOW_BUDGET_MS`'tir ve
+ * saklama YOKTUR (kopyaları yalnız `release-apply cleanup` siler).
+ * `DOLMUS_BACKUP_DIR` bu kipte `.../pre-migration` dizinidir.
+ *
  * ## `status`
  *
  * Salt okunur: tutulan kopyaları, hash uyumunu ve kopyaların referans verdiği
@@ -55,6 +67,7 @@ import { openDatabaseConnection, resolveDbPathFromEnv } from "../src/server/data
 import {
   backupStem,
   copyDeadline,
+  OFF_WINDOW_BUDGET_MS,
   copyFileName,
   decidePublish,
   findRowCountDrops,
@@ -166,13 +179,21 @@ function readCompleteSets(dir: string): ReadManifest[] {
 // run
 // ---------------------------------------------------------------------------
 
+/** `daily`: `run` (günlük, pencere ve saklama kurallı); `pre-migration`: yayın öncesi kopya. */
+type BackupMode = "daily" | "pre-migration";
+
 class DeadlineExceededError extends BackupRejectedError {
-  constructor() {
-    super("deadline_passed", "Kopyalama 02:55 son saatine kadar bitmedi.");
+  constructor(mode: BackupMode) {
+    super(
+      "deadline_passed",
+      mode === "daily"
+        ? "Kopyalama 02:55 son saatine kadar bitmedi."
+        : "Yayın öncesi kopya süre bütçesi içinde bitmedi.",
+    );
   }
 }
 
-async function takeCopy(dbPath: string, tmpCopy: string, deadline: Date): Promise<void> {
+async function takeCopy(dbPath: string, tmpCopy: string, deadline: Date, mode: BackupMode): Promise<void> {
   const source = openDatabaseConnection(dbPath);
   try {
     await source.backup(tmpCopy, {
@@ -180,7 +201,7 @@ async function takeCopy(dbPath: string, tmpCopy: string, deadline: Date): Promis
         // Backup API kaynak başka süreççe yazılırsa baştan başlar; döngü
         // sonsuz denenmez, son saatle sınırlıdır. Sayfaların tamamı tek
         // adımda aktarılarak yeniden başlama penceresi daraltılır.
-        if (clock().getTime() >= deadline.getTime()) throw new DeadlineExceededError();
+        if (clock().getTime() >= deadline.getTime()) throw new DeadlineExceededError(mode);
         return 0x7fffffff;
       },
     });
@@ -210,20 +231,24 @@ function makeSelfContained(tmpCopy: string): void {
   }
 }
 
-async function runBackup(env: Record<string, string | undefined>): Promise<void> {
+async function runBackup(env: Record<string, string | undefined>, mode: BackupMode): Promise<void> {
   const dbPath = resolveDbPathFromEnv(env);
   const dir = resolveBackupDir(env);
   const startedAt = clock();
-  const deadline = copyDeadline(startedAt);
+  const daily = mode === "daily";
+  const deadline = daily ? copyDeadline(startedAt) : new Date(startedAt.getTime() + OFF_WINDOW_BUDGET_MS);
   const releaseId = path.basename(fs.realpathSync(process.cwd()));
+  const modeField: Fields = daily ? {} : { mode };
 
-  const early = decidePublish(startedAt, deadline);
-  if (!early.ok) {
-    throw new BackupRejectedError(early.reason, "Şu an kopya yayımlanamaz (02:55–04:00 Europe/Istanbul).");
+  if (daily) {
+    const early = decidePublish(startedAt, deadline);
+    if (!early.ok) {
+      throw new BackupRejectedError(early.reason, "Şu an kopya yayımlanamaz (02:55–04:00 Europe/Istanbul).");
+    }
   }
 
   const cleaned = removeOwnTempFiles(dir);
-  log("info", "backup_start", { release_id: releaseId, stale_temp_removed: cleaned });
+  log("info", "backup_start", { ...modeField, release_id: releaseId, stale_temp_removed: cleaned });
 
   const stem = backupStem(startedAt);
   const finalCopy = path.join(dir, copyFileName(stem));
@@ -237,7 +262,7 @@ async function runBackup(env: Record<string, string | undefined>): Promise<void>
   let copyPublished = false;
   let manifestPublished = false;
   try {
-    await takeCopy(dbPath, tmpCopy, deadline);
+    await takeCopy(dbPath, tmpCopy, deadline, mode);
     fs.chmodSync(tmpCopy, 0o600);
     makeSelfContained(tmpCopy);
 
@@ -252,7 +277,7 @@ async function runBackup(env: Record<string, string | undefined>): Promise<void>
     }
     const verifiedAt = clock();
 
-    const previous = readCompleteSets(dir)[0];
+    const previous = daily ? readCompleteSets(dir)[0] : undefined;
     if (previous !== undefined) {
       const drops = findRowCountDrops(previous.manifest.row_counts, verified.rowCounts);
       if (drops.length > 0) {
@@ -267,9 +292,11 @@ async function runBackup(env: Record<string, string | undefined>): Promise<void>
 
     // Yayın anı kararı: saat bu noktada korumalı pencereye düştüyse yayımlanmaz.
     const publishedAt = clock();
-    const decision = decidePublish(publishedAt, deadline);
-    if (!decision.ok) {
-      throw new BackupRejectedError(decision.reason, "Kopya süresi içinde yayımlanamadı.");
+    if (daily) {
+      const decision = decidePublish(publishedAt, deadline);
+      if (!decision.ok) {
+        throw new BackupRejectedError(decision.reason, "Kopya süresi içinde yayımlanamadı.");
+      }
     }
 
     const manifest: BackupManifest = {
@@ -316,6 +343,7 @@ async function runBackup(env: Record<string, string | undefined>): Promise<void>
     fsyncPath(dir);
 
     log("info", "backup_published", {
+      ...modeField,
       stem,
       sha256: manifest.sha256,
       size_bytes: manifest.size_bytes,
@@ -334,7 +362,7 @@ async function runBackup(env: Record<string, string | undefined>): Promise<void>
     removeTempArtifacts(tmpManifest);
   }
 
-  applyRetention(dir);
+  if (daily) applyRetention(dir);
 }
 
 /** Yalnız yeni kopya yayımlandıktan sonra çağrılır. */
@@ -411,8 +439,8 @@ function runStatus(env: Record<string, string | undefined>): void {
 
 async function main(): Promise<void> {
   const [command = "run", ...rest] = process.argv.slice(2);
-  if (rest.length > 0 || (command !== "run" && command !== "status")) {
-    throw new BackupRejectedError("usage", "Kullanım: db-backup.ts [run|status]");
+  if (rest.length > 0 || (command !== "run" && command !== "status" && command !== "pre-migration")) {
+    throw new BackupRejectedError("usage", "Kullanım: db-backup.ts [run|status|pre-migration]");
   }
   clock = resolveClock(process.env);
   if (process.env.DOLMUS_BACKUP_NOW) {
@@ -421,7 +449,7 @@ async function main(): Promise<void> {
   if (command === "status") {
     runStatus(process.env);
   } else {
-    await runBackup(process.env);
+    await runBackup(process.env, command === "run" ? "daily" : "pre-migration");
   }
 }
 

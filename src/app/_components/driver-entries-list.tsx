@@ -16,6 +16,7 @@ import { WORK_ENTRY_MESSAGES as TEXT } from "../../lib/messages";
 import { formatTlAmount, parseApiCents } from "../../lib/money";
 import {
   buildWorkEntriesUrl,
+  deliveryStatusLabel,
   parseWorkEntryList,
   type SelectableDriver,
   type WorkEntryDetail,
@@ -80,7 +81,7 @@ function EntryRow({ entry }: { entry: WorkEntryDetail }) {
           {TEXT.detailRemainder}: {remainder === null ? "—" : formatTlAmount(remainder)}
         </span>
         <span className="text-base text-[var(--color-text-secondary)]">
-          {entry.status === "pending" ? TEXT.statusPending : entry.status === "confirmed" ? TEXT.statusConfirmed : TEXT.statusNotRequired}
+          {deliveryStatusLabel(entry.status)}
         </span>
       </Link>
     </li>

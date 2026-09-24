@@ -14,6 +14,8 @@ import {
   confirmErrorNeedsReread,
   correctDraftFromEntry,
   correctErrorNeedsReread,
+  deliveryStatusLabel,
+  deliveryStatusView,
   draftAfterCreated,
   draftAfterRelease,
   editDraftFromEntry,
@@ -245,6 +247,7 @@ describe("classifyWorkEntryResponse", () => {
         remainderCents: "620000",
         shareCents: "200000",
         personName: "Hüseyin Ak",
+        confirmation: null,
       },
     });
     expect(
@@ -731,6 +734,7 @@ describe("savedEntryFromDetail", () => {
       remainderCents: "620000",
       shareCents: "200000",
       personName: "Hüseyin Ak",
+      confirmation: { receivedCents: "620000", confirmedAt: "2026-09-14T15:00:00.000Z", entryVersion: 2, actor: null },
     });
   });
 });
@@ -822,11 +826,23 @@ describe("parseWorkEntryDetail (teslim onayı)", () => {
     });
   });
 
+  it("şoför görünümü: kullanıcı adsız ekip türü geçerlidir ve kullanıcı adı uydurulmaz", () => {
+    const parse = (actor: unknown) =>
+      parseWorkEntryDetail({ ...serverEntry({ status: "confirmed" }), confirmation: { ...confirmation, actor } })?.confirmation;
+    for (const actor of [{ kind: "platform_user" }, { kind: "platform_user", username: "" }, { kind: "platform_user", username: 5 }]) {
+      expect(parse(actor)?.actor).toEqual({ kind: "platform_user" });
+    }
+  });
+
+  it("onaylı durum onaysız gelirse gövde bozuk sayılır (onaysız gösterilmez)", () => {
+    expect(parseWorkEntryDetail(serverEntry({ status: "confirmed", confirmation: null }))).toBeNull();
+  });
+
   it("onaylayan eksik/bilinmeyen/bozuksa kayıt reddedilmez; iz satırı için actor null olur", () => {
     const { actor: _omit, ...withoutActor } = confirmation;
     const missing = parseWorkEntryDetail({ ...serverEntry({ status: "confirmed" }), confirmation: withoutActor });
     expect(missing?.confirmation).toEqual({ ...withoutActor, actor: null });
-    for (const bad of [null, "x", [], {}, { kind: "robot" }, { kind: "platform_user" }, { kind: "platform_user", username: "" }, { kind: "platform_user", username: 5 }]) {
+    for (const bad of [null, "x", [], {}, { kind: "robot" }]) {
       const parsed = parseWorkEntryDetail({ ...serverEntry({ status: "confirmed" }), confirmation: { ...confirmation, actor: bad } });
       expect(parsed).not.toBeNull();
       expect(parsed?.confirmation?.actor).toBeNull();
@@ -1198,5 +1214,72 @@ describe("shouldReleaseAfterCorrectError / correctErrorNeedsReread", () => {
     expect(correctErrorNeedsReread({ status: 409, code: "ENTRY_NOT_CONFIRMED" })).toBe(true);
     expect(correctErrorNeedsReread({ status: 422, code: "VALIDATION_ERROR" })).toBe(false);
     expect(correctErrorNeedsReread({ status: 409, code: "REQUEST_ID_REUSED" })).toBe(false);
+  });
+});
+
+describe("deliveryStatusView / deliveryStatusLabel", () => {
+  const view = (overrides: Partial<WorkEntryDetail>, mode: "driver" | "owner" | "staff" = "driver") =>
+    deliveryStatusView(savedEntryFromDetail(serverEntry(overrides)), mode);
+  const confirmed = (actor: unknown, receivedCents = "600000") =>
+    serverEntry({
+      status: "confirmed",
+      remainderCents: "620000",
+      confirmation: { receivedCents, confirmedAt: "2026-09-14T15:00:00.000Z", entryVersion: 1, actor } as never,
+    });
+
+  it("bekleyen: beklenen tutar, 'Henüz doğrulanmadı' ve ipucu; onay satırı yok", () => {
+    expect(view({ remainderCents: "620000" })).toEqual({
+      expectedLabel: "Teslim edilecek tutar",
+      expectedText: "6.200,00 TL",
+      statusText: "Henüz doğrulanmadı",
+      hint: "Mal sahibi parayı aldığında burada görebileceksin.",
+      confirmed: null,
+    });
+  });
+
+  it("ipucu yalnız şoför görünümünde ve yalnız bekleyende çıkar", () => {
+    expect(view({}, "owner").hint).toBeNull();
+    expect(view({}, "staff").hint).toBeNull();
+    expect(deliveryStatusView(savedEntryFromDetail(confirmed(null)), "driver").hint).toBeNull();
+  });
+
+  it("onaylı: beklenen ve alınan tutar AYRI, alınan beklenenin yerine geçmez; doğrulama zamanı İstanbul saatiyle", () => {
+    const result = deliveryStatusView(savedEntryFromDetail(confirmed(null)), "driver");
+    expect(result.statusText).toBe("Teslim doğrulandı");
+    expect(result.expectedText).toBe("6.200,00 TL");
+    expect(result.confirmed).toEqual({
+      receivedText: "6.000,00 TL",
+      confirmedAtText: "14 Eylül 2026 · 18:00",
+      supportTrace: null,
+    });
+  });
+
+  it("şoför görünümünde ekip izi kullanıcı adsızdır; sahip/ekip görünümünde ad korunur", () => {
+    const actor = { kind: "platform_user", username: "destek1" };
+    const driver = deliveryStatusView(savedEntryFromDetail(confirmed({ kind: "platform_user" })), "driver");
+    expect(driver.confirmed?.supportTrace).toBe("Sahip adına platform desteği");
+    expect(deliveryStatusView(savedEntryFromDetail(confirmed(actor)), "driver").confirmed?.supportTrace).toBe(
+      "Sahip adına platform desteği",
+    );
+    expect(deliveryStatusView(savedEntryFromDetail(confirmed(actor)), "staff").confirmed?.supportTrace).toBe(
+      "Sahip adına platform desteği · destek1",
+    );
+    expect(deliveryStatusView(savedEntryFromDetail(confirmed({ kind: "vehicle_credential" })), "driver").confirmed?.supportTrace).toBeNull();
+  });
+
+  it("onay yalnız onaylı durumda gösterilir; eksi beklenen işaretli okunur; sahip türü etiketi", () => {
+    const pendingWithConfirmation = { ...savedEntryFromDetail(confirmed(null)), status: "pending" as const };
+    expect(deliveryStatusView(pendingWithConfirmation, "driver").confirmed).toBeNull();
+    expect(view({ remainderCents: "-5000" }).expectedText).toBe("-50,00 TL");
+    expect(view({ workKind: "owner", status: "not_required" }, "owner")).toMatchObject({
+      expectedLabel: "Giderlerden sonra kalan",
+      statusText: "Onay gerekmiyor",
+    });
+  });
+
+  it("deliveryStatusLabel: üç durum için tek metin", () => {
+    expect(deliveryStatusLabel("pending")).toBe("Henüz doğrulanmadı");
+    expect(deliveryStatusLabel("confirmed")).toBe("Teslim doğrulandı");
+    expect(deliveryStatusLabel("not_required")).toBe("Onay gerekmiyor");
   });
 });

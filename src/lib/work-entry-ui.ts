@@ -9,7 +9,7 @@
 import { COMMON_SCREEN_MESSAGES, getErrorMessage, WORK_ENTRY_MESSAGES as TEXT } from "./messages";
 import { centsToApiString, formatTlAmount, parseApiCents, parseSignedApiCents, parseTlAmount } from "./money";
 import type { WorkKind } from "./work-calculation";
-import { istanbulWallClock } from "./work-time";
+import { formatWorkDate, istanbulWallClock } from "./work-time";
 
 export interface SelectableDriver {
   personId: string;
@@ -181,6 +181,8 @@ export interface SavedWorkEntry {
   remainderCents: string;
   shareCents: string;
   personName: string;
+  /** Güncel sürümün teslim onayı; oluşturma yanıtında her zaman `null`. */
+  confirmation: WorkEntryConfirmation | null;
 }
 
 export type WorkEntrySendOutcome =
@@ -249,6 +251,7 @@ function savedEntryFromBody(body: Record<string, unknown> | null): SavedWorkEntr
     remainderCents: entry.remainderCents,
     shareCents: entry.shareCents,
     personName: person.fullName,
+    confirmation: null,
   };
 }
 
@@ -265,6 +268,7 @@ export function savedEntryFromDetail(entry: WorkEntryDetail): SavedWorkEntry {
     remainderCents: entry.remainderCents,
     shareCents: entry.shareCents,
     personName: entry.person.fullName,
+    confirmation: entry.confirmation,
   };
 }
 
@@ -393,7 +397,7 @@ export interface WorkEntryDetail {
 }
 
 /** Onaylayan özeti; bilinmeyen/eksik biçim `null` (iz satırı gösterilmez, kayıt reddedilmez).
- * Şoför oturumunda sunucu `username` göndermez; ayrıştırıcı bu biçimi `null` yapar (iz satırı yok). */
+ * Şoför oturumunda sunucu yalnız türü gönderir (`username` yok); ekip türü kullanıcı adsız da geçerlidir. */
 export type WorkEntryConfirmationActor = { kind: "vehicle_credential" } | { kind: "platform_user"; username?: string };
 
 export interface WorkEntryConfirmation {
@@ -407,8 +411,10 @@ function parseConfirmationActor(value: unknown): WorkEntryConfirmationActor | nu
   const actor = value as Record<string, unknown> | null | undefined;
   if (typeof actor !== "object" || actor === null) return null;
   if (actor.kind === "vehicle_credential") return { kind: "vehicle_credential" };
-  if (actor.kind === "platform_user" && typeof actor.username === "string" && actor.username !== "") {
-    return { kind: "platform_user", username: actor.username };
+  if (actor.kind === "platform_user") {
+    return typeof actor.username === "string" && actor.username !== ""
+      ? { kind: "platform_user", username: actor.username }
+      : { kind: "platform_user" };
   }
   return null;
 }
@@ -466,6 +472,8 @@ export function parseWorkEntryDetail(value: unknown): WorkEntryDetail | null {
   if (typeof entry.remainderCents !== "string" || parseSignedApiCents(entry.remainderCents) === null) return null;
   const confirmation = parseConfirmation(entry.confirmation);
   if (confirmation === undefined) return null;
+  // Onaylı durum onaysız gelirse gövde bozuktur; "onay yok" diye gösterilmez.
+  if (entry.status === "confirmed" && confirmation === null) return null;
   return {
     id: entry.id,
     version: entry.version,
@@ -953,4 +961,57 @@ export function buildWorkEntriesUrl(personId: string, cursor?: string): string {
   const params = new URLSearchParams({ workerPersonId: personId });
   if (cursor) params.set("cursor", cursor);
   return `/api/v1/work-entries?${params.toString()}`;
+}
+
+/** Şoför listesi ve sonuç ekranlarının tek durum metni. */
+export function deliveryStatusLabel(status: WorkEntryDetail["status"]): string {
+  if (status === "pending") return TEXT.statusPending;
+  if (status === "confirmed") return TEXT.deliveryConfirmed;
+  return TEXT.statusNotRequired;
+}
+
+export interface DeliveryStatusView {
+  expectedLabel: string;
+  /** Beklenen teslim (`remainderCents`); bozuksa "—". */
+  expectedText: string;
+  statusText: string;
+  hint: string | null;
+  /** Yalnız `confirmed` durumu VE dolu onayla; alınan tutar beklenenin yerine geçmez. */
+  confirmed: { receivedText: string; confirmedAtText: string; supportTrace: string | null } | null;
+}
+
+/**
+ * Teslim durumu görünümü (sonuç ekranı, şoför detayı). Kuruşlar ondalık
+ * metinden BigInt'e okunur; onay yalnız sunucudaki dolu onaydan gösterilir.
+ * Şoför görünümünde ekip izi kullanıcı adsızdır.
+ */
+export function deliveryStatusView(
+  entry: Pick<SavedWorkEntry, "status" | "workKind" | "remainderCents" | "confirmation">,
+  mode: "driver" | "owner" | "staff",
+): DeliveryStatusView {
+  const expected = parseSignedApiCents(entry.remainderCents);
+  const confirmation = entry.status === "confirmed" ? entry.confirmation : null;
+  let confirmed: DeliveryStatusView["confirmed"] = null;
+  if (confirmation) {
+    const received = parseApiCents(confirmation.receivedCents);
+    const at = istanbulWallClock(confirmation.confirmedAt);
+    const actor = confirmation.actor;
+    confirmed = {
+      receivedText: received === null ? "—" : formatTlAmount(received),
+      confirmedAtText: TEXT.confirmedAtValue(formatWorkDate(at.date), at.time),
+      supportTrace:
+        actor?.kind !== "platform_user"
+          ? null
+          : mode !== "driver" && actor.username
+            ? TEXT.supportTrace(actor.username)
+            : TEXT.supportTraceAnonymous,
+    };
+  }
+  return {
+    expectedLabel: entry.workKind === "owner" ? TEXT.savedOwnerRemainder : TEXT.savedRemainder,
+    expectedText: expected === null ? "—" : formatTlAmount(expected),
+    statusText: deliveryStatusLabel(entry.status),
+    hint: mode === "driver" && entry.status === "pending" ? TEXT.resultHint : null,
+    confirmed,
+  };
 }

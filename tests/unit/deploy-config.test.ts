@@ -32,6 +32,21 @@ function activeLines(text: string): string[] {
     .filter((line) => line !== "" && !line.startsWith("#"));
 }
 
+/** `opening` satırıyla açılan bloğun, eşleşen kapanış "}" dahil metni. */
+function blockText(text: string, opening: string): string {
+  const start = text.indexOf(opening);
+  expect(start, `"${opening}" yok`).toBeGreaterThan(-1);
+  let depth = 0;
+  for (let i = start; i < text.length; i += 1) {
+    if (text[i] === "{") depth += 1;
+    if (text[i] === "}") {
+      depth -= 1;
+      if (depth === 0) return text.slice(start, i + 1);
+    }
+  }
+  throw new Error(`"${opening}" bloğu kapanmıyor`);
+}
+
 describe("deploy/caddy/Caddyfile", () => {
   const caddyfile = read("deploy/caddy/Caddyfile");
   const lines = activeLines(caddyfile);
@@ -61,7 +76,13 @@ describe("deploy/caddy/Caddyfile", () => {
   test("yalnız 127.0.0.1:3000'e reverse_proxy; dosya sunumu yok", () => {
     expect(lines).toContain("reverse_proxy 127.0.0.1:3000");
     expect(lines.filter((line) => line.startsWith("reverse_proxy"))).toHaveLength(1);
-    expect(lines.some((line) => /^(file_server|root)\b/.test(line))).toBe(false);
+    expect(lines.some((line) => /^file_server\b/.test(line))).toBe(false);
+    // Tek root satırı bakım eşleştiricisinin içindedir (eşleştirici kapsamlı);
+    // site düzeyinde root yoktur.
+    const matcher = blockText(caddyfile, "@maintenance file {");
+    const outside = activeLines(caddyfile.replace(matcher, ""));
+    expect(outside.some((line) => /^root\b/.test(line))).toBe(false);
+    expect(lines.filter((line) => /^root\b/.test(line))).toEqual(["root /"]);
   });
 
   test("HTTPS'i kapatan veya http:// adres/trusted_proxies yok", () => {
@@ -76,6 +97,55 @@ describe("deploy/caddy/Caddyfile", () => {
     expect(caddyfile.indexOf("handle @health")).toBeLessThan(
       caddyfile.indexOf("reverse_proxy"),
     );
+  });
+
+  test("bakım kapısı: işaret yolunda istek başına dosya eşleştiricisi, sağlık uyumlu yol", () => {
+    const marker = "/var/lib/dolmus-takip/maintenance";
+    // Sağlık görevinin baktığı işaretle AYNI yol.
+    expect(read("deploy/health/health-check.mts")).toContain(
+      `const MAINTENANCE_FILE = "${marker}";`,
+    );
+    // root / verilmezse mutlak yol Caddy'nin çalışma dizinine göre birleşir;
+    // try_policy/split_path yok (varsayılan first_exist, dosya olarak).
+    expect(activeLines(blockText(caddyfile, "@maintenance file {"))).toEqual([
+      "@maintenance file {",
+      "root /",
+      `try_files ${marker}`,
+      "}",
+    ]);
+    expect(lines.filter((line) => line.startsWith("@maintenance"))).toHaveLength(1);
+    // Yapılandırma yeniden yüklenmeden açılıp kapanır: işaret env/import/vars
+    // ile değil, yalnız bu eşleştiriciyle okunur.
+    expect(lines.filter((line) => line.includes(marker))).toEqual([`try_files ${marker}`]);
+    expect(lines.some((line) => /^(import|vars|map)\b/.test(line))).toBe(false);
+  });
+
+  test("bakım kapısı: 503 + Retry-After, uygulamaya iletmez", () => {
+    const gate = activeLines(blockText(caddyfile, "handle @maintenance {"));
+    expect(gate[0]).toBe("handle @maintenance {");
+    expect(gate.at(-1)).toBe("}");
+    const body = gate.slice(1, -1);
+    expect(body).toHaveLength(2);
+    expect(body[0]).toMatch(/^header Retry-After \d+$/);
+    expect(Number.parseInt(body[0]?.split(" ")[2] ?? "0", 10)).toBeGreaterThan(0);
+    expect(body[1]).toMatch(/^respond ".+" 503$/);
+    expect(gate.some((line) => /reverse_proxy|file_server|handle_errors/.test(line))).toBe(false);
+  });
+
+  test("sıra: @health 404, sonra bakım kapısı, en son reverse_proxy", () => {
+    const health = caddyfile.indexOf("handle @health {");
+    const matcher = caddyfile.indexOf("@maintenance file {");
+    const gate = caddyfile.indexOf("handle @maintenance {");
+    const proxy = caddyfile.indexOf("reverse_proxy 127.0.0.1:3000");
+    expect(health).toBeGreaterThan(-1);
+    expect(health).toBeLessThan(matcher);
+    expect(matcher).toBeLessThan(gate);
+    expect(gate).toBeLessThan(proxy);
+    // reverse_proxy eşleştiricisiz son handle'dadır: Caddy aynı yönergeyi
+    // (handle) eşleştiricisi olanlar önce, yazıldıkları sırayla dener.
+    const handles = activeLines(caddyfile).filter((line) => line.startsWith("handle"));
+    expect(handles).toEqual(["handle @health {", "handle @maintenance {", "handle {"]);
+    expect(blockText(caddyfile, "\thandle {\n")).toContain("reverse_proxy 127.0.0.1:3000");
   });
 });
 
@@ -484,12 +554,12 @@ describe("docs/SERVER-SETUP.md", () => {
     expect(guide).not.toContain("enable dolmus-takip-health.timer\n");
   });
 
-  test("manuel doğrulama bölümü: 21 kontrol (9 kurulum + 7 sağlık otomasyonu + 5 yedek), hepsi doğrulanacak işaretli", () => {
+  test("manuel doğrulama bölümü: 24 kontrol (9 kurulum + 7 sağlık otomasyonu + 5 yedek + 3 bakım kapısı), hepsi doğrulanacak işaretli", () => {
     const start = guide.indexOf("## 5. Manuel doğrulama tablosu");
     expect(start).toBeGreaterThan(-1);
     const section = guide.slice(start, guide.indexOf("## 6."));
     const rows = section.split("\n").filter((l) => /^\| \d+ \|/.test(l));
-    expect(rows).toHaveLength(21);
+    expect(rows).toHaveLength(24);
     for (const row of rows) {
       expect(row).toContain("elle kurulumda doğrulanacak");
     }
@@ -514,9 +584,29 @@ describe("docs/SERVER-SETUP.md", () => {
       "Yedek zamanlayıcısı 02:30 Europe/Istanbul; telafi yok",
       "Lightsail otomatik snapshot 00:00 UTC; Türkiye eşlemesi",
       "Kopya–snapshot ilişkisi",
+      "Bakım kapısı: işaret varken dışarıya 503, reload yok",
+      "Bakım kapısı: işaret kalkınca trafik açılır, reload yok",
+      "Bakım kapısı açık kalamaz: `caddy` işareti görür; yayın dizinleri",
     ]) {
       expect(section, topic).toContain(topic);
     }
+  });
+
+  test("bakım kapısı satırları: dışarıdan 503 + Retry-After, sağlık 404, yerelde live/ready; caddy stat kanıtı", () => {
+    const section = guide.slice(guide.indexOf("## 5. Manuel doğrulama tablosu"), guide.indexOf("## 6."));
+    const row = (n: number) => section.split("\n").find((l) => l.startsWith(`| ${n} |`)) ?? "";
+    const on = row(22);
+    expect(on).toContain("/dev/null /var/lib/dolmus-takip/maintenance");
+    expect(on).toContain('curl -si "https://$DOLMUS_DOMAIN/api/v1/health/live"');
+    expect(on).toContain("http://127.0.0.1:3000/api/v1/health/ready");
+    expect(on).toContain("`503` ve `Retry-After: 120`");
+    expect(on).toContain("dışarıdan yine `404`");
+    expect(row(23)).toContain("sudo rm /var/lib/dolmus-takip/maintenance");
+    const traverse = row(24);
+    expect(traverse).toContain("sudo -u caddy stat /var/lib/dolmus-takip/maintenance");
+    expect(traverse).toContain("`root:root 755`, `root:root 700`, `dolmus-takip:dolmus-takip 750`");
+    // Rehberdeki Retry-After değeri Caddyfile'daki ile aynı.
+    expect(read("deploy/caddy/Caddyfile")).toContain("header Retry-After 120");
   });
 
   test("dizin sözleşmesi ARCHITECTURE §8.1 ile aynı yollar", () => {
@@ -529,11 +619,37 @@ describe("docs/SERVER-SETUP.md", () => {
       "/var/lib/dolmus-takip/data/",
       "/var/lib/dolmus-takip/backup-ready/",
       "/var/lib/dolmus-takip/pre-migration/",
+      "/var/lib/dolmus-takip/preserved/",
+      "/var/lib/dolmus-takip/release-state/",
       "/var/lib/dolmus-takip/ops.lock",
       "/etc/dolmus-takip/",
     ]) {
       expect(guide, p).toContain(p);
     }
+  });
+
+  test("§2 veri kökü, release-state ve preserved sahip/mod ile; §3.1 onları aynı sahip/modla yaratır", () => {
+    const table = guide.slice(guide.indexOf("## 2. Dizinler"), guide.indexOf("## 3. İlk kurulum"));
+    const row = (p: string) => table.split("\n").find((l) => l.startsWith(`| \`${p}\` |`)) ?? "";
+    expect(row("/var/lib/dolmus-takip/")).toMatch(/\| `root:root` \| `0755` \|$/);
+    expect(row("/var/lib/dolmus-takip/")).toContain("`caddy`");
+    expect(row("/var/lib/dolmus-takip/release-state/")).toMatch(/\| `root:root` \| `0700` \|$/);
+    expect(row("/var/lib/dolmus-takip/preserved/")).toMatch(
+      /\| `dolmus-takip:dolmus-takip` \| `0750` \|$/,
+    );
+    expect(row("/var/lib/dolmus-takip/maintenance")).toContain("Caddy");
+    expect(row("/var/lib/dolmus-takip/maintenance")).toMatch(/\| `root:root` \| `0644` \|$/);
+
+    const install = guide.slice(guide.indexOf("### 3.1"), guide.indexOf("### 3.2"));
+    expect(install).toContain("sudo install -d -m 0755 -o root -g root /var/lib/dolmus-takip\n");
+    expect(install).toContain(
+      "sudo install -d -m 0750 -o dolmus-takip -g dolmus-takip \\\n  /var/lib/dolmus-takip/data /var/lib/dolmus-takip/backup-ready /var/lib/dolmus-takip/pre-migration \\\n  /var/lib/dolmus-takip/preserved\n",
+    );
+    expect(install).toContain("sudo install -d -m 0700 -o root -g root /var/lib/dolmus-takip/release-state\n");
+    // Veri kökü alt dizinlerden önce açıkça kurulur (mod umask'a bırakılmaz).
+    expect(install.indexOf("-g root /var/lib/dolmus-takip\n")).toBeLessThan(
+      install.indexOf("/var/lib/dolmus-takip/data"),
+    );
   });
 
   test("ilk şema ve sürüm geçişi servis kullanıcısıyla; geçişte --existing; atomik current", () => {

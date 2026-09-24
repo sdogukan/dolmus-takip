@@ -1,0 +1,17 @@
+# /etc/systemd/system/dolmus-takip-backup.timer
+# HAZIRLANDI, gerçek sunucuda DENENMEDİ (manuel kurulumda denenecek). docs/SERVER-SETUP.md.
+# ARCHITECTURE §8.4: günlük kopya hazırlığı her gün 02:30 Europe/Istanbul.
+[Unit]
+Description=Dolmus Takip gunluk DB kopyasi zamanlayicisi (02:30 Europe/Istanbul)
+
+[Timer]
+OnCalendar=*-*-* 02:30:00 Europe/Istanbul
+# Yakalama koşusu YOK: kapalıyken kaçan koşu açılışta telafi edilmez. Geç bir
+# koşu 02:55–04:00 penceresine düşebilir ve snapshot penceresinde kopya
+# değiştirilmez; zamanlayıcı bu yüzden kopya denemesinin nedeni olmaz.
+Persistent=false
+AccuracySec=1s
+Unit=dolmus-takip-backup.service
+
+[Install]
+WantedBy=timers.target

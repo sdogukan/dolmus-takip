@@ -10,6 +10,7 @@ import type { Scope } from "../../auth/scope";
 import type { AppDatabase } from "../../data/db";
 import { cashConfirmations, workEntries } from "../../data/schema";
 import { entryScopeWhere, requireEntryVehicleScope } from "../work-entries/queries";
+import { sumText } from "./sums";
 
 /** Kuruş toplamları ondalık tam sayı METNİDİR (2^53 üstü kesin kalır). */
 export interface VehiclePeriodReport {
@@ -24,10 +25,6 @@ export interface VehiclePeriodReport {
   remainderCents: string;
   confirmedReceivedCents: string;
 }
-
-// SUM tam sayı metni olarak okunur: better-sqlite3 INTEGER'ı JS number'a çevirir
-// ve 2^53 üstünde sessizce yuvarlar. int64 taşması SQLite'ta hata fırlatır (500).
-const sumText = (column: unknown) => sql<string>`CAST(COALESCE(SUM(${column}), 0) AS TEXT)`;
 
 export function readVehiclePeriodReportForScope(
   db: AppDatabase,

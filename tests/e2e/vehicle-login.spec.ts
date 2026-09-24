@@ -5,7 +5,7 @@ import {
 } from "../../scripts/db-seed-dev";
 
 /**
- * Araç girişi uçtan uca testleri (Chromium + WebKit) — T1.2 ADIM 2/2,
+ * Araç girişi uçtan uca testleri (Chromium) — T1.2 ADIM 2/2,
  * S1.2, görev tanımı (3).
  *
  * Gerçek Node arka ucu (`../../playwright.config.ts` `webServer` — gerçek

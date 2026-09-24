@@ -10,11 +10,11 @@ _A field marked **Repos:** applies only to those repositories; a field without t
 
 - Unit — Vitest 5.0.1 (project 'unit'): money parsing/rounding, durations, validation, permission decisions, messages, contrast, plate, client state
 - Integration — Vitest + real better-sqlite3/Drizzle on a temporary file with real migrations (project 'integration'): composite FKs, transactions, revisions/confirmations, idempotency, SQL reports, multi-connection/process concurrency; mocks or :memory: not accepted for financial proof
-- E2E — Playwright 1.63.0, Chromium + WebKit, against the standalone production build with a real test DB
+- E2E — Playwright 1.63.0, Chromium only, against the standalone production build with a real test DB
 - Ops / load — isolated Linux drills and the target Lightsail in M6: native modules, systemd, WAL, crash/freeze, backup/restore, release, 100-user capacity
 - Manual — Android Chrome + iPhone Safari with representative users (tests/e2e/MANUAL-CHECKS.md)
 
-_Integration level kept deliberately: financial integrity must be proven on real SQLite. In the DIJJI runtime container WebKit cannot run, so package gates run Chromium only; full Chromium+WebKit E2E runs in CI and CI must be green before merge (session decision 2026-09-19)._
+_Integration level kept deliberately: financial integrity must be proven on real SQLite. E2E runs on Chromium only, both at package gates and in CI (user decision 2026-09-24, supersedes the 2026-09-19 WebKit-in-CI rule); `npm run test:e2e` is the single E2E command everywhere. iPhone Safari is covered by the manual checks, not by automated E2E._
 
 ### Coverage targets
 
@@ -88,7 +88,7 @@ _Existing test files enumerated from src and tests/; planned targets from QA-PLA
 **Repos:** dolmus-takip
 
 PR opened / push (ci.yml, ubuntu-24.04, Node from .nvmrc, 30 min timeout, concurrency cancel):
-  npm ci → typecheck → lint → test:unit → test:integration → test:e2e (next build + standalone, Chromium + WebKit) → release:build (dirty tree rejected, re-runs quality gate, sqlite_version gate, secret scan, tarball + manifest) → release:verify (hash, platform, db-init, /api/v1/health/live 200).
+  npm ci → typecheck → lint → test:unit → test:integration → test:e2e (next build + standalone, Chromium) → release:build (dirty tree rejected, re-runs quality gate, sqlite_version gate, secret scan, tarball + manifest) → release:verify (hash, platform, db-init, /api/v1/health/live 200).
   Artifacts kept 14 days; Playwright report uploaded only on failure (7 days). No secrets used.
 Merge to main: same pipeline; merge only when CI is green (2026-09-19 decision).
 Release (release.yml, workflow_dispatch with ref): builds and verifies the release tarball, artifact 30 days; no deploy step. Deployment to Lightsail is a manual SSH procedure (T6.2/T6.5).
@@ -103,7 +103,7 @@ _Step list single-sourced; runner.temp moved from job env to step level (commit 
 | Test type | When |
 | --- | --- |
 | Typecheck, lint, unit, integration | Every push and PR (ci.yml); locally via ci:local |
-| E2E Chromium + WebKit | Every push and PR in CI; Chromium-only at package gates inside the DIJJI runtime container |
+| E2E Chromium | Every push and PR in CI; same command (`npm run test:e2e`) at package gates inside the DIJJI runtime container |
 | Release build + verify | Every push/PR and on manual release.yml dispatch |
 | Report query-plan measurement (npm run perf:reports: 5-year synthetic data, EXPLAIN QUERY PLAN + timings of every report query, health latency while reports run) | Manual only — outside ci-steps.json and test:integration; the result is committed to docs/REPORT-QUERY-PLAN.md. The small-data index ratchet (reports-query-plan.test.ts) runs with integration on every push and PR |
 | Regression + real phone checks | End of each milestone M1–M5 |

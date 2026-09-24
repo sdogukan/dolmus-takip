@@ -6,9 +6,11 @@ import { defineConfig, devices } from "@playwright/test";
  * Playwright uçtan uca test yapılandırması — T1.2 ADIM 2/2 + T1.2 EK
  * DÜZELTME (S1.2, docs/DECISIONS.md "T1.2 uygulama kararları").
  *
- * QA-PLAN.md §1 — "Uçtan uca | Playwright Chromium ve WebKit; gerçek Node
- * backend ve üretim derlemesi | Giriş → kayıt → teslim → düzeltme → rapor;
- * gerçek HTTP, cookie, oturum ve test DB'si." Bu ADIM yalnız GİRİŞ
+ * QA-PLAN.md §1 — "Uçtan uca | Playwright ...; gerçek Node backend ve
+ * üretim derlemesi | Giriş → kayıt → teslim → düzeltme → rapor; gerçek
+ * HTTP, cookie, oturum ve test DB'si." Tarayıcı projesi yalnız Chromium'dur
+ * — WebKit 2026-09-24 kullanıcı kararıyla kaldırıldı (docs/DECISIONS.md
+ * "E2E yalnız Chromium"). Bu ADIM yalnız GİRİŞ
  * zincirini (`./tests/e2e/vehicle-login.spec.ts`) kapsar; sonraki E2/E3+
  * paketleri aynı altyapıyı genişletir.
  *
@@ -92,8 +94,8 @@ const E2E_DB_PATH = path.join(os.tmpdir(), "dolmus-takip-e2e", "test.sqlite");
  *    for all projects" örneği `undefined` bırakılabileceğini gösterir).
  *    Bu yüzden tek bir test 30 sn'de kesilse BİLE, KOŞUNUN TAMAMINI
  *    durduran bir tavan YOKTU: `retries: process.env.CI ? 2 : 0` ile CI'da
- *    HER başarısız test 3 kez (1 asıl + 2 tekrar) denenir; iki tarayıcı
- *    projesi (chromium+webkit) ve `workers: 1` (seri çalıştırma) ile
+ *    HER başarısız test 3 kez (1 asıl + 2 tekrar) denenir; tarayıcı
+ *    projesi sayısı ve `workers: 1` (seri çalıştırma) ile
  *    çarpıldığında, sistemik bir arıza (ör. `reuseExistingServer` yerelde
  *    ESKİ/BOZUK bir sunucuyu "hazır" sayması — sağlık ucu DB'ye hiç
  *    dokunmadığından bunu ayırt EDEMEZ) TÜM testleri başarısız/askıda
@@ -196,10 +198,6 @@ export default defineConfig({
     {
       name: "chromium",
       use: { ...devices["Desktop Chrome"] },
-    },
-    {
-      name: "webkit",
-      use: { ...devices["Desktop Safari"] },
     },
   ],
 });

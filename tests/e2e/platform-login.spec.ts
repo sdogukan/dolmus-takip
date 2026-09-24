@@ -7,7 +7,7 @@ import {
 import { PLATFORM_ROLE_LABELS } from "../../src/lib/messages";
 
 /**
- * Ekip girişi uçtan uca testleri (Chromium + WebKit) — T1.3 ADIM 2/2,
+ * Ekip girişi uçtan uca testleri (Chromium) — T1.3 ADIM 2/2,
  * S1.3, görev tanımı (d).
  *
  * `../../tests/e2e/vehicle-login.spec.ts`'İN AYNI altyapısı (gerçek
@@ -15,8 +15,7 @@ import { PLATFORM_ROLE_LABELS } from "../../src/lib/messages";
  * `seedDevData`'nın tek kaynağı — burada `SEED_USERNAMES`/
  * `SEED_TEST_PASSWORDS` DOĞRUDAN içe aktarılır, plaka/kullanıcı adı/şifre
  * TEKRAR YAZILMAZ) — yeni bir `webServer`/config eklenmez
- * (`../../playwright.config.ts` zaten iki projeyi de [chromium/webkit]
- * çalıştırır).
+ * (`../../playwright.config.ts` `projects`).
  *
  * S1.3 kabul kriterleri (STORIES.md) ile eşleme (`ac_coverage`'da tekrar
  * özetlenir):

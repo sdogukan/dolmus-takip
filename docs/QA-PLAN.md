@@ -13,7 +13,7 @@ Asıl kabul kapsamı STORIES.md içindeki 35 hikâyenin **258 kabul kutusudur**.
 |---|---|---|
 | Birim | Vitest; saat gibi dış girdiler kontrollü | Para ayrıştırma/yuvarlama, süre, doğrulama, yetki kararları, görünür hata metinleri. |
 | Entegrasyon | Vitest + gerçek better-sqlite3/Drizzle; ayrı geçici dosya ve gerçek migration | Birleşik FK, transaction, revizyon/onay, idempotency, SQL raporları; bağımsız bağlantı ve süreçler. |
-| Uçtan uca | Playwright Chromium ve WebKit; gerçek Node backend ve üretim derlemesi | Giriş → kayıt → teslim → düzeltme → rapor; gerçek HTTP, cookie, oturum ve test DB'si. |
+| Uçtan uca | Playwright Chromium (WebKit 2026-09-24 kararıyla kaldırıldı, bkz. DECISIONS.md); gerçek Node backend ve üretim derlemesi | Giriş → kayıt → teslim → düzeltme → rapor; gerçek HTTP, cookie, oturum ve test DB'si. |
 | İşletim / yük | İzole Linux denemesi; M6'da seçilen hedef makine | Native modüller, systemd, WAL, donma/çökme, yedek/restore, yayın ve kapasite. |
 | Manuel | Android Chrome, iPhone Safari ve temsili kullanıcı | Gerçek dokunma/klavye, okunabilirlik, yavaş bağlantı ve anlaşılabilir günlük akış. |
 
@@ -104,7 +104,7 @@ Bir madde tek ana gruba atanır; grup içindeki bağımlı ekran/rapor/işletim 
 | Zaman | Çalışacak kontroller / sınır |
 |---|---|
 | Geliştirme / her PR | Typecheck, lint, ilgili birim/gerçek DB entegrasyonu, üretim derlemesi ve hazır kritik E2E akışları; ana kapsama erişen değişiklikte regresyon. |
-| M1–M5 çıkışı | O aşama ve bağımlılıklarının tüm AC kanıtları; Chromium/WebKit regresyonu, seçilen gerçek telefon akışları. M1'den itibaren migration/native çıktı denemesi. |
+| M1–M5 çıkışı | O aşama ve bağımlılıklarının tüm AC kanıtları; Chromium regresyonu, seçilen gerçek telefon akışları (iPhone Safari dahil). M1'den itibaren migration/native çıktı denemesi. |
 | M6 / manuel yayın adayı | E1–E5 ve E6'nın yayın öncesi kriterleri, 28 PRD maddesi, hedef Linux, restore/yük/telefon kanıtları; çözülmemiş kritik yayın engeli yok. S6.6'nın yayın ve yayın sonrası kabulü bu noktada henüz açık kalır. |
 | Kontrollü yayın sonrası | Ayrı test işletmesinde HTTPS → giriş → tek kayıt → alınan tutar onayı → rapor → ekip desteği kısa smoke; gerçek müşteri defterine deneme kaydı yazma, sonucu sürümle ilişkilendir. |
 

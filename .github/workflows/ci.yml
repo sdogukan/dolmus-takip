@@ -88,8 +88,8 @@ jobs:
       - name: Entegrasyon testleri (gerçek geçici SQLite + migration)
         run: npm run test:integration
 
-      - name: Playwright tarayıcılarını kur (chromium + webkit)
-        run: npx playwright install --with-deps chromium webkit
+      - name: Playwright tarayıcısını kur (chromium)
+        run: npx playwright install --with-deps chromium
 
       # Denetim bulgusu (S6.1 düzeltme turu 1, medium — Actions dakika
       # bütçesi): burada ayrıca bir "npm run build" adımı YOKTUR. Bu

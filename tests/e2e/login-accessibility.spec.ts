@@ -9,8 +9,8 @@ import {
  * Giriş erişilebilirliği ve zaman aşımı sağlamlığı — T1.6 ADIM 2/2, S1.6.
  *
  * Bu dosya `../../docs/STORIES.md` S1.6'nın YEDİ kabul kriterini
- * DOĞRUDAN E2E ile kanıtlar (Chromium + WebKit — `../../playwright.
- * config.ts` `projects`). Diğer giriş E2E dosyalarıyla (`./vehicle-
+ * DOĞRUDAN E2E ile kanıtlar (Chromium — `../../playwright.config.ts`
+ * `projects`). Diğer giriş E2E dosyalarıyla (`./vehicle-
  * login.spec.ts`, `./platform-login.spec.ts`) AYNI altyapıyı (gerçek
  * standalone sunucu, gerçek DB, `../../scripts/db-seed-dev.ts`
  * `seedDevData`'nın tek kaynağı) paylaşır; yeni bir `webServer`/config
@@ -178,34 +178,19 @@ for (const variant of VARIANTS) {
       await expect(passwordInput).toBeFocused();
       await assertActiveElementHasVisibleFocus(page);
 
-      // Native Tab sırasıyla DÜĞMELERE erişim tarayıcı motoruna göre
-      // FARKLIDIR — KANIT: bu paketin kendi E2E koşusu (izole,
-      // tekrarlanabilir). Chromium'un varsayılanı TÜM etkileşimli
-      // öğeleri (düğme dahil) Tab sırasına katar; WebKit ise (gerçek
-      // masaüstü Safari'nin "Full Keyboard Access" KAPALI varsayılanıyla
-      // BİREBİR — Apple'ın kendi belgelediği davranış) yalnız metin
-      // alanlarını/bağlantıları katar, düğmeleri (Göster/Gizle, Giriş
-      // yap) Tab sırasından TAMAMEN ÇIKARIR. Bu bir UYGULAMA KUSURU
-      // DEĞİLDİR — motorun/işletim sisteminin kendi varsayılanıdır ve
-      // uygulama kodundan DÜZELTİLEMEZ (CLAUDE.md "kök nedeni bul ve
-      // düzelt" — kök neden burada UYGULAMADA değil, motor/OS
-      // varsayılanındadır). Bu yüzden düğmelere Tab'la erişilebilirlik
-      // yalnız Chromium'da katı biçimde sınanır.
-      if (test.info().project.name === "chromium") {
-        await page.keyboard.press("Tab");
-        await expect(toggleButton).toBeFocused();
-        await assertActiveElementHasVisibleFocus(page);
+      await page.keyboard.press("Tab");
+      await expect(toggleButton).toBeFocused();
+      await assertActiveElementHasVisibleFocus(page);
 
-        await page.keyboard.press("Tab");
-        await expect(submitButton).toBeFocused();
-        await assertActiveElementHasVisibleFocus(page);
-      }
+      await page.keyboard.press("Tab");
+      await expect(submitButton).toBeFocused();
+      await assertActiveElementHasVisibleFocus(page);
 
       // Asıl ürün gereksinimi (DESIGN §3 "Klavye odağı görünür") motordan
       // BAĞIMSIZDIR: düğmeler HANGİ mekanizmayla odaklanırsa odaklansın
       // (Tab, ekran okuyucu rotoru, Full Keyboard Access) odak GÖRÜNÜR
-      // olmalı — bu, programatik `.focus()` ile HER İKİ tarayıcıda da
-      // AYRICA ve doğrudan sınanır.
+      // olmalı — bu, programatik `.focus()` ile AYRICA ve doğrudan
+      // sınanır.
       await toggleButton.focus();
       await expect(toggleButton).toBeFocused();
       await assertActiveElementHasVisibleFocus(page);

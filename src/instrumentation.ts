@@ -29,6 +29,11 @@ export async function register(): Promise<void> {
     // yarı hazır bir sunucunun trafik almasını engeller.
     getAppDb();
 
+    // Dakikada bir çalışma zamanı metrik satırı; tekrar eden `register()`
+    // çağrıları ikinci bir zamanlayıcı başlatmaz.
+    const { startRuntimeMetrics } = await import("./server/observability/runtime-metrics");
+    startRuntimeMetrics();
+
     const { resolveTrustedAppOrigin } = await import("./server/auth/app-origin");
     resolveTrustedAppOrigin();
   }

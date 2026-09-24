@@ -325,7 +325,97 @@ export function withImmediateTransaction<T>(
   sqlite: SqliteConnection,
   fn: () => T,
 ): T {
-  return sqlite.transaction(fn).immediate();
+  // İç içe çağrı (açık transaction içinde) bir SAVEPOINT'tir, ayrı bir
+  // yazma transaction'ı değildir: dış çağrının süresi onu zaten kapsar.
+  if (sqlite.inTransaction) {
+    return sqlite.transaction(fn).immediate();
+  }
+  const startedAt = performance.now();
+  try {
+    return sqlite.transaction(fn).immediate();
+  } catch (error) {
+    if (extractTransientSqliteLockError(error)) {
+      writeTxLockFailures++;
+    }
+    throw error;
+  } finally {
+    recordWriteTransactionDuration(performance.now() - startedAt);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Yazma transaction'ı metrikleri — `../observability/runtime-metrics.ts`
+// dakikada bir `takeWriteTransactionStats()` ile okuyup sıfırlar.
+//
+// Bu modül `scripts/release-build.ts` ile arşive KOPYALANIR ve sunucuda düz
+// `node` ile çalışır: sayaçlar bilerek burada, YENİ bir import olmadan
+// tutulur (`performance` Node'un global nesnesidir).
+// ---------------------------------------------------------------------------
+
+/** p99 için aralık başına saklanan en fazla süre örneği (rezervuar
+ * örnekleme — bellek yazma hacminden bağımsız sınırlı kalır). */
+export const WRITE_TX_SAMPLE_CAPACITY = 10_000;
+
+let writeTxCount = 0;
+let writeTxLockFailures = 0;
+let writeTxMaxMs = 0;
+let writeTxSamplesMs: number[] = [];
+
+function recordWriteTransactionDuration(durationMs: number): void {
+  writeTxCount++;
+  if (durationMs > writeTxMaxMs) {
+    writeTxMaxMs = durationMs;
+  }
+  if (writeTxSamplesMs.length < WRITE_TX_SAMPLE_CAPACITY) {
+    writeTxSamplesMs.push(durationMs);
+    return;
+  }
+  // Algorithm R: her örnek kapasite/sayı olasılıkla rezervuarda kalır.
+  const slot = Math.floor(Math.random() * writeTxCount);
+  if (slot < WRITE_TX_SAMPLE_CAPACITY) {
+    writeTxSamplesMs[slot] = durationMs;
+  }
+}
+
+export interface WriteTransactionStats {
+  /** Aralıktaki dış yazma transaction'ı sayısı (başarısızlar dahil). */
+  count: number;
+  /** SQLITE_BUSY/SQLITE_LOCKED ile biten transaction sayısı. */
+  lockFailures: number;
+  /** Kilit beklemesi (busy_timeout) dahil süre; örnek yoksa `0`. */
+  p99Ms: number;
+  maxMs: number;
+}
+
+/**
+ * Son okumadan beri biriken yazma transaction'ı istatistiklerini döner ve
+ * sayaçları sıfırlar. Okuma ve sıfırlama aynı senkron adımdadır: arada
+ * başka bir transaction kaydı giremez, hiçbir örnek kaybolmaz veya iki kez
+ * sayılmaz.
+ */
+export function takeWriteTransactionStats(): WriteTransactionStats {
+  const samples = writeTxSamplesMs;
+  const stats: WriteTransactionStats = {
+    count: writeTxCount,
+    lockFailures: writeTxLockFailures,
+    p99Ms: nearestRankPercentile(samples, 0.99),
+    maxMs: writeTxMaxMs,
+  };
+  writeTxCount = 0;
+  writeTxLockFailures = 0;
+  writeTxMaxMs = 0;
+  writeTxSamplesMs = [];
+  return stats;
+}
+
+/** Nearest-rank yüzdelik; boş dizide `0`. */
+function nearestRankPercentile(values: readonly number[], fraction: number): number {
+  if (values.length === 0) {
+    return 0;
+  }
+  const sorted = [...values].sort((a, b) => a - b);
+  const rank = Math.max(1, Math.ceil(fraction * sorted.length));
+  return sorted[rank - 1]!;
 }
 
 /**

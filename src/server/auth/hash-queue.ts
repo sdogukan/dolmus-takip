@@ -51,10 +51,16 @@ interface PendingEntry {
   reject: (error: Error) => void;
   timeoutHandle: ReturnType<typeof setTimeout>;
   enqueuedAtMs: number;
+  clock: Clock;
 }
 
 let active = 0;
 let pending: PendingEntry[] = [];
+
+// Aralık sayaçları — `takeHashQueueIntervalStats()` okuyup sıfırlar.
+let intervalVerifications = 0;
+let intervalMaxPending = 0;
+let intervalLongestWaitMs = 0;
 
 /** Yalnız testler içindir — bekleyen/aktif durumu sıfırlar. Üretim kodu
  * bunu ÇAĞIRMAZ (bkz. `../../data/app-db.ts` `resetAppDbForTests` aynı
@@ -65,6 +71,9 @@ export function resetHashQueueForTests(): void {
   }
   pending = [];
   active = 0;
+  intervalVerifications = 0;
+  intervalMaxPending = 0;
+  intervalLongestWaitMs = 0;
 }
 
 export interface HashQueueMetrics {
@@ -91,6 +100,48 @@ export function getHashQueueMetrics(clock: Clock = systemClock): HashQueueMetric
   };
 }
 
+export interface HashQueueIntervalStats {
+  /** Aralıkta ÇALIŞTIRILAN doğrulama sayısı (kuyruk aşımında `fn`
+   * çağrılmadığından o istekler sayılmaz). */
+  verifications: number;
+  /** Aralıkta görülen en yüksek bekleyen sayısı. */
+  maxPending: number;
+  /** Aralıkta kuyruktan çıkan (kota alan veya zaman aşımına uğrayan) ya da
+   * okuma anında hâlâ bekleyen isteklerin en uzun beklemesi (ms). */
+  longestWaitMs: number;
+}
+
+/**
+ * Son okumadan beri biriken kuyruk istatistiklerini döner ve sıfırlar —
+ * `../observability/runtime-metrics.ts` dakikada bir çağırır. Okuma ve
+ * sıfırlama aynı senkron adımdadır (arada artış kaybolmaz). Hâlâ bekleyen
+ * istekler yeni aralığa taşınır: yeni aralığın `maxPending` başlangıcı
+ * mevcut bekleyen sayısıdır.
+ */
+export function takeHashQueueIntervalStats(
+  clock: Clock = systemClock,
+): HashQueueIntervalStats {
+  const stats: HashQueueIntervalStats = {
+    verifications: intervalVerifications,
+    maxPending: intervalMaxPending,
+    longestWaitMs: Math.max(
+      intervalLongestWaitMs,
+      getHashQueueMetrics(clock).longestWaitMs,
+    ),
+  };
+  intervalVerifications = 0;
+  intervalMaxPending = pending.length;
+  intervalLongestWaitMs = 0;
+  return stats;
+}
+
+function recordWait(entry: PendingEntry): void {
+  const waitedMs = entry.clock().getTime() - entry.enqueuedAtMs;
+  if (waitedMs > intervalLongestWaitMs) {
+    intervalLongestWaitMs = waitedMs;
+  }
+}
+
 /**
  * Bir kotayı ELDE EDER (aktif sayacı artırır) VEYA kuyruğa girer VEYA
  * (kuyruk doluysa) hemen `HashQueueFullError` fırlatır. `clock` yalnız
@@ -113,15 +164,20 @@ async function acquire(clock: Clock, maxWaitMs: number): Promise<void> {
       resolve,
       reject,
       enqueuedAtMs: clock().getTime(),
+      clock,
       timeoutHandle: setTimeout(() => {
         const idx = pending.indexOf(entry);
         if (idx !== -1) {
           pending.splice(idx, 1);
         }
+        recordWait(entry);
         reject(new HashQueueFullError());
       }, maxWaitMs),
     };
     pending.push(entry);
+    if (pending.length > intervalMaxPending) {
+      intervalMaxPending = pending.length;
+    }
   });
 }
 
@@ -134,6 +190,7 @@ function release(): void {
   const next = pending.shift();
   if (next) {
     clearTimeout(next.timeoutHandle);
+    recordWait(next);
     next.resolve();
     return;
   }
@@ -160,6 +217,7 @@ export async function runInHashQueue<T>(
   maxWaitMs: number = HASH_QUEUE_MAX_WAIT_MS,
 ): Promise<T> {
   await acquire(clock, maxWaitMs);
+  intervalVerifications++;
   try {
     return await fn();
   } finally {

@@ -2,14 +2,16 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import Database from "better-sqlite3";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   createDb,
   extractTransientSqliteLockError,
   MissingDatabaseFileError,
   openDatabaseConnection,
   resolveDbPathFromEnv,
+  takeWriteTransactionStats,
   withImmediateTransaction,
+  WRITE_TX_SAMPLE_CAPACITY,
   type SqliteConnection,
 } from "../../src/server/data/db";
 
@@ -149,6 +151,142 @@ describe("withImmediateTransaction", () => {
     });
     expect(observedDuring).toBe(true);
     expect(sqlite.inTransaction).toBe(false);
+  });
+});
+
+describe("withImmediateTransaction — yazma transaction'ı metrikleri", () => {
+  let dir: string;
+  let dbPath: string;
+  let sqlite: SqliteConnection;
+
+  beforeEach(() => {
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), "dolmus-takip-txstats-"));
+    dbPath = path.join(dir, "test.sqlite");
+    sqlite = openDatabaseConnection(dbPath, { createIfMissing: true });
+    sqlite.exec(
+      "CREATE TABLE test_counter (id INTEGER PRIMARY KEY, value INTEGER NOT NULL)",
+    );
+    // Önceki testlerin kayıtları bu aralığa taşınmasın.
+    takeWriteTransactionStats();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    sqlite.close();
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  it("örnek yokken tüm alanlar 0'dır", () => {
+    expect(takeWriteTransactionStats()).toEqual({
+      count: 0,
+      lockFailures: 0,
+      p99Ms: 0,
+      maxMs: 0,
+    });
+  });
+
+  it("dönüş değerini değiştirmeden sayar; okuma sayaçları sıfırlar", () => {
+    const result = withImmediateTransaction(sqlite, () => {
+      sqlite.prepare("INSERT INTO test_counter (id, value) VALUES (1, 10)").run();
+      return { inserted: 1 };
+    });
+    expect(result).toEqual({ inserted: 1 });
+    withImmediateTransaction(sqlite, () => undefined);
+
+    const stats = takeWriteTransactionStats();
+    expect(stats.count).toBe(2);
+    expect(stats.lockFailures).toBe(0);
+    expect(stats.maxMs).toBeGreaterThanOrEqual(stats.p99Ms);
+    expect(stats.p99Ms).toBeGreaterThanOrEqual(0);
+
+    expect(takeWriteTransactionStats()).toEqual({
+      count: 0,
+      lockFailures: 0,
+      p99Ms: 0,
+      maxMs: 0,
+    });
+  });
+
+  it("fn'in hatası AYNI nesne olarak fırlar ve transaction sayılır, kilit hatası sayılmaz", () => {
+    const failure = new Error("kasıtlı hata");
+    let thrown: unknown;
+    try {
+      withImmediateTransaction(sqlite, () => {
+        throw failure;
+      });
+    } catch (error) {
+      thrown = error;
+    }
+    expect(thrown).toBe(failure);
+
+    const stats = takeWriteTransactionStats();
+    expect(stats.count).toBe(1);
+    expect(stats.lockFailures).toBe(0);
+  });
+
+  it("başka bağlantı yazma kilidini tutarken SQLITE_BUSY değişmeden fırlar ve lockFailures artar", () => {
+    const holder = openDatabaseConnection(dbPath);
+    // Beklemeyi kısaltmak için yalnız bu testin bağlantısında busy_timeout 0.
+    sqlite.pragma("busy_timeout = 0");
+    holder.exec("BEGIN IMMEDIATE");
+    try {
+      let thrown: unknown;
+      try {
+        withImmediateTransaction(sqlite, () => {
+          sqlite.prepare("INSERT INTO test_counter (id, value) VALUES (3, 30)").run();
+        });
+      } catch (error) {
+        thrown = error;
+      }
+      expect(thrown).toBeInstanceOf(Database.SqliteError);
+      expect(extractTransientSqliteLockError(thrown)).toBe(thrown);
+
+      const stats = takeWriteTransactionStats();
+      expect(stats.count).toBe(1);
+      expect(stats.lockFailures).toBe(1);
+    } finally {
+      holder.exec("ROLLBACK");
+      holder.close();
+    }
+  });
+
+  it("iç içe çağrı (SAVEPOINT) ayrı bir transaction olarak sayılmaz", () => {
+    const inner = withImmediateTransaction(sqlite, () =>
+      withImmediateTransaction(sqlite, () => "iç"),
+    );
+    expect(inner).toBe("iç");
+    expect(takeWriteTransactionStats().count).toBe(1);
+  });
+
+  it("p99 nearest-rank'tır; kapasite aşıldığında count ve max tam kalır", () => {
+    // Süreler performance.now() ile belirlenir: i. transaction i ms sürer,
+    // sonuncusu 50 000 ms. Math.random 0 → rezervuarın 0. yuvası değişir.
+    const durations = [
+      ...Array.from({ length: WRITE_TX_SAMPLE_CAPACITY }, (_, i) => i + 1),
+      50_000,
+    ];
+    let clock = 0;
+    let call = 0;
+    vi.spyOn(performance, "now").mockImplementation(() => {
+      const index = Math.floor(call / 2);
+      if (call % 2 === 1) {
+        clock += durations[index]!;
+      }
+      call++;
+      return clock;
+    });
+    vi.spyOn(Math, "random").mockReturnValue(0);
+
+    for (let i = 0; i < durations.length; i++) {
+      withImmediateTransaction(sqlite, () => undefined);
+    }
+
+    const stats = takeWriteTransactionStats();
+    expect(stats.count).toBe(WRITE_TX_SAMPLE_CAPACITY + 1);
+    expect(stats.maxMs).toBe(50_000);
+    // Rezervuar: 2..10000 ve 50000 (1 ms'lik örneğin yerini aldı);
+    // rank = ceil(0.99 × 10000) = 9900 → 9901 ms.
+    expect(stats.p99Ms).toBe(9901);
   });
 });
 

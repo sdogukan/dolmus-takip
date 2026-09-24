@@ -58,7 +58,7 @@ export type UpdateWorkEntryResult =
 
 /** `workType` verilirse yalnız kayıt türüyle karşılaştırılır; `workerPersonId`
  * yalnız `driver` kaydında kişi değişimi içindir. Kayıt kimliği/kapsam yok. */
-const updateSubjectSchema = scopeSafeObject({
+export const updateSubjectSchema = scopeSafeObject({
   workType: z.enum(WORK_TYPES, { error: TEXT.workTypeInvalid }).optional(),
   workerPersonId: z
     .string({ error: TEXT.personRequired })
@@ -67,7 +67,7 @@ const updateSubjectSchema = scopeSafeObject({
 });
 
 /** Yeniden hesaplanan ve "değişiklik yok" kararında karşılaştırılan alanlar. */
-const FIGURE_KEYS = [
+export const FIGURE_KEYS = [
   "workDate",
   "startsAt",
   "endsAt",
@@ -81,15 +81,13 @@ const FIGURE_KEYS = [
   "remainderCents",
 ] as const satisfies readonly (keyof WorkEntryFigures)[];
 
-/** Hash NORMALLEŞTİRİLMİŞ değerler üzerindendir; kayıt kimliği ve sürüm dahildir
- * (aynı requestId başka kayıtta/sürümde 409 REQUEST_ID_REUSED alır). */
-function computeRequestHash(params: UpdateWorkEntryParams): string | undefined {
-  const subject = updateSubjectSchema.safeParse(params.body);
-  const input = workEntryInputSchema.safeParse(params.body);
+/** Hash'e giren, NORMALLEŞTİRİLMİŞ günlük alanlar + tür/kişi (düzelt-ve-onayla ile ORTAK).
+ * Gövde şemaları başarısızsa `undefined` (geçersiz gövde hiçbir makbuza denk gelemez). */
+export function normalizedDailyPayload(body: unknown): Record<string, unknown> | undefined {
+  const subject = updateSubjectSchema.safeParse(body);
+  const input = workEntryInputSchema.safeParse(body);
   if (!subject.success || !input.success) return undefined;
-  return hashRequestPayload({
-    entryId: params.entryId,
-    version: params.version,
+  return {
     workType: subject.data.workType ?? null,
     workerPersonId: subject.data.workType === "owner" ? null : (subject.data.workerPersonId ?? null),
     date: input.data.date,
@@ -100,7 +98,15 @@ function computeRequestHash(params: UpdateWorkEntryParams): string | undefined {
     fuelCents: input.data.fuelCents.toString(),
     otherExpenseCents: input.data.otherExpenseCents.toString(),
     otherExpenseNote: input.data.otherExpenseNote,
-  });
+  };
+}
+
+/** Hash NORMALLEŞTİRİLMİŞ değerler üzerindendir; kayıt kimliği ve sürüm dahildir
+ * (aynı requestId başka kayıtta/sürümde 409 REQUEST_ID_REUSED alır). */
+function computeRequestHash(params: UpdateWorkEntryParams): string | undefined {
+  const daily = normalizedDailyPayload(params.body);
+  if (!daily) return undefined;
+  return hashRequestPayload({ entryId: params.entryId, version: params.version, ...daily });
 }
 
 function validationError(fields: Record<string, string>): UpdateWorkEntryResult {
@@ -108,7 +114,7 @@ function validationError(fields: Record<string, string>): UpdateWorkEntryResult 
 }
 
 /** Audit yükü yalnız günlük alanları + sürüm taşır (oturum/hash/çerez YOK). */
-function auditPayload(values: Record<string, unknown>): Record<string, unknown> {
+export function auditPayload(values: Record<string, unknown>): Record<string, unknown> {
   return Object.fromEntries(
     [...FIGURE_KEYS, "personId", "status", "version"].map((key) => [key, values[key]]),
   );

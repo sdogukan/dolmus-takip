@@ -128,6 +128,8 @@ export const ERROR_CODE_MESSAGES: Record<string, string> = {
   ENTRY_CONFIRMED: "Bu kayıt onaylanmış; buradan düzenlenemez.",
   // T4.1 — teslim onayı (`../server/usecases/work-entries/confirm.ts`).
   CONFIRMATION_NOT_REQUIRED: "Bu kayıt için teslim onayı gerekmiyor.",
+  // T4.3 — onaylı kaydı düzelt ve onayla (`../server/usecases/work-entries/correct-and-confirm.ts`).
+  ENTRY_NOT_CONFIRMED: "Bu kayıt henüz onaylanmamış; önce teslim onayını ver.",
 };
 
 /**
@@ -599,4 +601,16 @@ export const WORK_ENTRY_MESSAGES = {
   confirmedReceivedLabel: "Alınan tutar",
   confirmedAtLabel: "Doğrulama zamanı",
   confirmedAtValue: (date: string, time: string): string => `${date} · ${time}`,
+  // T4.3 — sahibin onaylı kaydı düzelt ve onayla.
+  correctTitle: "Onaylanmış kaydı düzelt",
+  newExpectedLabel: "Yeni beklenen teslim",
+  correctSubmit: "Düzelt ve onayla",
+  correctSending: "Düzeltiliyor…",
+  correctCancel: "Vazgeç",
+  correctUnknownResult:
+    "Düzeltmenin gönderilip gönderilmediği bilinmiyor. Alanlar kilitlendi; tekrar dene, aynı düzeltme yalnız bir kez uygulanır.",
+  correctDiscardTitle: "Değişiklikler silinsin mi?",
+  correctDiscardDescription: "Yaptığın değişiklikler kaydedilmeden kapatılır. Kayıt olduğu gibi kalır.",
+  correctDiscardConfirm: "Sil ve kapat",
+  correctDiscardBack: "Düzeltmeye dön",
 } as const;

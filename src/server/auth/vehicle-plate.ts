@@ -10,10 +10,10 @@
  * mantığını bağımsız kopyalar hâlinde taşıyıp birinin değişip diğerinin
  * unutulması riskini önler.
  */
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { formatPlateForDisplay } from "../../lib/plate";
 import type { AppDatabase } from "../data/db";
-import { vehicles } from "../data/schema";
+import { people, vehicles } from "../data/schema";
 
 export async function readVehiclePlateForDisplay(
   db: AppDatabase,
@@ -26,4 +26,18 @@ export async function readVehiclePlateForDisplay(
     .limit(1);
   const row = rows[0];
   return row ? formatPlateForDisplay(row.plateNormalized) : undefined;
+}
+
+/** Aracın sahibinin adı (`/sahip` üst başlığı); araç/sahip yoksa `undefined`. */
+export async function readVehicleOwnerNameForDisplay(
+  db: AppDatabase,
+  vehicleId: string,
+): Promise<string | undefined> {
+  const rows = await db
+    .select({ fullName: people.fullName })
+    .from(vehicles)
+    .innerJoin(people, and(eq(people.businessId, vehicles.businessId), eq(people.id, vehicles.ownerPersonId)))
+    .where(eq(vehicles.id, vehicleId))
+    .limit(1);
+  return rows[0]?.fullName;
 }

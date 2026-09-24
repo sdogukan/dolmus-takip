@@ -194,12 +194,11 @@ test.describe("Şoförlerim", () => {
     await expect(page.getByRole("listitem").filter({ hasText: "Hüseyin Ak" })).toHaveCount(1);
   });
 
-  test("/sahip mevcut başlığı ve metni korur, Şoförlerim bağlantısı eklenir", async ({ page }) => {
+  test("/sahip özeti açılır, Şoförlerim bağlantısı korunur", async ({ page }) => {
     await loginAsVehicle(page, SEED_RAW_PLATES.vehicleA1, SEED_TEST_PASSWORDS.owner, "/sahip");
-    await expect(page.getByRole("heading", { name: "Özet" })).toBeVisible();
-    await expect(
-      page.getByText("Sahip girişi başarılı. Özet ve raporlar bir sonraki aşamada"),
-    ).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Özet" })).toBeAttached();
+    await expect(page.getByText("Sahip girişi başarılı. Özet ve raporlar bir sonraki aşamada")).toHaveCount(0);
+    await expect(page.getByLabel("Dönem", { exact: true })).toBeVisible();
     await expect(page.getByRole("link", { name: "Şoförlerim" })).toHaveAttribute("href", "/sahip/soforler");
   });
 

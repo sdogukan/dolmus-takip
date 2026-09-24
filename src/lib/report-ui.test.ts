@@ -1,15 +1,18 @@
 import { describe, expect, it } from "vitest";
 import {
   buildDailyEntriesUrl,
+  buildOwnerSummaryUrl,
   buildPeoplePeriodReportUrl,
   buildPersonPeriodReportUrl,
   buildVehiclePeriodReportUrl,
   dailyEntryCardView,
   formatReportPeriodRange,
   parseDailyEntriesPage,
+  parseOwnerSummary,
   parsePeoplePeriodReport,
   parsePersonPeriodReport,
   parseVehiclePeriodReport,
+  ownerSummaryView,
   peoplePeriodReportView,
   personDetailView,
   vehiclePeriodReportView,
@@ -451,5 +454,60 @@ describe("dailyEntryCardView", () => {
 
   it("eksi kalan eksi işaretini korur", () => {
     expect(view({ remainderCents: "-40000" }).expectedText).toBe("-400,00 TL");
+  });
+});
+
+const summaryBody = (override: Record<string, unknown> = {}) => ({
+  summary: { ...baseReport(), vehicle: { plate: "35 ABC 123" }, owner: { fullName: "Görkem" }, ...override },
+});
+
+describe("buildOwnerSummaryUrl", () => {
+  it("date yoksa yalnız dönemi, varsa tarihi de yollar", () => {
+    expect(buildOwnerSummaryUrl("month", undefined)).toBe("/api/v1/reports/summary?period=month");
+    expect(buildOwnerSummaryUrl("week", "2026-09-28")).toBe("/api/v1/reports/summary?period=week&date=2026-09-28");
+  });
+});
+
+describe("parseOwnerSummary", () => {
+  it("geçerli özet: kuruşlar BigInt, dönem sunucudan", () => {
+    const data = parseOwnerSummary(summaryBody());
+    expect(data?.grossCents).toBe(2000000n);
+    expect(data?.remainderCents).toBe(1440000n);
+    expect(data?.period.startDate).toBe("2026-09-01");
+  });
+
+  it("eksi kalan kabul edilir; eksi hasılat, bozuk tutar, eksik alan ve gövdesiz yanıt null", () => {
+    expect(parseOwnerSummary(summaryBody({ remainderCents: "-5000" }))?.remainderCents).toBe(-5000n);
+    expect(parseOwnerSummary(summaryBody({ grossCents: "-1" }))).toBeNull();
+    expect(parseOwnerSummary(summaryBody({ fuelCents: "12,5" }))).toBeNull();
+    expect(parseOwnerSummary(summaryBody({ confirmedReceivedCents: undefined }))).toBeNull();
+    expect(parseOwnerSummary(summaryBody({ period: { kind: "day", startDate: "2026-09-01", nextStartDate: "2026-09-02" } }))).toBeNull();
+    expect(parseOwnerSummary({ report: baseReport() })).toBeNull();
+    expect(parseOwnerSummary(null)).toBeNull();
+  });
+});
+
+describe("ownerSummaryView", () => {
+  it("etiketli toplamlar PRD örneğiyle; alınan tutar ayrı", () => {
+    const view = ownerSummaryView(parseOwnerSummary(summaryBody({ confirmedReceivedCents: "0" }))!);
+    expect(view.rangeText).toBe("1–30 Eylül 2026");
+    expect(view.totals).toEqual([
+      { label: "Hasılat", value: "20.000,00 TL" },
+      { label: "Mazot", value: "3.000,00 TL" },
+      { label: "Diğer masraf", value: "600,00 TL" },
+      { label: "Şoför payı", value: "2.000,00 TL" },
+      { label: "Hesaplanan kalan", value: "14.400,00 TL" },
+    ]);
+    expect(view.received).toBe("0,00 TL");
+    expect(view.startDate).toBe("2026-09-01");
+    expect(view.previousDate).toBe("2026-08-31");
+    expect(view.nextDate).toBe("2026-10-01");
+    expect(view.isEmpty).toBe(false);
+  });
+
+  it("entryCount 0 → boş dönem; yasak etiketler yok", () => {
+    const view = ownerSummaryView(parseOwnerSummary(summaryBody({ entryCount: 0 }))!);
+    expect(view.isEmpty).toBe(true);
+    expect(JSON.stringify(view)).not.toMatch(/Kazanç|Borçlu|Ödenmedi/u);
   });
 });

@@ -476,3 +476,52 @@ export function dailyEntryCardView(entry: WorkEntryDetail): DailyEntryCardView {
     href: workEntryDetailHref("owner", entry.id, ""),
   };
 }
+
+/** `GET /api/v1/reports/summary` adresi; `date` yoksa sunucu bugünü (İstanbul) kullanır. */
+export function buildOwnerSummaryUrl(period: ReportPeriodKind, date: string | undefined): string {
+  const params = new URLSearchParams({ period });
+  if (date !== undefined) params.set("date", date);
+  return `/api/v1/reports/summary?${params.toString()}`;
+}
+
+/**
+ * `GET /api/v1/reports/summary` gövdesi → dönem toplamları; biçim bozuksa `null`
+ * (ekran kısmi tutar göstermez). Toplamlar `/reports/vehicles` ile aynı biçimdedir;
+ * araç başlığı sunucuda çizildiği için `vehicle`/`owner` burada okunmaz.
+ */
+export function parseOwnerSummary(body: unknown): VehiclePeriodReportData | null {
+  const summary = (body as { summary?: unknown } | null)?.summary;
+  return parseVehiclePeriodReport({ report: summary });
+}
+
+export interface OwnerSummaryView {
+  rangeText: string;
+  isEmpty: boolean;
+  /** Önceki dönemin herhangi bir günü. */
+  previousDate: string;
+  /** Sonraki dönemin ilk günü. */
+  nextDate: string;
+  /** Sunucunun döndürdüğü dönemin ilk günü; bekleyen kayıt listesi AYNI dönemi bununla ister. */
+  startDate: string;
+  totals: { label: string; value: string }[];
+  received: string;
+}
+
+export function ownerSummaryView(summary: VehiclePeriodReportData): OwnerSummaryView {
+  const view = vehiclePeriodReportView(summary);
+  return {
+    rangeText: view.rangeText,
+    isEmpty: view.isEmpty,
+    previousDate: view.previousDate,
+    nextDate: view.nextDate,
+    startDate: view.startDate,
+    totals: [
+      { label: TEXT.breakdown.gross, value: formatTlAmount(summary.grossCents) },
+      { label: TEXT.breakdown.fuel, value: formatTlAmount(summary.fuelCents) },
+      { label: TEXT.breakdown.otherExpense, value: formatTlAmount(summary.otherExpenseCents) },
+      { label: TEXT.breakdown.share, value: formatTlAmount(summary.shareCents) },
+      { label: TEXT.remainderLabel, value: view.remainder },
+    ],
+    received: view.received,
+  };
+}

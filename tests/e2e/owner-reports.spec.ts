@@ -416,6 +416,8 @@ test.describe("Sahip raporları (/sahip/raporlar)", () => {
 
     async function openDaily(page: Page): Promise<void> {
       await login(page, PLATE, SEED_TEST_PASSWORDS.owner, "/sahip");
+      // /sahip özeti açılışta kendi özet ve bekleyen-kayıt isteklerini yapar; taklit yanıtlar bunları yakalamasın.
+      await expect(page.getByText("Kayıtlar yükleniyor…")).toHaveCount(0);
       await page.route(REPORT_URL, (route) => route.fulfill({ json: vehicleReport }));
       await page.route(PEOPLE_URL, (route) => route.fulfill({ json: people }));
     }

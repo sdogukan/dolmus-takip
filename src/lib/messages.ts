@@ -337,6 +337,16 @@ export const REPORT_MESSAGES = {
   dayCount: (days: number): string => `${days} gün`,
   /** Özet tutarlarının kapsamı: tüm dönem, süzgeçten bağımsız. */
   summaryScope: "Bu tutarlar dönemin tamamındaki araç toplamıdır; günlük kayıt süzgeçlerinden etkilenmez.",
+  /** Sahip özeti (`../app/_components/owner-summary.tsx`, `../app/sahip/page.tsx`). */
+  summary: {
+    title: "Özet",
+    tabsLabel: "Sahip bağlantıları",
+    driversTab: "Şoförlerim",
+    periodLabel: "Dönem",
+    receivedHelp: "Yalnız doğruladığın şoför teslimleri",
+    pendingTitle: (range: string): string => `Henüz doğrulanmayan kayıtlar (${range})`,
+    pendingEmpty: "Bu dönemde bekleyen kayıt yok.",
+  },
   /** "Gün gün" bölümü (`../app/_components/daily-entries-report.tsx`). */
   daily: {
     tab: "Gün gün",

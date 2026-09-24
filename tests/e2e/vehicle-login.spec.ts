@@ -109,10 +109,10 @@ test.describe("Araç girişi (/giris)", () => {
     // DESIGN.md §2.5 üst başlığı — "35 ABC 123 · ...": plaka görüntü
     // biçiminde (boşluklu) görünür.
     await expect(page.getByText(OWNER_PLATE, { exact: false })).toBeVisible();
-    // MILESTONES M1 — sahte özet/form yok, dürüst kısa metin.
-    await expect(
-      page.getByText("Sahip girişi başarılı. Özet ve raporlar bir sonraki aşamada"),
-    ).toBeVisible();
+    // T5.5 — yer tutucu metin yerine sahip özeti açılır.
+    await expect(page.getByRole("heading", { name: "Özet" })).toBeAttached();
+    await expect(page.getByRole("link", { name: "+ Çalışma kaydı gir" })).toBeVisible();
+    await expect(page.getByText("Sahip girişi başarılı. Özet ve raporlar bir sonraki aşamada")).toHaveCount(0);
   });
 
   test("şoför girişi → /sofor", async ({ page }) => {

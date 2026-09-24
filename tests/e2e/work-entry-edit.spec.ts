@@ -400,6 +400,61 @@ test.describe("Sahip kayıt düzenleme (/sahip/kayitlar/:id)", () => {
     await expect(page.locator("section", { hasText: "Alınan tutar" })).toContainText("6.000,00 TL");
   });
 
+  test("teslim onayı (S4.2): beklenenden farklı tutar — beklenen ve alınan ayrı görünür, yazılan 6.000 yenilemede korunur, tek POST 600000 taşır; onaydan ve yenilemeden sonra 'Ödenmedi' yok, 320 px'te yatay kaydırma yok", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 320, height: 700 });
+    await login(page, SEED_RAW_PLATES.vehicleA1, SEED_TEST_PASSWORDS.owner, "/sahip");
+    await createOwnerEntry(page, { date: "2026-06-16", kind: "driver" });
+    const confirms = captureConfirms(page);
+
+    await expect(detailRow(page, "Beklenen teslim")).toContainText("6.200,00 TL");
+    await expect(page.getByLabel("Aldığım tutar (TL)")).toHaveValue("6.200,00");
+
+    await page.getByLabel("Aldığım tutar (TL)").fill("6.000");
+    await expect(page.getByText("Beklenenden 200,00 TL az.")).toBeVisible();
+    await expect(detailRow(page, "Hasılat")).toContainText("10.000,00 TL");
+    await expect(detailRow(page, "Mazot")).toContainText("1.500,00 TL");
+    await expect(detailRow(page, "Diğer masraf")).toContainText("300,00 TL");
+    await expect(detailRow(page, "Şoför payı")).toContainText("2.000,00 TL");
+    await expect(detailRow(page, "Beklenen teslim")).toContainText("6.200,00 TL");
+
+    // Yazılan değer hazır beklenen tutara geri dönmez.
+    await page.reload();
+    await page.waitForLoadState("networkidle");
+    await expect(page.getByLabel("Aldığım tutar (TL)")).toHaveValue("6.000");
+    await expect(page.getByText("Beklenenden 200,00 TL az.")).toBeVisible();
+    await expect(page.getByText("Henüz doğrulanmadı")).toBeVisible();
+    expect(confirms).toHaveLength(0);
+
+    await page.getByRole("button", { name: CONFIRM }).click();
+    await expect(page.getByText("Teslim doğrulandı")).toBeVisible();
+    expect(confirms).toHaveLength(1);
+    expect(JSON.parse(confirms[0]!)).toEqual({
+      requestId: expect.any(String),
+      version: 1,
+      receivedCents: "600000",
+    });
+
+    const expectConfirmedView = async (): Promise<void> => {
+      await expect(detailRow(page, "Hasılat")).toContainText("10.000,00 TL");
+      await expect(detailRow(page, "Mazot")).toContainText("1.500,00 TL");
+      await expect(detailRow(page, "Diğer masraf")).toContainText("300,00 TL");
+      await expect(detailRow(page, "Şoför payı")).toContainText("2.000,00 TL");
+      await expect(detailRow(page, "Beklenen teslim")).toContainText("6.200,00 TL");
+      await expect(page.getByText("Teslim doğrulandı")).toBeVisible();
+      await expect(page.locator("section", { hasText: "Alınan tutar" })).toContainText("6.000,00 TL");
+      await expect(page.getByText(/Ödenmedi/)).toHaveCount(0);
+      await expect(page.getByText("Beklenenden")).toHaveCount(0);
+      await expectNoHorizontalScroll(page);
+    };
+    await expectConfirmedView();
+    await page.reload();
+    await page.waitForLoadState("networkidle");
+    await expectConfirmedView();
+    expect(confirms).toHaveLength(1);
+  });
+
   test("teslim onayı: istek sunucuya ulaşmadıysa sonuç belirsiz kalır; yenileme sonrası tekrar aynı requestId ve gövdeyle gider", async ({
     page,
   }) => {

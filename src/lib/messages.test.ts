@@ -137,4 +137,18 @@ describe("messages", () => {
     expect(WORK_ENTRY_MESSAGES.checkHint).not.toMatch(/Henüz kaydedilmedi/);
     expect(WORK_ENTRY_MESSAGES.refreshFailed).not.toMatch(/sil/i);
   });
+
+  it("T4.2 — fark metni tarafsızdır: 'Beklenenden 200,00 TL az.' / 'fazla.'; hiçbir metin 'Ödenmedi' ya da 'Borç' demez", () => {
+    expect(WORK_ENTRY_MESSAGES.receivedShortfall("200,00 TL")).toBe("Beklenenden 200,00 TL az.");
+    expect(WORK_ENTRY_MESSAGES.receivedExcess("200,00 TL")).toBe("Beklenenden 200,00 TL fazla.");
+    const texts = Object.values(WORK_ENTRY_MESSAGES).map((value) =>
+      typeof value === "function"
+        ? (value as (...args: string[]) => string)("Örnek", "Örnek")
+        : String(value),
+    );
+    expect(texts.length).toBeGreaterThan(0);
+    for (const text of texts) {
+      expect(text).not.toMatch(/Ödenmedi|Borç/i);
+    }
+  });
 });

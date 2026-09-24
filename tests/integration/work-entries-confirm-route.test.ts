@@ -527,4 +527,176 @@ describe("teslim onayı (T4.1)", () => {
       expect((await (await getOne(owner, id)).json()).workEntry.confirmation).toBeNull();
     });
   });
+
+  // T4.2 — beklenen 6.200 TL (620000), alınan 6.000 TL (600000): alınan tutar yalnız cash_confirmations'ta yaşar.
+  describe("beklenenden farklı alınan tutar (T4.2)", () => {
+    const RECEIVED = "600000";
+    const figures = { grossCents: "1000000", fuelCents: "150000", otherExpenseCents: "30000", shareCents: "200000", remainderCents: "620000" };
+    const entryFigures = () =>
+      rows("SELECT gross_cents, fuel_cents, other_expense_cents, share_cents, remainder_cents, status, version FROM work_entries");
+    const pendingFigures = { gross_cents: 1000000, fuel_cents: 150000, other_expense_cents: 30000, share_cents: 200000, remainder_cents: 620000 };
+    const confirmations = () => rows("SELECT entry_id, entry_version, received_cents FROM cash_confirmations");
+
+    it("6.200 beklenene 6.000 alınan: 200; hasılat/mazot/diğer/pay/beklenen değişmez; onay ve revizyon anlık görüntüsü doğru", async () => {
+      const id = await seedDriverEntry();
+      const before = counts();
+      const response = await confirm(owner, id, confirmBody("t42-1", 1, RECEIVED));
+      expect(response.status).toBe(200);
+      const { workEntry } = await response.json();
+      expect(workEntry).toMatchObject({ id, ...figures, status: "confirmed", version: 2, confirmation: { receivedCents: RECEIVED, entryVersion: 2 } });
+
+      expect(entryFigures()).toEqual([{ ...pendingFigures, status: "confirmed", version: 2 }]);
+      expect(confirmations()).toEqual([{ entry_id: id, entry_version: 2, received_cents: 600000 }]);
+      expect(counts()).toEqual({
+        ...before,
+        work_entry_revisions: before.work_entry_revisions! + 1,
+        mutation_receipts: before.mutation_receipts! + 1,
+        cash_confirmations: 1,
+      });
+      const snapshot = JSON.parse(rows("SELECT snapshot_json FROM work_entry_revisions WHERE version = 2")[0]!.snapshot_json as string);
+      expect(snapshot).toMatchObject({ grossCents: 1000000, fuelCents: 150000, otherExpenseCents: 30000, shareCents: 200000, remainderCents: 620000, receivedCents: RECEIVED });
+      expect(Object.keys(snapshot)).not.toContain("differenceCents");
+    });
+
+    it("istemcinin gönderdiği remainder/share/gross/fuel/other alanları hiçbir saklı değeri değiştirmez; hash yalnız id + sürüm + alınan tutardır", async () => {
+      const id = await seedDriverEntry();
+      const tampered = {
+        ...confirmBody("t42-tamper", 1, RECEIVED),
+        remainderCents: "600000",
+        shareCents: "1",
+        grossCents: "1",
+        fuelCents: "1",
+        otherExpenseCents: "1",
+        differenceCents: "-20000",
+      };
+      const response = await confirm(owner, id, tampered);
+      expect(response.status).toBe(200);
+      expect((await response.json()).workEntry).toMatchObject({ ...figures, confirmation: { receivedCents: RECEIVED } });
+      expect(entryFigures()).toEqual([{ ...pendingFigures, status: "confirmed", version: 2 }]);
+      expect(confirmations()).toEqual([{ entry_id: id, entry_version: 2, received_cents: 600000 }]);
+      const snapshot = JSON.parse(rows("SELECT snapshot_json FROM work_entry_revisions WHERE version = 2")[0]!.snapshot_json as string);
+      expect(snapshot).toMatchObject({ grossCents: 1000000, shareCents: 200000, remainderCents: 620000, receivedCents: RECEIVED });
+      expect(Object.keys(snapshot)).not.toContain("differenceCents");
+
+      // Ek alanlar hash'e girmez: aynı requestId, temiz gövdeyle replay olur (REQUEST_ID_REUSED değil).
+      const replay = await confirm(owner, id, confirmBody("t42-tamper", 1, RECEIVED));
+      expect(replay.status).toBe(200);
+      expect(confirmations()).toHaveLength(1);
+    });
+
+    for (const received of ["600050", "1", "619999", "620001", "620000"]) {
+      it(`kuruş hassasiyeti: ${received} olduğu gibi saklanır ve döner; hesaplanan değerler değişmez`, async () => {
+        const id = await seedDriverEntry();
+        const response = await confirm(owner, id, confirmBody(`t42-p-${received}`, 1, received));
+        expect(response.status).toBe(200);
+        expect((await response.json()).workEntry).toMatchObject({ ...figures, confirmation: { receivedCents: received } });
+        expect(rows("SELECT received_cents FROM cash_confirmations")).toEqual([{ received_cents: Number(received) }]);
+        expect(entryFigures()).toEqual([{ ...pendingFigures, status: "confirmed", version: 2 }]);
+      });
+    }
+
+    it("replay 6.000 ile: aynı sonuç, ikinci satır yok; aynı requestId + farklı tutar REQUEST_ID_REUSED; yeni requestId ENTRY_CONFIRMED; 6.000 korunur", async () => {
+      const id = await seedDriverEntry();
+      const first = await confirm(owner, id, confirmBody("t42-r", 1, RECEIVED));
+      expect(first.status).toBe(200);
+      const firstBody = (await first.json()).workEntry;
+      const after = counts();
+
+      const replay = await confirm(owner, id, confirmBody("t42-r", 1, RECEIVED));
+      expect(replay.status).toBe(200);
+      expect((await replay.json()).workEntry).toEqual(firstBody);
+      expect(counts()).toEqual(after);
+
+      const reused = await confirm(owner, id, confirmBody("t42-r", 1, "620000"));
+      expect(reused.status).toBe(409);
+      expect((await errorOf(reused)).code).toBe("REQUEST_ID_REUSED");
+      const again = await confirm(owner, id, confirmBody("t42-r2", 2, "620000"));
+      expect(again.status).toBe(409);
+      expect((await errorOf(again)).code).toBe("ENTRY_CONFIRMED");
+      expect(counts()).toEqual(after);
+      expect(confirmations()).toEqual([{ entry_id: id, entry_version: 2, received_cents: 600000 }]);
+    });
+
+    it("aynı sürümde iki FARKLI tutar yarışı (6.000 / 6.200): biri 200, diğeri 409 VERSION_CONFLICT; tek onay satırı, kazananın tutarı", async () => {
+      const id = await seedDriverEntry();
+      const [a, b] = await Promise.all([
+        confirm(owner, id, confirmBody("t42-race-a", 1, RECEIVED)),
+        confirm(admin, id, confirmBody("t42-race-b", 1, "620000"), SEED_IDS.vehicleA1),
+      ]);
+      expect([a.status, b.status].sort()).toEqual([200, 409]);
+      const [winner, loser] = a.status === 200 ? [a, b] : [b, a];
+      expect((await errorOf(loser)).code).toBe("VERSION_CONFLICT");
+      const won = (await winner.json()).workEntry;
+      expect(confirmations()).toEqual([{ entry_id: id, entry_version: 2, received_cents: Number(won.confirmation.receivedCents) }]);
+      expect(entryFigures()).toEqual([{ ...pendingFigures, status: "confirmed", version: 2 }]);
+    });
+
+    it("aynı requestId + 6.000 ile 20 eşzamanlı istek: hepsi 200, aynı sürüm ve tutar, en çok bir onay satırı ve bir makbuz", async () => {
+      const id = await seedDriverEntry();
+      const responses = await Promise.all(Array.from({ length: 20 }, () => confirm(owner, id, confirmBody("t42-many", 1, RECEIVED))));
+      expect(responses.map((r) => r.status)).toEqual(Array(20).fill(200));
+      const bodies = await Promise.all(responses.map(async (r) => (await r.json()).workEntry));
+      for (const workEntry of bodies) expect(workEntry).toMatchObject({ ...figures, version: 2, confirmation: { receivedCents: RECEIVED } });
+      expect(confirmations()).toEqual([{ entry_id: id, entry_version: 2, received_cents: 600000 }]);
+      expect(rows("SELECT COUNT(*) AS n FROM mutation_receipts WHERE request_id = 't42-many'")).toEqual([{ n: 1 }]);
+      expect(rows("SELECT COUNT(*) AS n FROM work_entry_revisions WHERE action = 'confirm'")).toEqual([{ n: 1 }]);
+    });
+
+    const injections = [
+      ["BEFORE UPDATE ON work_entries", "work_entries UPDATE"],
+      ["BEFORE INSERT ON work_entry_revisions", "revizyon INSERT"],
+      ["BEFORE INSERT ON cash_confirmations", "onay INSERT"],
+      ["BEFORE INSERT ON admin_audit", "audit INSERT"],
+      ["BEFORE INSERT ON mutation_receipts", "makbuz INSERT"],
+    ] as const;
+    for (const [event, label] of injections) {
+      it(`hata enjeksiyonu (${label}), 6.000 ile: kayıt 1. sürümde bekleyen kalır, 600000'lük satır/revizyon kalmaz; sonra tek onay`, async () => {
+        const id = await seedDriverEntry();
+        const before = counts();
+        withRaw((sqlite) => sqlite.exec(`CREATE TRIGGER inject_fail ${event} BEGIN SELECT RAISE(ABORT, 'enjekte hata'); END`));
+        await expect(confirm(admin, id, confirmBody("t42-inject", 1, RECEIVED), SEED_IDS.vehicleA1)).rejects.toThrow();
+        expect(counts()).toEqual(before);
+        expect(entryFigures()).toEqual([{ ...pendingFigures, status: "pending", version: 1 }]);
+        expect(rows("SELECT * FROM cash_confirmations WHERE received_cents = 600000")).toEqual([]);
+        expect(rows("SELECT * FROM work_entry_revisions WHERE action = 'confirm'")).toEqual([]);
+
+        withRaw((sqlite) => sqlite.exec("DROP TRIGGER inject_fail"));
+        expect((await confirm(admin, id, confirmBody("t42-inject", 1, RECEIVED), SEED_IDS.vehicleA1)).status).toBe(200);
+        expect(confirmations()).toEqual([{ entry_id: id, entry_version: 2, received_cents: 600000 }]);
+      });
+    }
+
+    it("onaydan sonra GET /:id ve liste 6.000'i korur; beklenen 6.200 olarak kalır, yeniden beklenene çevrilmez", async () => {
+      const id = await seedDriverEntry();
+      expect((await confirm(owner, id, confirmBody("t42-view", 1, RECEIVED))).status).toBe(200);
+      for (let i = 0; i < 2; i += 1) {
+        const one = (await (await getOne(owner, id)).json()).workEntry;
+        expect(one).toMatchObject({ ...figures, status: "confirmed", version: 2, confirmation: { receivedCents: RECEIVED, entryVersion: 2 } });
+      }
+      const listed = (await (await getList(owner)).json()).workEntries.find((e: { id: string }) => e.id === id);
+      expect(listed).toMatchObject({ ...figures, confirmation: { receivedCents: RECEIVED, entryVersion: 2 } });
+      const byAdmin = (await (await getOne(admin, id, SEED_IDS.vehicleA1)).json()).workEntry;
+      expect(byAdmin.confirmation.receivedCents).toBe(RECEIVED);
+    });
+
+    // AC7 veri düzeyinde: /reports M5/E5'te; burada yalnız rapora girecek güncel veri sorgulanır.
+    it("AC7 (veri düzeyi): güncel onaydan teslim 6.000; 6.200 beklenen ya da 200 fark toplama eklenmez; sahip sürüşüyle kalan 14.400", async () => {
+      const id = await seedDriverEntry();
+      const ownerEntry = await post(owner, createOwner("t42-own"));
+      expect(ownerEntry.status).toBe(201);
+      expect((await confirm(owner, id, confirmBody("t42-ac7", 1, RECEIVED))).status).toBe(200);
+
+      const [totals] = rows(
+        `SELECT
+           SUM(w.gross_cents) AS gross, SUM(w.share_cents) AS share, SUM(w.remainder_cents) AS remainder,
+           (SELECT SUM(c.received_cents) FROM cash_confirmations c
+              JOIN work_entries e ON e.business_id = c.business_id AND e.id = c.entry_id AND e.version = c.entry_version) AS received
+         FROM work_entries w`,
+      );
+      expect(totals).toEqual({ gross: 2000000, share: 200000, remainder: 1440000, received: 600000 });
+      const columns = rows("SELECT name FROM pragma_table_info('cash_confirmations')").map((r) => r.name);
+      expect(columns).not.toContain("difference_cents");
+      expect(columns).not.toContain("expected_cents");
+    });
+  });
 });

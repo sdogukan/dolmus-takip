@@ -13,9 +13,11 @@ Release, test edilmiş belirli bir uygulama sürümünü kullanıcıya açma iş
 |---|---|
 | Plan hazır | Bu rehber yazıldı; çalışan uygulama iddiası yok |
 | Yayın adayı | Belirli kaynak sürümü, test sonucu ve üretim çıktısı hazır |
-| Pilot için hazır | Restore/yük/işletim kontrolleri geçti; pilot kapsamı belirlendi |
+| Pilot için hazır | §4 "Pilot için hazır kapısı"nın her kanıtı **aynı yayın adayı commit'inde** alınmış ve geçmiş; pilot kapsamı belirlenmiş. Kullanıcı trafiği açılmamıştır |
 | Yayınlandı | Seçilmiş çıktı canlı adrese alındı ve kullanıcı trafiği açıldı |
 | Yayın doğrulandı | Yayın sonrası temel akışlar ve izleme kontrol edildi |
+
+Üç durum birbirinin yerine geçmez: kapının geçmesi yayın yapıldığı, yayının yapılması doğrulandığı anlamına gelmez. S6.6 görevi (T6.6) **kapıda biter**; kontrollü pilot yayını (§5) ve yayın sonrası kısa doğrulama (§6) sonraki görevin işidir (kullanıcı kararı, 2026-09-24). Kapının kanıtları henüz alınmadı; sistem “Pilot için hazır”, “Yayınlandı” veya “Yayın doğrulandı” durumlarının hiçbirinde **değildir**.
 
 M6'nın çıkışı kontrollü pilot yayını ve yayın sonrası doğrulamadır. M1–M5 sonunda gösterim yapılması müşteriye yayın yapılmış olduğu anlamına gelmez. Genel satış/abonelik açılışı bu MVP yayın planında yoktur.
 
@@ -44,6 +46,32 @@ M6'nın çıkışı kontrollü pilot yayını ve yayın sonrası doğrulamadır.
 Gizli şifre/anahtar bu tabloya veya Git'e yazılmaz. Güvenli saklandığı yer ve kimin erişebildiği belirtilir. Eksik gerçek ortam bilgisi plan belgesini yazmayı engellemez; ilgili kurulum/yayın adımı tamamlanmış sayılamaz.
 
 ## 4. İlk pilot öncesi kontrol
+
+### Pilot için hazır kapısı
+
+Kapı, aşağıdaki kanıtların **tamamı** aynı yayın adayı commit'inde alınıp geçtiğinde açılır (S6.6 AC7). Başka bir commit'te, başka bir arşivde veya önceki bir denemede alınmış kanıt bu aday için geçersizdir; aday değişirse ilgili kanıt yeniden alınır. Bir satır boşsa veya `açık` ise kapı kapalıdır.
+
+**Yayın adayı commit:** `________________________________________` · **Arşiv `artifact_sha256`:** `________` · **Kapı kararı (tarih UTC / karar veren):** `________`
+
+| # | Kanıt | Nerede / nasıl | Kanıtın commit'i | Sonuç |
+|---|---|---|---|---|
+| 1 | Kabul izlenebilirlik tablosu: 35 hikâye ve PRD §9'un 28 maddesi | [QA-PLAN](QA-PLAN.md) §2 "Kabul izlenebilirlik tablosu"; her satır bu commit'te `geçti`, hiçbir satır `açık` değil | `________` | `________` |
+| 2 | Otomatik kontroller ve yayın çıktısı (S6.1) | Aday commit'te CI (`ci.yml`) yeşil; `release.yml` arşivi ve manifesti (`source_commit` = aday); hedef Linux'ta `release:verify` | `________` | `________` |
+| 3 | Kurulum, HTTPS, kalıcı veri (S6.2) | [SERVER-SETUP](SERVER-SETUP.md) §5 satır 1–9 | `________` | `________` |
+| 4 | Çökme, donma, kurtarma kilidi, dış kontrol ve ekip uyarısı (S6.3) | SERVER-SETUP §5 satır 10–16; makine dışı kontrolün uyarısının sorumluya ulaştığı kayıt ([OPS](OPS.md) §8) | `________` | `________` |
+| 5 | Günlük kopya, snapshot ve saklama (S6.4) | SERVER-SETUP §5 satır 17–21; OPS §4 üç ayrı günlük kayıt | `________` | `________` |
+| 6 | Restore ve güvenli yayın geri dönüşü (S6.5) | OPS §4 "Kontrollü restore" ayrı makine denemesi (`restore_record`); SERVER-SETUP §5 satır 22–27 | `________` | `________` |
+| 7 | Yük raporu: `login-burst` | QA-PLAN §3; `load:run` raporu `acceptance_eligible=true`, `release.sourceCommit` = aday | `________` | `________` |
+| 8 | Yük raporu: `active-mix` (kayıt p95 ≤ 2 sn, rapor p95 ≤ 3 sn, beklenmeyen < %1) | QA-PLAN §3; aynı rapor koşulları | `________` | `________` |
+| 9 | Yük raporu: `write-peak` ve süreç öldürme denemesi | QA-PLAN §3; SERVER-SETUP §5 satır 31 | `________` | `________` |
+| 10 | Veri bütünlüğü: her yük koşusundan sonra `integrity:check` ve defterde kayıp/çift/tutarsız 0 | QA-PLAN §3; SERVER-SETUP §5 satır 32 | `________` | `________` |
+| 11 | Üretim DB'sine dönüş, yük verisi kaldırıldı | SERVER-SETUP §5 satır 33 | `________` | `________` |
+| 12 | Gerçek telefon kontrolleri ve temsili kullanım (S1.6, S3.6) | `tests/e2e/MANUAL-CHECKS.md` iki listesi | `________` | `________` |
+| 13 | Pilot işletim kaydı: açık kararlar, erişimler, yardım sorumlusu, günlük kontrol, kurtarma/yayın adımları | [OPS](OPS.md) §8 | — | `________` |
+
+Kapı yayın değildir: açıldıktan sonra da §5 kontrollü yayın ve §6 doğrulama ayrı yapılır ve §8 kaydına ayrı yazılır.
+
+### Kontrol listesi
 
 - [ ] QA planının ilgili birim, gerçek SQLite, API ve tarayıcı kontrolleri seçilen sürümde geçmiştir; kritik mali/yetki hatası veya açıklanmamış kararsız test yoktur.
 - [ ] PRD'nin 28 maddesi, E1–E5 ve E6'nın yayın öncesi kabul kriterleri karşılanmıştır; pilotu etkileyen açık ürün kararı/sınırı belirlenmiştir. S6.6'nın gerçek yayın ve yayın sonrası kontrolü bu aşamada açık kalır, §5–6 uygulanınca kapanır.
@@ -129,6 +157,7 @@ Uygulama sürümü / kaynak commit / çıktı hash'i:
 Şema, Ubuntu/CPU/Node/SQLite sürümleri:
 Değişen hikâyeler ve kullanıcıya etkisi:
 QA sonucu ve kabul edilen sınırlamalar:
+Pilot için hazır kapısı (§4): aday commit, kapı kararı tarihi, 13 kanıtın yeri:
 Yayın öncesi kopya / son snapshot / restore kanıtı:
 Bakım başlangıcı / müşteri yazmasına açılma / doğrulama zamanı:
 Yayını yürüten / işletim sorumlusu:

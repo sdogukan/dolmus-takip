@@ -565,12 +565,12 @@ describe("docs/SERVER-SETUP.md", () => {
     expect(guide).not.toContain("enable dolmus-takip-health.timer\n");
   });
 
-  test("manuel doğrulama bölümü: 27 kontrol (9 kurulum + 7 sağlık otomasyonu + 5 yedek + 3 bakım kapısı + 3 yayın aracı), hepsi doğrulanacak işaretli", () => {
+  test("manuel doğrulama bölümü: 33 kontrol (9 kurulum + 7 sağlık otomasyonu + 5 yedek + 3 bakım kapısı + 3 yayın aracı + 6 yük kabulü), hepsi doğrulanacak işaretli", () => {
     const start = guide.indexOf("## 5. Manuel doğrulama tablosu");
     expect(start).toBeGreaterThan(-1);
     const section = guide.slice(start, guide.indexOf("## 6."));
     const rows = section.split("\n").filter((l) => /^\| \d+ \|/.test(l));
-    expect(rows).toHaveLength(27);
+    expect(rows).toHaveLength(33);
     for (const row of rows) {
       expect(row).toContain("elle kurulumda doğrulanacak");
     }
@@ -601,6 +601,8 @@ describe("docs/SERVER-SETUP.md", () => {
       "Yayın aracı: bakım, eski release'in yayın öncesi kopyası, migration, trafik",
       "Yayın aracı: trafik açılmadan DB geri dönüşü",
       "Yayın aracı: trafik açıldıktan sonra DB geri dönüşü reddedilir",
+      "Yük DB'si ayrı yolda; üretim yolunda veri seti kurulmadı",
+      "Üretim DB'sine dönüş ve yük verisinin kaldırılması (pilot öncesi zorunlu)",
     ]) {
       expect(section, topic).toContain(topic);
     }

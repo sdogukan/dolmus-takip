@@ -6,7 +6,9 @@ import {
   HashQueueFullError,
   resetHashQueueForTests,
   runInHashQueue,
+  takeHashQueueIntervalStats,
 } from "./hash-queue";
+import type { Clock } from "./session";
 
 /**
  * `hash-queue.ts` birim testleri — T1.2 ADIM 1/2, S1.2, görev tanımı (3).
@@ -215,5 +217,159 @@ describe("getHashQueueMetrics", () => {
       pendingCount: 0,
       longestWaitMs: 0,
     });
+  });
+});
+
+describe("takeHashQueueIntervalStats — aralık metrikleri (oku ve sıfırla)", () => {
+  function manualClock(startMs: number): { clock: Clock; advance: (ms: number) => void } {
+    let nowMs = startMs;
+    return {
+      clock: () => new Date(nowMs),
+      advance: (ms) => {
+        nowMs += ms;
+      },
+    };
+  }
+
+  it("boş kuyrukta tüm alanlar 0'dır", () => {
+    expect(takeHashQueueIntervalStats()).toEqual({
+      verifications: 0,
+      maxPending: 0,
+      longestWaitMs: 0,
+    });
+  });
+
+  it("çalışan doğrulamaları sayar; dönüş değeri ve fn hatası değişmeden geçer", async () => {
+    expect(await runInHashQueue(async () => "ok")).toBe("ok");
+    const failure = new Error("verify patladı");
+    await expect(
+      runInHashQueue(async () => {
+        throw failure;
+      }),
+    ).rejects.toBe(failure);
+
+    const stats = takeHashQueueIntervalStats();
+    expect(stats.verifications).toBe(2);
+    expect(stats.maxPending).toBe(0);
+    expect(stats.longestWaitMs).toBe(0);
+    // Okuma sayaçları sıfırlar.
+    expect(takeHashQueueIntervalStats().verifications).toBe(0);
+  });
+
+  it("kuyruk dolu (HashQueueFullError) olduğunda fn çağrılmaz ve doğrulama sayılmaz", async () => {
+    const activeDeferreds = Array.from({ length: HASH_QUEUE_MAX_CONCURRENT }, () =>
+      createDeferred<void>(),
+    );
+    const activeTasks = activeDeferreds.map((d) =>
+      runInHashQueue(async () => {
+        await d.promise;
+      }),
+    );
+    await Promise.resolve();
+
+    await expect(runInHashQueue(async () => "gec", undefined, 5)).rejects.toThrow(
+      HashQueueFullError,
+    );
+
+    activeDeferreds.forEach((d) => d.resolve());
+    await Promise.all(activeTasks);
+    const stats = takeHashQueueIntervalStats();
+    expect(stats.verifications).toBe(HASH_QUEUE_MAX_CONCURRENT);
+    expect(stats.maxPending).toBe(1);
+  });
+
+  it("en yüksek bekleyen sayısını ve kuyruktan çıkanların en uzun beklemesini raporlar", async () => {
+    const { clock, advance } = manualClock(1_000_000);
+    const activeDeferreds = Array.from({ length: HASH_QUEUE_MAX_CONCURRENT }, () =>
+      createDeferred<void>(),
+    );
+    const activeTasks = activeDeferreds.map((d) =>
+      runInHashQueue(async () => {
+        await d.promise;
+      }, clock),
+    );
+    await Promise.resolve();
+
+    const first = runInHashQueue(async () => "birinci", clock);
+    advance(300);
+    const second = runInHashQueue(async () => "ikinci", clock);
+    await Promise.resolve();
+    expect(getHashQueueMetrics(clock).pendingCount).toBe(2);
+
+    advance(700);
+    // İki kota boşalır: birinci 1000 ms, ikinci 700 ms beklemiş olur.
+    activeDeferreds[0]!.resolve();
+    activeDeferreds[1]!.resolve();
+    expect(await first).toBe("birinci");
+    expect(await second).toBe("ikinci");
+
+    const stats = takeHashQueueIntervalStats(clock);
+    expect(stats.maxPending).toBe(2);
+    expect(stats.longestWaitMs).toBe(1000);
+    expect(stats.verifications).toBe(HASH_QUEUE_MAX_CONCURRENT + 2);
+
+    activeDeferreds.slice(2).forEach((d) => d.resolve());
+    await Promise.all(activeTasks);
+  });
+
+  it("okuma anında hâlâ bekleyen isteği hem bu aralıkta hem sonrakinde raporlar", async () => {
+    const { clock, advance } = manualClock(2_000_000);
+    const activeDeferreds = Array.from({ length: HASH_QUEUE_MAX_CONCURRENT }, () =>
+      createDeferred<void>(),
+    );
+    const activeTasks = activeDeferreds.map((d) =>
+      runInHashQueue(async () => {
+        await d.promise;
+      }, clock),
+    );
+    await Promise.resolve();
+
+    const waiting = runInHashQueue(async () => "bekleyen", clock, 60_000);
+    advance(400);
+
+    const firstInterval = takeHashQueueIntervalStats(clock);
+    expect(firstInterval.maxPending).toBe(1);
+    expect(firstInterval.longestWaitMs).toBe(400);
+    expect(firstInterval.verifications).toBe(HASH_QUEUE_MAX_CONCURRENT);
+
+    advance(100);
+    activeDeferreds[0]!.resolve();
+    expect(await waiting).toBe("bekleyen");
+
+    const secondInterval = takeHashQueueIntervalStats(clock);
+    // Yeni aralık hâlâ bekleyen istekle başlar; toplam beklemesi 500 ms.
+    expect(secondInterval.maxPending).toBe(1);
+    expect(secondInterval.longestWaitMs).toBe(500);
+    expect(secondInterval.verifications).toBe(1);
+
+    activeDeferreds.slice(1).forEach((d) => d.resolve());
+    await Promise.all(activeTasks);
+    expect(takeHashQueueIntervalStats(clock)).toEqual({
+      verifications: 0,
+      maxPending: 0,
+      longestWaitMs: 0,
+    });
+  });
+
+  it("zaman aşımına uğrayan isteğin beklemesi de sayılır", async () => {
+    const activeDeferreds = Array.from({ length: HASH_QUEUE_MAX_CONCURRENT }, () =>
+      createDeferred<void>(),
+    );
+    const activeTasks = activeDeferreds.map((d) =>
+      runInHashQueue(async () => {
+        await d.promise;
+      }),
+    );
+    await Promise.resolve();
+
+    await expect(runInHashQueue(async () => "gec", undefined, 20)).rejects.toThrow(
+      HashQueueFullError,
+    );
+    const stats = takeHashQueueIntervalStats();
+    expect(stats.longestWaitMs).toBeGreaterThanOrEqual(15);
+    expect(stats.maxPending).toBe(1);
+
+    activeDeferreds.forEach((d) => d.resolve());
+    await Promise.all(activeTasks);
   });
 });

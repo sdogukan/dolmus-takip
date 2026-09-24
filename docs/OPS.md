@@ -39,6 +39,7 @@ Lightsail'ın CPU/ağ metrikleri, yerel RAM/disk/servis ölçümleri ve journald
 | Disk | Başlangıç önerisi: %80 uyarı, %90 kritik. Sağlık görevi her koşuda `event=metrics disk_used_pct=… disk_level=ok\|warn\|critical` yazar (uyarı `warn`, kritik `err` önceliğiyle) | Büyümeyi ölç; koruma kurallarıyla güvenli temizlik planla. Yazma hatası/tutarlılık riski varsa bakıma al |
 | Log hacmi | journald toplam `SystemMaxUse=200M` (`deploy/journald/dolmus-takip.conf`); `journalctl --disk-usage` ile doğrulanır | Sınırlı döndürmeyi doğrula; mali kayıt/revizyonları log temizliğiyle silme |
 | RAM, CPU/burst, event-loop | Sağlık görevi `mem_available_pct` yazar, `live_ms`/`ready_ms` gecikmesi event-loop baskısının ilk işaretidir; yük testi tabanı, OOM ve sürekli baskı; sayısal alarm eşikleri ölçümle kesinleşir (henüz eşik yoktur, yalnız ölçüm) | Süreç/sorgu nedenini araştır; kaynak veya DB değişikliğini gerekçesiyle ayrıca değerlendir |
+| Çalışma zamanı ölçümü (S6.6) | Uygulama 60 sn'de bir tek satır yazar: `dolmus-runtime event=runtime_metrics ts=<UTC> interval_ms=… el_p50_ms=… el_p99_ms=… el_max_ms=… rss_bytes=… heap_used_bytes=… heap_total_bytes=… cpu_user_ms=… cpu_system_ms=… tx_count=… tx_p99_ms=… tx_max_ms=… tx_lock_failures=… hash_verifications=… hash_max_pending=… hash_longest_wait_ms=…`. Değerler o aralığa aittir ve her satırda sıfırlanır; `tx_*` yazma işleminin `BEGIN IMMEDIATE` beklemesini de içerir. Satır yalnız sayı taşır (plaka, kullanıcı adı, parola, token, çerez, IP, istek gövdesi yok). Okuma: `sudo journalctl -u dolmus-takip.service --since "-1h" -o cat --no-pager \| grep 'event=runtime_metrics'`; ölçüm alınamazsa `event=runtime_metrics_failed`. Sayısal alarm eşiği yoktur; yük testi tabanıyla karşılaştırılır | `el_p99_ms`/`el_max_ms` sürekli yüksekse donma yoluna (§5-B), `tx_lock_failures` artıyorsa §5-C'ye, `hash_max_pending` 100'e yakınsa giriş yüküne bak; sayıyı yük raporundaki tabanla karşılaştır |
 | SQLite bekleme ve WAL | Başlangıç `busy_timeout=2000ms`; `event=metrics wal_bytes=…` (WAL boyutu; sayısal eşik ölçümle kesinleşir); tekrarlayan kilit hatası veya sürekli WAL büyümesi | Uzun transaction/okumayı araştır; sınırsız tekrar veya WAL silme uygulama |
 | Giriş sayacı (F13) | Uygulama logunda `RATE_LIMITED` ve `HASH_QUEUE_FULL` (429) satırları: `[<uç>] <KOD> (request_id=…)`. Plaka, IP, kullanıcı adı ve parola satıra yazılmaz. `journalctl -u dolmus-takip \| grep -c RATE_LIMITED` ile sayılır; sayısal alarm eşiği pilot ölçümüyle belirlenir | Yeni bir yoğunlaşma (ör. dakikada tekrarlayan satırlar) brute-force veya tek kaynak taşması olabilir; 429'u meşru engellenme diye gizleme, kaynağı `request_id` ile araştır |
 | Argon2 hash kuyruğu (F13) | Yalnız `HASH_QUEUE_FULL` satırında `hash_active=<n> hash_pending=<n> hash_longest_wait_ms=<ms>`; sınırlar 4 eşzamanlı / 100 bekleyen / 10 sn ([DECISIONS](DECISIONS.md)) | Kuyruk dolması login yavaşlığı ve CPU baskısıdır; `hash_pending` sürekli sınıra yakınsa saldırı mı gerçek yük mü ayır, sınırı gerekçesiz yükseltme |
@@ -262,6 +263,70 @@ Kapanış kararı, kalan risk ve sonraki kontrol:
 ~~~
 
 ## 8. Pilot öncesi işletim kabulü
+
+Bu bölüm S6.6 AC8'in kayıt yeridir ve [RELEASE](RELEASE.md) §4 kapısının 13. kanıtıdır. Boş alan (`________`) gerçek değerin henüz bilinmediğini gösterir; örnek değerle doldurulmaz. Parola, anahtar veya token buraya yazılmaz; yalnız nerede saklandığı ve kimin erişebildiği yazılır.
+
+### Açık ürün ve işletim kararları
+
+| Karar | Durum | Kaynak | Pilota etkisi |
+|---|---|---|---|
+| Üretim AWS hesabı ve alan adı | **Açık** — seçilmedi | [tech-stack](tech-stack.md) "Production account and domain"; [DECISIONS](DECISIONS.md) K9 kalan kalemleri | Hedef makine, HTTPS ve `APP_ORIGIN` yok; S6.2–S6.6'nın hedef sunucu kanıtlarının hiçbiri alınamaz |
+| Makine dışı sağlık kontrolü ve ekip uyarı kanalı | **Açık** — "şimdilik yok", yalnız yerel 30 sn sağlık görevi | tech-stack "Alert channel and external health check" | S6.3 AC6 geçemez; tamamen duran makine algılanmaz (§1, §5-D) |
+| Pilot kapsamı: işletmeler/araçlar ve başlangıç zamanı | **Açık** — belirlenmedi | RELEASE §3 | Kapı açılsa da kontrollü yayın planlanamaz |
+| Aydınlatma metnindeki veri sorumlusu alanları | **Açık** — metinde köşeli yer tutucular (`[Veri sorumlusunun unvanı]` vb.) yayından önce doldurulacak | architecture.md "Personal data notice and deletion policy (KVKK)" | Metin doldurulmadan müşteriye açılmaz; hukuki metin bu belgenin işi değildir |
+| Ad anonimleştirmesinde eski `admin_audit` satırları | **Karar bekliyor** — eski satırlar önceki adı taşımaya devam ediyor; politika notu mu düzeltilecek, anonimleştirme mi genişletilecek | architecture.md "Personal data notice and deletion policy (KVKK)" | Silme talebi yanıtının kapsamını belirler |
+| Müşteriye şifre teslimi (F14) | Karara bağlandı — ekip back office'te belirlediği şifreyi kendisi iletir; yeni servis yok | tech-stack "Password delivery to customers" | Teslimi yapacak ekip üyesi aşağıdaki erişim tablosunda adlanır |
+| K1–K8 ürün kararları | Karara bağlandı (2026-09-17) | [DECISIONS](DECISIONS.md) | Pilot akışını engelleyen açık ürün kararı yok |
+| Kapasite değişimi (4 GB paket / PostgreSQL) | Karar yok, ölçüm yok | S6.6 AC9; aşağıdaki kapasite kuralı | Ölçüm ve karar olmadan değişmez |
+
+### Erişimler
+
+| Erişim | Ne için | Sahibi | Yedek erişimi olan | Saklandığı yer |
+|---|---|---|---|---|
+| AWS hesabı (Lightsail yetkili profil, `AWS_PROFILE`) | Instance, statik IP, snapshot, metrik okuma, ayrı makinede restore | `________` | `________` | `________` |
+| Alan adı ve DNS paneli (`DOLMUS_DOMAIN`) | A kaydı, sertifika sorunlarında DNS | `________` | `________` | `________` |
+| SSH anahtarı (`DOLMUS_SSH_KEY`) ve sunucuda `sudo` | Kurulum, günlük kontrol, restore, yayın | `________` | `________` | `________` |
+| GitHub deposu | `release.yml` tetikleme, arşiv/manifest indirme, CI sonuçları | `________` | `________` | `________` |
+| Back office yönetici hesabı (kişisel) | Müşteri desteği, şifre sıfırlama ve teslimi | `________` | `________` | `________` |
+
+Bir erişimin tek kişide kalması pilot riskidir: yedek erişim sütunu boşken kapı açılmaz.
+
+### Yardım sorumlusu
+
+| Alan | Değer |
+|---|---|
+| Yardım ve işletim sorumlusu | `________` |
+| Ulaşılabilir alternatif | `________` |
+| Müşterinin ulaşma yolu | `________` |
+| Ulaşılabilir saatler | `________` (nöbet veya kesin yanıt süresi taahhüdü verilmez, §1) |
+| Uyarının ulaştığı kanal | `________` (yukarıdaki açık karar kapanınca) |
+
+### Günlük sağlık ve yedek kontrolü
+
+Her gün sorumlu (yoksa alternatif) aşağıdakileri yapar ve sonucu tarih (UTC) ile kaydeder; başarısız veya atlanmış kontrol sessizce geçilmez. Komutlar **hazırlandı, denenmedi (elle kurulumda denenecek)**.
+
+1. Servisler ve kilit: `systemctl is-active dolmus-takip caddy`; `ls /var/lib/dolmus-takip/health/recovery.lock` (dosya **olmamalı**; varsa §5-B).
+2. Sağlık görevi: `sudo journalctl -u dolmus-takip-health.service --since "-24h" -o cat --no-pager | grep -E 'event=(decision|corrective_restart|recovery_lock_written|state_unreadable)' | grep -v 'action=none'` (boş olmalı) ve son `event=metrics` satırında `mem_available_pct`, `disk_used_pct`/`disk_level`, `wal_bytes`, `live_ms`/`ready_ms`.
+3. Çalışma zamanı ölçümü: `sudo journalctl -u dolmus-takip.service --since "-24h" -o cat --no-pager | grep 'event=runtime_metrics' | tail -n 5` (her 60 sn'de bir satır olmalı; `runtime_metrics_failed` olmamalı). `el_p99_ms`, `rss_bytes`, `tx_p99_ms`, `tx_lock_failures`, `hash_max_pending` yük testi tabanıyla karşılaştırılır.
+4. Giriş sınırları: `sudo journalctl -u dolmus-takip.service --since "-24h" --no-pager | grep -cE 'RATE_LIMITED|HASH_QUEUE_FULL'`; önceki günlere göre artış §2'deki F13 satırlarına göre incelenir.
+5. Günlük kopya: `sudo journalctl -u dolmus-takip-backup.service -p err --since "-26h" --no-pager` (boş olmalı); `systemctl --failed`; tutulan kopyalar ve release'leri [SERVER-SETUP](SERVER-SETUP.md) §4'teki `db-backup.ts status` komutuyla.
+6. Snapshot ve ilişki: `aws lightsail get-auto-snapshots --profile "$AWS_PROFILE" --region "$AWS_REGION" --resource-name "$DOLMUS_INSTANCE"` (çalışma makinesinde); son snapshot `Success` ve en yeni kopyanın `published_at`'i snapshot başlangıcından önce (§4 üç ayrı günlük kayıt).
+7. Dış erişim ve uyarı kanalı: `________` (kanal seçilince yazılır).
+
+### Kurtarma ve yayın adımları
+
+Yeni yordam yazılmaz; bu rehberin ve RELEASE'in mevcut yolları uygulanır:
+
+- **Arıza:** §5 A–G (çökme, donma/kurtarma kilidi, DB hazırlık/disk/kilit, makine erişilemiyor, yedek/snapshot, mali/yetki şüphesi, yayın/migration).
+- **Geri yükleme:** §4 "Kontrollü restore" (ayrı makine denemesi ve üretim restore'u); ortak kural §3.
+- **Yayın:** RELEASE §5 yayın adımları, §6 yayın sonrası kısa doğrulama, §7 geri dönüş kararı ve "İleri düzeltme (F5)"; sonuç RELEASE §8 kaydına.
+- **Yük kabulü sonrası:** yük DB'sinden üretim DB'sine dönüş SERVER-SETUP §5.1 adım 7; pilot trafiğinden önce zorunludur.
+
+### Kapasite kuralı
+
+Başlangıç tek 2 vCPU / 2 GB Lightsail ve SQLite'tır. S6.6 yük raporları dar boğaz gösterirse önce sorgu veya işlem iyileştirmesi değerlendirilir. 4 GB pakete ya da PostgreSQL'e **sessizce geçilmez**: ölçülen dar boğaz (rapor ve `runtime_metrics`/Lightsail değerleri), gerekçe, maliyet, geçiş ve geri dönüş planı ile yeniden doğrulama [DECISIONS](DECISIONS.md)'a yazılır ve ürün sahibi karar verir; değişiklik sonrası ilgili yük senaryosu yeni yayın adayı commit'inde yeniden koşulur.
+
+### Kabul kutuları
 
 - [ ] Sorumlu kişi/alternatif, gerçek kanal, dış giriş URL'si ve denenmiş uyarı yolu kayıtlıdır.
 - [ ] Çökme/donma, bakım, restart sınırı ve kalıcı kilit; ayrı DB hazırlık/makine arızası yolları gerçek denemeyle doğrulanmıştır.

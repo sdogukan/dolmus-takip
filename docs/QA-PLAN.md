@@ -99,6 +99,85 @@ Bir madde tek ana gruba atanır; grup içindeki bağımlı ekran/rapor/işletim 
 - **İşletim:** Node event-loop donması kontrollü oluşturulur ve bağımsız sağlık sürecinden algılanır; restart limitleri, bakım, DB hazırlık hatası ve reboot sonrası kurtarma kilidi sınanır. Backup API kopyası aktif yazmalar altında hazırlanır; doğrulama kopyanın kendi tutarlı görüntüsünde yapılır.
 - **Restore/yayın:** Kopya hash/manifest/uyumlu sürüm, integrity/FK, son commit, güncel onay ve 14.400/6.000 toplamları doğrulanır. Restore edilen eski oturumların çalışmadığı ve kopyadan sonraki parola/pasiflik değişikliklerinin kontrolsüz geri açılmadığı sınanır; aktör geçmişi korunur. Geç/bozuk kopya eskisini silmez; snapshot ilişkisi belirsizse başarı denmez. Ortak kilit, migration öncesi kopya başarısızlığı ve yazma açılmadan/açıldıktan sonraki ayrı geri dönüş yolları sınanır.
 
+### Kabul izlenebilirlik tablosu (S6.6)
+
+S6.6 AC1 ve AC7 için tek kayıt yeridir. Bütün satırlar **tek bir yayın adayı commit'inde** üretilmiş kanıtla doldurulur; başka bir commit'te, başka bir arşivde veya yerel çalışma ağacında alınmış sonuç bu aday için geçerli sayılmaz ve o commit'te yeniden koşulur. Aday değişirse sonuç sütunu baştan boşaltılır.
+
+**Yayın adayı commit:** `________________________________________` (henüz seçilmedi) · **Arşiv `artifact_sha256`:** `________` · **Tabloyu dolduran / tarih (UTC):** `________`
+
+- **Durum:** `çalıştırılmadı` = kanıt var ama aday commit'te koşulmadı; `açık` = açık karar, kurulmamış altyapı, hedef sunucu veya gerçek cihaz kanıtı gerektirir. `açık` satır, gerektirdiği şey çözülüp kanıt aday commit'te alınmadan `geçti` yazılamaz. Hiçbir satır şu anda geçmiş değildir.
+- **Sonuç (aday commit):** `geçti / başarısız` + kanıtın yeri (CI koşu bağlantısı, rapor dosyası, kayıt tarihi). Boş = alınmadı.
+- Otomatik kanıt sütunu, dosyayı ekleyen hikâye commit'inden eşlenmiştir. Bir hikâye satırı, o hikâyenin **bütün** kabul kutuları (§1: toplam 258) aday commit'te kanıtlanınca kapanır; kutu düzeyi eşleşme `Sx.y/ACn → kanıt` olarak §4 kaydında tutulur. Otomatik kanıtlar aday commit'te `npm run test:unit`, `npm run test:integration`, `npm run test:release` ve `npm run test:e2e` (Chromium) ile koşulur.
+
+| Hikâye | Otomatik kanıt | Manuel / hedef sunucu kanıtı | Durum | Sonuç (aday commit) |
+|---|---|---|---|---|
+| S1.1 | `src/server/data/db.test.ts`; `tests/integration/{schema,db-connection,db-seed-dev}.test.ts`; `tests/unit/ci-workflows.test.ts` | Aday commit'te GitHub Actions `ci.yml` koşusu | çalıştırılmadı | `________` |
+| S1.2 | `src/server/auth/{rate-limit,hash-queue}.test.ts`; `tests/integration/{vehicle-login-route,vehicle-login-hash-queue}.test.ts`; `tests/e2e/vehicle-login.spec.ts` | — | çalıştırılmadı | `________` |
+| S1.3 | `tests/integration/{platform-login-route,platform-admin-cli}.test.ts`; `tests/e2e/platform-login.spec.ts` | — | çalıştırılmadı | `________` |
+| S1.4 | `src/server/auth/{session,cookie,app-origin}.test.ts`; `src/lib/client-state.test.ts`; `tests/integration/{session-routes,session-revocation,session-usecases,app-db-access}.test.ts` | — | çalıştırılmadı | `________` |
+| S1.5 | `src/server/auth/{permissions,scope}.test.ts`; `src/server/http/handler.test.ts`; `tests/integration/{scope-authorization,scope-resolution,protected-route,mutation-receipts-scope,session-scope-summary}.test.ts` | — | çalıştırılmadı | `________` |
+| S1.6 | `src/lib/contrast.test.ts`; `tests/e2e/login-accessibility.spec.ts` | `tests/e2e/MANUAL-CHECKS.md` "Giriş ekranı" listesi (Android Chrome, iPhone Safari) | çalıştırılmadı | `________` |
+| S2.1 | `tests/integration/admin-businesses-routes.test.ts`; `tests/e2e/admin-businesses.spec.ts` | — | çalıştırılmadı | `________` |
+| S2.2 | `src/server/auth/vehicle-password.test.ts`; `src/lib/draft-version.test.ts`; `tests/integration/admin-vehicles-routes.test.ts`; `tests/e2e/admin-vehicles.spec.ts` | — | çalıştırılmadı | `________` |
+| S2.3 | `tests/integration/{reset-vehicle-password-route,session-revocation}.test.ts` | — | çalıştırılmadı | `________` |
+| S2.4 | `src/lib/drivers-ui.test.ts`; `tests/integration/{drivers-routes,drivers-affected-vehicles}.test.ts`; `tests/e2e/drivers.spec.ts` | — | çalıştırılmadı | `________` |
+| S2.5 | `src/lib/{admin-search,audit-ui,search-fold,support-target}.test.ts`; `src/server/usecases/admin-audit/sanitize.test.ts`; `tests/integration/{admin-audit-route,admin-list-search-routes}.test.ts`; `tests/e2e/admin-support-audit.spec.ts` | — | çalıştırılmadı | `________` |
+| S2.6 | `src/lib/team-users-ui.test.ts`; `tests/integration/admin-users-routes.test.ts`; `tests/e2e/team-accounts.spec.ts` | — | çalıştırılmadı | `________` |
+| S3.1 | `src/lib/work-time.test.ts`; `tests/e2e/driver-daily-form.spec.ts` | — | çalıştırılmadı | `________` |
+| S3.2 | `src/lib/{money,work-calculation}.test.ts`; `src/server/usecases/work-entries/work-entries.test.ts` | — | çalıştırılmadı | `________` |
+| S3.3 | `src/lib/work-entry-ui.test.ts`; `src/server/usecases/work-entries/subject.test.ts`; `tests/integration/work-entry-prepare-create.test.ts`; `tests/e2e/owner-staff-work-entry.spec.ts` | — | çalıştırılmadı | `________` |
+| S3.4 | `tests/integration/{work-entries-create-route,work-entry-crash-integrity}.test.ts` | — | çalıştırılmadı | `________` |
+| S3.5 | `tests/integration/work-entries-read-update-routes.test.ts`; `tests/e2e/work-entry-edit.spec.ts` | — | çalıştırılmadı | `________` |
+| S3.6 | `src/lib/{messages,work-entry-ui}.test.ts`; `tests/e2e/{driver-daily-form,owner-staff-work-entry}.spec.ts` | `tests/e2e/MANUAL-CHECKS.md` "Günlük kayıt ve kayıt sonucu" listesi; temsili kullanıcı süre/yardım sonuçları | çalıştırılmadı | `________` |
+| S4.1 | `tests/integration/work-entries-confirm-route.test.ts` | — | çalıştırılmadı | `________` |
+| S4.2 | `tests/integration/work-entries-confirm-route.test.ts`; `tests/e2e/work-entry-edit.spec.ts` | — | çalıştırılmadı | `________` |
+| S4.3 | `tests/integration/{work-entries-correct-and-confirm-route,work-entry-crash-integrity}.test.ts` | — | çalıştırılmadı | `________` |
+| S4.4 | `src/lib/{work-entry-history,work-entry-history-ui}.test.ts`; `tests/integration/work-entries-history-route.test.ts` | — | çalıştırılmadı | `________` |
+| S4.5 | `tests/integration/{work-entries-confirm-route,work-entries-correct-and-confirm-route,work-entries-read-update-routes}.test.ts`; `tests/e2e/work-entry-edit.spec.ts` | — | çalıştırılmadı | `________` |
+| S4.6 | `tests/integration/work-entries-driver-delivery.test.ts` | — | çalıştırılmadı | `________` |
+| S5.1 | `tests/integration/reports-summary-route.test.ts`; `tests/e2e/owner-summary.spec.ts` | — | çalıştırılmadı | `________` |
+| S5.2 | `src/lib/{report-period,report-ui}.test.ts`; `tests/integration/reports-vehicles-route.test.ts`; `tests/e2e/owner-reports.spec.ts` | — | çalıştırılmadı | `________` |
+| S5.3 | `tests/integration/reports-people-route.test.ts` | — | çalıştırılmadı | `________` |
+| S5.4 | `tests/integration/work-entries-list-filters.test.ts` | — | çalıştırılmadı | `________` |
+| S5.5 | `tests/integration/{reports-prd-scenario,reports-query-plan,reports-scope-matrix,reports-snapshot}.test.ts`; `tests/e2e/staff-reports.spec.ts` | — | çalıştırılmadı | `________` |
+| S6.1 | `tests/unit/{ci-workflows,release-shared}.test.ts`; `tests/release/release-build.test.ts` | Aday commit'ten `release.yml` (workflow_dispatch) arşivi + manifest (`source_commit` = aday); hedef Linux'ta `release:verify` | çalıştırılmadı | `________` |
+| S6.2 | `tests/integration/{app-db-startup,db-init-cli}.test.ts`; `tests/unit/deploy-config.test.ts` | SERVER-SETUP §5 satır 1–9 | açık — üretim AWS hesabı ve alan adı seçilmedi | `________` |
+| S6.3 | `tests/unit/health-decision.test.ts`; `tests/integration/{health-ready-route,admin-hash-queue-log}.test.ts` | SERVER-SETUP §5 satır 10–16; makine dışı kontrol ve ekip uyarısının ulaştığı kayıt | açık — hedef makine yok; dış kontrol ve uyarı kanalı seçilmedi (AC6) | `________` |
+| S6.4 | `tests/unit/backup-schedule.test.ts`; `tests/integration/db-backup.test.ts` | SERVER-SETUP §5 satır 17–21; OPS §4 üç ayrı günlük kayıt | açık — hedef makine yok | `________` |
+| S6.5 | `tests/integration/{db-restore,release-apply}.test.ts` | OPS §4 "Kontrollü restore" ayrı makine denemesi; SERVER-SETUP §5 satır 22–27 | açık — hedef makine yok | `________` |
+| S6.6 | `tests/integration/{work-entry-crash-integrity,integrity-check,load-seed,instrumentation-runtime-metrics}.test.ts`; `tests/unit/{load-metrics,load-client,load-run-args,load-run-probe}.test.ts`; `src/server/observability/runtime-metrics.test.ts` | §3 yük prosedürü: üç senaryo raporu, süreç öldürme denemesi, her koşu sonrası `integrity:check`; SERVER-SETUP §5 satır 28–33; bu tablonun tamamı; OPS §8 | açık — hedef makine yok | `________` |
+
+| PRD §9 | Ana QA | Otomatik kanıt | Manuel / hedef sunucu kanıtı | Durum | Sonuç (aday commit) |
+|---|---|---|---|---|---|
+| 1 | QA01 | `tests/e2e/{vehicle-login,login-accessibility,driver-daily-form}.spec.ts`; `src/lib/contrast.test.ts` | `MANUAL-CHECKS.md` S1.6 ve S3.6 listeleri (gerçek telefon) | çalıştırılmadı | `________` |
+| 2 | QA04 | `tests/integration/{admin-businesses-routes,admin-vehicles-routes,work-entry-prepare-create}.test.ts`; `tests/e2e/{admin-businesses,admin-vehicles,driver-daily-form}.spec.ts` | — | çalıştırılmadı | `________` |
+| 3 | QA06 | `src/lib/work-time.test.ts`; `tests/integration/reports-people-route.test.ts`; `tests/e2e/driver-daily-form.spec.ts` | — | çalıştırılmadı | `________` |
+| 4 | QA07 | `src/lib/{money,work-calculation}.test.ts`; `tests/e2e/driver-daily-form.spec.ts` | — | çalıştırılmadı | `________` |
+| 5 | QA08 | `tests/integration/{work-entries-create-route,reports-summary-route}.test.ts`; `tests/e2e/owner-summary.spec.ts` | — | çalıştırılmadı | `________` |
+| 6 | QA09 | `tests/integration/{work-entries-confirm-route,work-entries-driver-delivery}.test.ts`; `tests/e2e/work-entry-edit.spec.ts` | — | çalıştırılmadı | `________` |
+| 7 | QA07 | `src/lib/work-calculation.test.ts`; `src/server/usecases/work-entries/subject.test.ts`; `tests/integration/reports-people-route.test.ts`; `tests/e2e/owner-staff-work-entry.spec.ts` | — | çalıştırılmadı | `________` |
+| 8 | QA07 | `src/server/usecases/work-entries/subject.test.ts`; `tests/integration/work-entry-prepare-create.test.ts`; `tests/e2e/owner-staff-work-entry.spec.ts` | — | çalıştırılmadı | `________` |
+| 9 | QA06 | `tests/integration/{reports-prd-scenario,reports-vehicles-route,reports-people-route}.test.ts` | — | çalıştırılmadı | `________` |
+| 10 | QA11 | `tests/integration/{reports-prd-scenario,reports-vehicles-route}.test.ts`; `tests/e2e/owner-reports.spec.ts` | — | çalıştırılmadı | `________` |
+| 11 | QA11 | `src/lib/report-period.test.ts`; `tests/integration/{reports-vehicles-route,reports-people-route,reports-snapshot}.test.ts` | — | çalıştırılmadı | `________` |
+| 12 | QA03 | `src/server/auth/permissions.test.ts`; `tests/integration/{scope-authorization,reports-scope-matrix,protected-route}.test.ts` | — | çalıştırılmadı | `________` |
+| 13 | QA07 | `src/server/usecases/work-entries/work-entries.test.ts`; `tests/integration/{work-entries-create-route,work-entries-confirm-route}.test.ts` | — | çalıştırılmadı | `________` |
+| 14 | QA12 | `tests/integration/{db-connection,work-entries-create-route,work-entry-crash-integrity,db-backup,db-restore}.test.ts` | Hedefte yük sonrası `integrity:check` (§3); OPS §4 ayrı makinede restore (S6.5) | açık — hedef makine yok | `________` |
+| 15 | QA10 | `tests/integration/{work-entries-correct-and-confirm-route,work-entries-history-route,work-entries-driver-delivery,work-entry-crash-integrity,reports-prd-scenario}.test.ts` | — | çalıştırılmadı | `________` |
+| 16 | QA03 | `tests/integration/{vehicle-login-route,scope-resolution}.test.ts`; `tests/e2e/vehicle-login.spec.ts` (çok araç K2 kararıyla tek araç) | — | çalıştırılmadı | `________` |
+| 17 | QA07 | `src/server/usecases/work-entries/subject.test.ts`; `tests/integration/scope-authorization.test.ts`; `tests/e2e/owner-staff-work-entry.spec.ts` | — | çalıştırılmadı | `________` |
+| 18 | QA02 | `src/server/auth/{vehicle-password,rate-limit}.test.ts`; `tests/integration/{vehicle-login-route,session-routes}.test.ts` | — | çalıştırılmadı | `________` |
+| 19 | QA05 | `tests/integration/{drivers-routes,reports-people-route}.test.ts`; `tests/e2e/drivers.spec.ts` | — | çalıştırılmadı | `________` |
+| 20 | QA09 | `tests/integration/{work-entries-confirm-route,reports-prd-scenario}.test.ts`; `tests/e2e/work-entry-edit.spec.ts` | — | çalıştırılmadı | `________` |
+| 21 | QA11 | `tests/integration/work-entries-list-filters.test.ts`; `tests/e2e/{owner-reports,staff-reports}.spec.ts` | — | çalıştırılmadı | `________` |
+| 22 | QA02 | `tests/integration/{platform-login-route,protected-route}.test.ts`; `tests/e2e/platform-login.spec.ts` | — | çalıştırılmadı | `________` |
+| 23 | QA04 | `tests/integration/{reset-vehicle-password-route,admin-vehicles-routes,session-revocation}.test.ts`; `tests/e2e/admin-vehicles.spec.ts` | — | çalıştırılmadı | `________` |
+| 24 | QA05 | `tests/integration/{drivers-routes,admin-audit-route}.test.ts`; `tests/e2e/{drivers,admin-support-audit}.spec.ts` | — | çalıştırılmadı | `________` |
+| 25 | QA07 | `tests/integration/work-entry-prepare-create.test.ts`; `tests/e2e/owner-staff-work-entry.spec.ts` | — | çalıştırılmadı | `________` |
+| 26 | QA10 | `tests/integration/{work-entries-correct-and-confirm-route,work-entries-history-route}.test.ts`; `tests/e2e/work-entry-edit.spec.ts` | — | çalıştırılmadı | `________` |
+| 27 | QA09 | `tests/integration/work-entries-confirm-route.test.ts`; `src/lib/work-entry-history-ui.test.ts` | — | çalıştırılmadı | `________` |
+| 28 | QA03 | `src/lib/support-target.test.ts`; `tests/integration/{scope-authorization,mutation-receipts-scope}.test.ts`; `tests/e2e/admin-support-audit.spec.ts` | — | çalıştırılmadı | `________` |
+
 ## 3. Çalıştırma ve CI planı
 
 | Zaman | Çalışacak kontroller / sınır |
@@ -125,13 +204,90 @@ CI izole test DB'si, test parolaları ve boş migration başlangıcı kullanır.
 
 ### Kapasite ve geçiş ölçütleri
 
-M6'da hedef Lightsail üzerinde üretim derlemesi ve beş yıllık temsili geçmiş kullanılacak; araç/kişi/çalışma adetleri raporlanacak. Yük üreticisi başka makinededir. Şimdi ücretli kaynak açılmaz veya yük testi başlatılmaz.
+M6'da hedef Lightsail üzerinde üretim derlemesi ve beş yıllık temsili geçmiş kullanılacak; araç/kişi/çalışma adetleri raporlanacak. Yük üreticisi başka makinededir. Yük kiti (`load:seed`, `load:run`, `integrity:check`, uygulamanın `runtime_metrics` satırı) hazırlandı; hedef makinede **hiçbir senaryo koşulmadı ve hiçbir ölçüm yoktur**. Şimdi ücretli kaynak açılmaz veya yük testi başlatılmaz.
 
 1. 100 kısa aralıklı giriş: Argon2 kuyruğu, ortak NAT, meşru kullanıcı beklemesi/engeli ve toparlanma.
 2. 100 aktif kullanıcının gerçekçi beklemeli kayıt/onay/rapor karışımı: önerilen 5 dakika ısınma, kademeli artış ve en az 30 dakika sabit yük.
 3. 100 yazma isteği tepesi: transaction/idempotency, kuyruk ve toparlanma; ilk iki senaryonun yerine geçmez.
 
 Normal karışık yük başlangıç hedefi **kayıt p95 ≤2 sn, rapor p95 ≤3 sn, beklenmeyen hata <%1**; başarılı mali işlem kaybı, çift işlem ve hesap/onay tutarsızlığı **0**. 409/429/yetki reddi ayrı sayılır; meşru kullanıcıyı engelleyerek elde edilen hız geçer sayılmaz. RAM, CPU/burst, event-loop, disk/WAL ve SQLite beklemesi kaydedilir. Hedef sağlanmazsa bulgu ve düzeltme sonrası ilgili test tekrarlanır; kapasite artışı kendiliğinden onaylanmaz.
+
+### Yük ve veri bütünlüğü kabul prosedürü (S6.6)
+
+Komutlar **hazırlandı, denenmedi (elle kurulumda denenecek)**. Hedef makinedeki adımlar [SERVER-SETUP](SERVER-SETUP.md) §5.1'dedir; bu bölüm sırayı, eşikleri ve kanıtın nereden okunacağını verir.
+
+**Erişilebilirlik sondası:** `load:run` hazırlıkta ve koşu boyunca (`--probe-interval`, varsayılan 10 sn) hedefe Caddy üzerinden oturumsuz `GET /giris` gönderir (`scripts/load-run.ts` `assertTargetReachable`, `probeReachability`). Hazırlıkta yanıt 200 değilse yük başlatılmaz; 503, Caddy'nin bakım kapısıdır (bakım işareti açık) ve araç `Hedef bakımda` hatasıyla durur. Koşu boyunca 200 dışı her sonda yanıtı raporda `probes.reachability.failures` altında sayılır; sonda istekleri kullanıcı gecikme istatistiklerine girmez. Bu sonda yalnız Caddy ile uygulamanın sayfa sunduğunu gösterir, **veritabanının hazır olduğunu göstermez**. Sağlık uçları (`/api/v1/health/*`) yalnız localhost içindir ve dışarıya 404 döner (`deploy/caddy/Caddyfile` `@health`, ARCHITECTURE §4); üretici onları çağırmaz. Koşu sırasında DB hazırlığı hedefteki sağlık görevinin satırlarından okunur: `dolmus-health event=probe` `ready` (durum kodu) ve `event=metrics` `ready_ms` (aşağıdaki tablo; toplama SERVER-SETUP §5.1 adım 6).
+
+**Ön koşullar**
+
+- Hedef makine SERVER-SETUP §1–§4 ile kurulu, `current` yayın adayı commit'inin arşivi (manifest `source_commit` = §2 tablosundaki aday commit). Üretim AWS hesabı ve alan adı seçilmeden bu makine yoktur (OPS §8).
+- Yük üreticisi hedeften **ayrı** bir makinedir; aday commit'te temiz bir checkout, `npm ci` ve aynı commit'in `release:build`/`release.yml` manifest dosyası (`dist/…manifest.json`) üreticide bulunur. Geri döngü (`localhost`/`127.x`) hedefli veya 100'den az kullanıcılı koşu rapora `acceptance_eligible=false` yazar.
+- Yük DB'si müşteri verisine asla karışmaz: ayrı yolda durur, üretim DB'sine yalnız SERVER-SETUP §5.1'deki doğrulanmış geri dönüşle dönülür. `load:seed` hedef makinede ve `/var/lib/dolmus-takip/data/app.sqlite` üzerinde **çalıştırılmaz** (araç var olan dosyayı ve `NODE_ENV=production`'ı zaten reddeder).
+
+**Sıra**
+
+1. **Veri seti (üreticide):** `npm run load:seed -- --db <üretici>/load.sqlite --credentials <depo-dışı>/load-credentials.json --load-window-month <YYYY-MM>`. Varsayılan 50 araç (araç başına sahip + ortak şoför kimlik bilgisi = 100 kullanıcı) ve 4 ekip hesabı; geçmiş `--load-window-month` ayından önce biten en az beş yıldır. Yan dosya `<db>.counts.json` araç/kişi/gün/kayıt/revizyon/onay sayılarını, `sourceCommit`, `sourceTreeDirty`, migration hash listesini ve DB `sha256`'sını taşır; `sourceCommit` aday commit'le aynı ve `sourceTreeDirty=false` olmalıdır. Kimlik bilgisi dosyası `0600`, depo dışındadır; rapora, loga veya Git'e girmez.
+2. **Hedefe kopyala ve servisi yük DB'sine bağla:** SERVER-SETUP §5.1 adım 1–3; bağlantı doğrulanmadan yük başlamaz.
+3. **Üç senaryo, ayrı ayrı, sırayla:** `login-burst` → `active-mix` → `write-peak`. Her çağrı tek senaryo koşar; iki koşu aynı anda başlatılmaz (aynı yazma penceresini seçerler). Aşamalar: **ısınma ≥ 5 dk** (`--warmup 300`, varsayılan), **kademeli artış** (`--ramp 300`, varsayılan), **sürdürülen yük ≥ 30 dk** (`--sustain 1800`, varsayılan); kısaltılmış koşu `acceptance_eligible=false` yazar ve kabul kanıtı sayılmaz. Hedeflerle yalnız sürdürülen aşamadaki işlemler karşılaştırılır.
+
+   ```sh
+   # hazırlandı, denenmedi (elle kurulumda denenecek) — üreticide, aday commit checkout'unda
+   npm run load:run -- --scenario login-burst --target "https://$DOLMUS_DOMAIN" \
+     --credentials <depo-dışı>/load-credentials.json --dataset <üretici>/load.sqlite.counts.json \
+     --release-manifest <dist/…manifest.json> --out <rapor-dizini>/login-burst
+   ```
+
+   `active-mix` ve `write-peak` aynı komutla, yalnız `--scenario` ve `--out` değişerek koşulur. Çıkış kodu: 0 geçti, 2 hedef tutmadı (rapor yazıldı), 1 koşu hatası.
+4. **Giriş yoğun koşular arasında ≥ 15 dk:** her senaryo 100 girişle başlar (`login-burst` dalgalarla, diğer ikisi hazırlıkta). Giriş sayaçları 15 dakikalık penceredir (20 başarısız/plaka, 120 başarısız/IP; yalnız başarısız denemeler sayılır, `src/server/auth/rate-limit.ts`), Argon2 kuyruğu 4 eşzamanlı / 100 bekleyen / 10 sn'dir. Bir koşunun bitişi ile sonrakinin başlangıcı arasında en az 15 dk bırakılır; rapordaki `loginWindow.nextLoginHeavyScenarioNotBefore` bir sonraki giriş yoğun koşunun en erken zamanını verir. Sayaçları sıfırlamak için servis yeniden başlatılmaz.
+5. **Süreç öldürme denemesi (`write-peak` sürdürülen aşamasında, bir kez):** SERVER-SETUP §5.1 adım 4. systemd uygulamayı 10 sn sonra açar; üretici sonucu bilinmeyen yazmaları aynı `requestId` ve bayt-bayt aynı gövdeyle 1, 2, 4, 8, 16 sn beklemeyle yeniden dener (`--max-retries 5`). Öldürme zamanı (UTC), ilk başarılı yanıta kadar geçen süre ve rapordaki `unresolved` sayısı kayda yazılır; defter mutabakatında kayıp, çift ve tutarsız **0** olmalıdır.
+6. **Her koşudan sonra bütünlük:** SERVER-SETUP §5.1 adım 5 ile yük DB'sinin tutarlı kopyası alınır ve üreticide `npm run integrity:check -- <kopya>` çalıştırılır; beklenen tek satır `event=integrity_passed` ve çıkış 0'dır. `integrity:check` yayın arşivinde yoktur ve canlı WAL DB üzerinde uzun okuma checkpoint'i bekletir; bu yüzden kopyada çalışır.
+7. **Kaynak ölçümleri:** koşu penceresinin UTC başlangıç/bitişiyle aşağıdaki kaynaklardan toplanır (komutlar SERVER-SETUP §5.1 adım 6).
+8. **Üretim DB'sine dönüş:** SERVER-SETUP §5.1 adım 7; pilot trafiğinden önce zorunludur.
+
+| Ölçüm | Kaynak |
+|---|---|
+| Uç gecikmesi ve sonuçlar | `load:run` raporu (JSON + Markdown): sınıf başına (`login`; `kayit` = bütün yazmalar: kayıt, onay, düzelt ve onayla; `rapor`; `okuma`) p50/p95/p99/max; planlanan/gerçekleşen hız ve gönderim gecikmesi |
+| RAM | Süreç: `dolmus-runtime event=runtime_metrics` satırında `rss_bytes`, `heap_used_bytes`, `heap_total_bytes`. Makine: `dolmus-health event=metrics` satırında `mem_available_pct` |
+| CPU / burst | Süreç: `runtime_metrics` `cpu_user_ms` + `cpu_system_ms` (aynı satırdaki `interval_ms`'e bölünür). Makine: `aws lightsail get-instance-metric-data` ile `CPUUtilization`, `BurstCapacityPercentage`, `BurstCapacityTime` |
+| Event-loop | `runtime_metrics` `el_p50_ms`, `el_p99_ms`, `el_max_ms`; dış gözlem olarak `dolmus-health event=metrics` `live_ms` |
+| DB hazırlığı | Hedefte 30 sn'de bir: `dolmus-health event=probe` `ready` (yerel `/api/v1/health/ready` durum kodu; uygulama servisi yük DB'sine bağlı olduğundan yük DB'sini sınar) ve `event=metrics` `ready_ms`. `load:run` raporundaki `probes.reachability` (`GET /giris`) yalnız dış erişilebilirliktir, DB hazırlığı değildir |
+| Disk | `dolmus-health event=metrics` `disk_used_pct`, `disk_level` (veri dosya sistemi; yük DB'si aynı dosya sistemindedir) |
+| WAL | Yük DB'sinin `-wal` boyutu SERVER-SETUP §5.1 adım 6'daki örnekleme döngüsüyle. `dolmus-health` `wal_bytes` yalnız üretim DB'sinin (`app.sqlite-wal`) boyutudur, yük DB'sini göstermez |
+| SQLite beklemesi | `runtime_metrics` `tx_count`, `tx_p99_ms`, `tx_max_ms` (süreye `BEGIN IMMEDIATE` beklemesi dahil), `tx_lock_failures` (SQLITE_BUSY/LOCKED) |
+| Argon2 kuyruğu | `runtime_metrics` `hash_verifications`, `hash_max_pending`, `hash_longest_wait_ms`; uygulama logunda `RATE_LIMITED` / `HASH_QUEUE_FULL` satırları (OPS §2) |
+| Mali bütünlük | `load:run` defter mutabakatı (`lost`, `duplicate`, `inconsistent`) ve her koşu sonrası `integrity:check` satırı |
+
+**Karar kuralı**
+
+- `active-mix` (normal karışık yük): **kayıt p95 ≤ 2 sn, rapor p95 ≤ 3 sn, beklenmeyen hata < %1**. `login-burst` ve `write-peak` için bekleme ve toparlanma süreleri ayrıca yazılır; yalnız ortalama süreyle başarı ilan edilmez. Üç senaryonun sonuçları birbirinin yerine kullanılmaz.
+- Başarılı mali işlem **kaybı, çift işlem ve hesap/onay tutarsızlığı 0**; her koşu sonrası `integrity:check` geçer.
+- Ayrı sayılanlar: beklenen **409** (`VERSION_CONFLICT`, `REQUEST_ID_REUSED`; bilerek üretilen çakışma sondaları), **429** koduyla (`RATE_LIMITED`, `HASH_QUEUE_FULL`), **yetki reddi** (401/403; yük kullanıcıları meşru olduğundan raporda `unexpected` altında koduyla ayrı satırdır ve her biri incelenir), sonucu bilinmeyen yazma ve beklenmeyen. Meşru kullanıcıya dönen tek bir 429 bile geçer sayılmaz; engellenerek elde edilen hız başarılı kapasite değildir.
+- Sağlık görevi koşu sırasında durdurulmaz. `live` üç kez kaçıp düzeltici restart veya kurtarma kilidi oluşursa bu bir **bulgudur**: zamanı ve `event=decision` satırı kayda geçer, koşu temiz sayılmaz.
+- Dar boğaz görülürse önce sorgu/işlem iyileştirmesi değerlendirilir; 4 GB pakete veya PostgreSQL'e geçiş ancak ölçüm, gerekçe ve ürün sahibi kararıyla olur (OPS §8).
+
+**Sonuç kaydı (her senaryo için ayrı doldurulur; boş alan = ölçülmedi)**
+
+~~~text
+Senaryo: login-burst | active-mix | write-peak
+Yayın adayı commit / artifact_sha256 (rapordaki release alanı):
+Hedef URL / üretici makine / hedef makine paketi:
+Veri seti: araç / kişi / gün / kayıt / revizyon / onay sayıları, sourceCommit:
+Isınma / kademeli artış / sürdürülen süre (sn); başlangıç–bitiş (UTC):
+acceptance_eligible ve nedenleri:
+login / kayit / rapor / okuma p50-p95-p99-max (ms):
+Başarı / beklenen 409 / 429 (koda göre) / yetki reddi / bilinmeyen / beklenmeyen:
+Defter: lost / duplicate / inconsistent; unresolved:
+Süreç öldürme (yalnız write-peak): zaman (UTC), toparlanma süresi, yeniden deneme sonucu:
+integrity:check satırı ve çıkış kodu:
+RAM (rss max, mem_available_pct min) / CPU (süreç %, CPUUtilization max) / BurstCapacityPercentage min:
+Event-loop el_p99_ms max / live_ms max:
+DB hazırlığı (event=probe ready 200 dışı sayısı, ready_ms max) / erişilebilirlik sondası (GET /giris) başarısız sayısı:
+Disk disk_used_pct max / yük DB -wal max bayt:
+SQLite tx_p99_ms max / tx_max_ms max / tx_lock_failures toplam:
+Argon2 hash_max_pending max / hash_longest_wait_ms max:
+Sağlık görevi kararları (restart / kilit) ve diğer bulgular:
+Sonuç: geçti / kaldı; kaydeden:
+~~~
 
 ## 4. Bulgu ve kanıt takibi
 

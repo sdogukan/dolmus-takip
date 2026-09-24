@@ -86,16 +86,100 @@ Snapshot ile hazır kopya arasındaki bağ kurulamıyorsa (kopya snapshot başla
 
 ### Kontrollü restore
 
-1. Neden, etki ve son kabul edilen müşteri yazmalarını değerlendir; mevcut DB/WAL'ı koru. Hedef snapshot'ı ve içindeki doğrulanmış kopyayı seç; üretim üzerine deneme yapma.
-2. Ortak kilit/bakım koşulunu sağla. Snapshot'ı ayrı makineye aç; hazırlık boyunca genel müşteri erişimini kapalı tut. Makine açılamıyorsa yerel kilide güvenmek yerine ikinci kurtarma işlemi başlatılmadığını sorumlu koordine eder.
-3. Manifest/hash, uyumlu kod/şema, dosya izinleri ve servis ayarlarını doğrula. Snapshot'ın rastgele canlı DB görüntüsü yerine hazırlanmış doğrulanmış kopyayı kullan. Kopyadaki eski oturumları iptal et; yedekten sonraki parola sıfırlama/pasiflik kararlarını güncel işletim bilgisiyle kontrol et. Güncelliği doğrulanamayan girişi yeniden doğrulanıp gerekirse sıfırlanana kadar kapalı tut; eski oturum ve yetkileri yedekten kontrolsüz diriltme, aktör geçmişini silme.
-4. Yerel canlılık/hazırlık, giriş ve işletme/araç/kişi ilişkilerini; son kayıt, revizyon, güncel onay ve rapor toplamlarını denetle. Beklenen/kalan ile alınan tutarları karıştırma; E4/E5 örnekleriyle kontrol et.
-5. Kopyadaki son commit edilmiş işlemin zamanı/kimliğini kurtarma noktası olarak yaz. Snapshot saati bunu ikame etmez. Başlangıçtan doğrulanmış hizmete kadar toparlanma süresini ölç; henüz ölçülmüş süre yoktur.
-6. Veri aralığı ve doğrulama sonucu anlaşılınca sorumlu kontrollü trafik geçişi yapar; iki makineye aynı anda müşteri yazması açılmaz. RELEASE smoke ve izleme kontrolüyle sonucu kaydet.
+Restore iki durumda yapılır: (A) **ayrı makinede restore denemesi** — ilk pilottan önce zorunlu, sonra ayda bir önerilir; 'restore sınandı' kaydı yalnız bununla düşülür; (B) **üretimde restore** — DB kaybı/bozulması gibi bir olayda, yetkili sorumlunun kararıyla. İkisi de aynı aracı (`scripts/db-restore.ts`, arşivin içindedir) aynı sırayla kullanır; üretim verisi üzerine deneme yapılmaz.
+
+**Araç** (`dolmus-takip` kullanıcısıyla, kopyanın uyumlu olduğu release dizininden çalışır; root olarak çalıştırılırsa reddeder):
+
+| Komut | Ne yapar | Reddettiği durumlar (`event=restore_failed reason=…`, çıkış ≠ 0) |
+|---|---|---|
+| `verify --manifest <backup-ready/app-….manifest.json>` | Salt okunur. Kopyanın hash/boyutu, release'i, bütünlüğü, şeması, pay/kalan hesabı, araç dönem raporu toplamları ve manifestteki son kayıt; giriş kimliklerini (`event=restore_principal`: id, plaka/kullanıcı adı, aktiflik, `credential_version`; parola hash'i asla) listeler; başarıda `event=restore_verified recoverable_point=…` | `copy_hash_mismatch`, `release_mismatch`, `integrity_check_failed`, `foreign_key_check_failed`, `schema_not_current`, `entry_amount_mismatch`, `report_totals_mismatch`, `manifest_record_mismatch`, `manifest_invalid`, `copy_missing` |
+| `install --manifest <…>` | Ortak kilidi alır (en çok 900 sn; alınamazsa **75** ile çıkar), `verify`'ın tamamını çalıştırır, kopyayı veri dizinine alıp BÜTÜN oturumları uygulama o DB'yi görmeden iptal eder; mevcut `app.sqlite`/`-wal`/`-shm` **silinmez**, `/var/lib/dolmus-takip/preserved/<zaman>/` altına taşınır; `event=restore_installed revoked_sessions=… preserved=…` | `maintenance_off` (bakım işareti yok), `service_active` (uygulama servisi `inactive`/`failed` değil), `ops_lock_busy`, `data_dir_owner_mismatch`, `sessions_not_revoked` ve `verify`'ın bütün nedenleri. Boş DB hiçbir yolda oluşturulmaz |
+| `report --started-at <ISO> [--incident-at <ISO>]` | Restore kaydı: `event=restore_record recoverable_point=… recovery_duration_s=… loss_window_s=…` (olay zamanı yoksa `unknown`) | `db_missing`, `incident_before_recoverable_point` |
+
+Kurtarılabilir nokta **kopyanın kendi satırlarından** (son revizyon, teslim onayı veya denetim izi; hangisi en yeniyse) okunur; snapshot saati veya dosya zamanı bunu ikame etmez, manifestteki `last_committed_record` yalnız çapraz kontroldür. `verify`, kopyanın manifestindeki `release_id` dizininden çalıştırılır: daha yeni bir release'ten çalıştırmak geçerli bir kopyada `release_mismatch` verir; bu durumda doğru release dizinine geçilir, kopya "bozuk" sayılmaz.
+
+**A. Ayrı makinede restore denemesi.** Çalışma makinesinde, [SERVER-SETUP](SERVER-SETUP.md) "Değişkenler" tanımlıyken:
+
+```bash
+# hazırlandı, denenmedi (elle kurulumda denenecek)
+# 1) başlangıç zamanı (UTC) kayda yazılır; toparlanma süresi bundan ölçülür
+RESTORE_STARTED_AT=$(date -u +%Y-%m-%dT%H:%M:%SZ); echo "$RESTORE_STARTED_AT"
+# 2) tamamlanmış otomatik snapshot seçilir (date, status = Success)
+aws lightsail get-auto-snapshots --profile "$AWS_PROFILE" --region "$AWS_REGION" \
+  --resource-name "$DOLMUS_INSTANCE" --query 'autoSnapshots[].[date,status]' --output table
+# 3) deneme makinesi o snapshot'tan açılır; statik IP ve DNS bağlanmaz (müşteri erişemez)
+aws lightsail create-instances-from-snapshot --profile "$AWS_PROFILE" --region "$AWS_REGION" \
+  --instance-names "$DOLMUS_INSTANCE-restore-<tarih>" --availability-zone "$DOLMUS_AZ" \
+  --bundle-id "$DOLMUS_BUNDLE_ID" --key-pair-name "$DOLMUS_KEY_PAIR" \
+  --source-instance-name "$DOLMUS_INSTANCE" --restore-date <YYYY-MM-DD>
+aws lightsail get-instance-state --profile "$AWS_PROFILE" --region "$AWS_REGION" \
+  --instance-name "$DOLMUS_INSTANCE-restore-<tarih>"   # running olana dek tekrarlanır
+```
+
+Deneme makinesinde (SSH, yeni instance'ın ana makine anahtarı doğrulanarak — [SERVER-SETUP](SERVER-SETUP.md) §1.4):
+
+```bash
+# hazırlandı, denenmedi (elle kurulumda denenecek)
+# 4) deneme makinesi dışarıya ve zamanlayıcılara kapalı; bakım işareti; uygulama durur
+sudo systemctl disable --now caddy.service dolmus-takip-health.timer dolmus-takip-backup.timer
+sudo install -m 0644 -o root -g root /dev/null /var/lib/dolmus-takip/maintenance
+sudo systemctl stop dolmus-takip.service
+# 5) snapshot başlangıcından ÖNCE yayımlanmış en yeni kopya ve onun release'i seçilir
+sudo -u dolmus-takip sh -c 'cat /var/lib/dolmus-takip/backup-ready/*.manifest.json' | grep -E '"(stem|published_at|release_id|sha256)"'
+MANIFEST=/var/lib/dolmus-takip/backup-ready/<stem>.manifest.json
+REL=/opt/dolmus-takip/releases/<release_id>
+# 6) doğrula; çıkış 0 ve restore_verified satırı olmadan devam edilmez
+cd "$REL" && sudo -u dolmus-takip node scripts/db-restore.ts verify --manifest "$MANIFEST"
+# 7) yerleştir (kilit, bakım işareti ve durmuş servis araç tarafından denetlenir)
+cd "$REL" && sudo -u dolmus-takip node --env-file=/etc/dolmus-takip/app.env scripts/db-restore.ts install --manifest "$MANIFEST"
+# 8) current kopyanın release'ini göstermiyorsa ortak kilit altında atomik değiştirilir
+sudo flock -w 900 -E 75 /var/lib/dolmus-takip/ops.lock sh -euc \
+  'ln -sfn "$1" /opt/dolmus-takip/current.tmp && mv -T /opt/dolmus-takip/current.tmp /opt/dolmus-takip/current' _ "$REL"
+# 9) başlat; yerel hazırlık
+sudo systemctl start dolmus-takip.service
+curl -fsS http://127.0.0.1:3000/api/v1/health/ready
+# 10) kontroller bittikten sonra restore kaydı (olay yoksa --incident-at verilmez: kayıp aralığı unknown)
+cd "$REL" && sudo -u dolmus-takip node --env-file=/etc/dolmus-takip/app.env scripts/db-restore.ts report --started-at "<RESTORE_STARTED_AT>"
+```
+
+Adım 9 ile 10 arasında elle kontrol edilir ve sonuç kayda yazılır:
+
+1. `restore_principal` satırları güncel işletim bilgisiyle karşılaştırılır: kopyadan sonra parolası sıfırlanan, pasifleştirilen araç/işletme/ekip hesabı varsa o giriş, güncel durumu uygulanana (parola yeniden sıfırlanana, pasiflik yeniden verilene) kadar kapalı tutulur. Eski oturumların hepsi `install` ile iptal edildi; aktör geçmişi (revizyon, onay, denetim izi) silinmez.
+2. Giriş, işletme/araç/kişi ilişkileri, son kayıt, revizyon geçmişi ve güncel teslim onayı E4/E5 örnekleriyle denetlenir. Rapor toplamlarının kopyayla eşitliği `verify`'da makineyle kanıtlandı; ekranda beklenen/kalan ile alınan tutarlar karıştırılmadan yeniden bakılır. Makinenin açılması veya DB dosyasının bulunması başarılı restore sayılmaz.
+3. Deneme makinesinde giriş denemesinin yolu (SSH tüneli veya geçici alan adı) ilk denemede belirlenir ve buraya yazılır; üretim alan adı deneme makinesine yönlendirilmez.
+
+**B. Üretimde restore.** Yetkili sorumlu karar verir; önce olay başlangıcı, etki ve son kabul edilen müşteri yazmaları kaydedilir. Adım 1 ve 4–10 **aynı makinede** uygulanır, farkları: adım 4'te yalnız bakım işareti konur ve uygulama durdurulur (Caddy ve zamanlayıcılar kapatılmaz; Caddy bakım işaretini görüp dışarıya 503 verir, sağlık görevi restart yapmaz); adım 10'da `--incident-at <olayın UTC zamanı>` verilir. `install`'ın taşıdığı eski DB/WAL `preserved/<zaman>/` altında inceleme için kalır; eski ve yeni DB kayıtları otomatik birleştirilmez. Bakım işareti (`sudo rm /var/lib/dolmus-takip/maintenance`) yalnız kontroller geçip sorumlu kontrollü trafik geçişine karar verince kaldırılır; iki makineye aynı anda müşteri yazması açılmaz.
+
+- **Daha eski kopyaya dönüldüyse sonraki günlük yedek reddedilir:** `backup-ready`'deki daha yeni manifest daha fazla satır taşıdığı için `event=backup_failed reason=row_count_drop` beklenir. Bu bir **işletim kararıdır**: ya yeni kopyalar kanıt olarak yerinde bırakılır ve ret günlük kontrolde kayda geçer, ya sorumlu daha yeni kopya+manifest çiftlerini `preserved/<zaman>/` altına **taşır** (kayda yazarak). Manifest veya kopya bu reddi aşmak için **silinmez**.
+- Kilit alınamazsa (`install` 75 ile çıkar) çalışan yedek/yayın bitmeden restore yapılmaz; kilidin sahibi doğrulanmadan kilit dosyası silinmez (§3).
+
+**Restore kaydı** (her deneme ve her üretim restore'u için bir satır):
+
+| Alan | Kaynak |
+|---|---|
+| Tarih, sorumlu, tür (deneme/üretim) | Elle |
+| Snapshot tarihi/kimliği ve durumu | Adım 2 |
+| Kopya `stem`, `sha256`, `release_id` | Adım 5–6 (`restore_verified`) |
+| Kurtarılabilir nokta ve kaydı | `restore_record recoverable_point`, `recoverable_record` |
+| Toparlanma süresi | `restore_record recovery_duration_s` |
+| Kayıp aralığı | `restore_record loss_window_s` (olay zamanı yoksa `unknown`) |
+| Giriş/ilişki/rapor kontrolleri ve kapalı tutulan girişler | Adım 9–10 arası kontroller |
+| Deneme maliyeti | Instance saat sayısı × paket saatlik ücreti (12 USD/ay paket ≈ 0,017 USD/saat) + manuel snapshot depolaması (0,05 USD/GB-ay); gerçek faturadan kontrol edilir |
+| Temizlik | Silinen deneme instance'ı adı, silme zamanı ve `get-instance` sonucunun `NotFoundException` olduğu |
 
 Günlük aralık ve hazırlık penceresi kadar yeni kayıt kaybı olabilir; yedek arızaları aralığı uzatır. Sıfır kayıp veya kesin toparlanma süresi sözü verilmez. Kayıp aralığı bilinmiyorsa bilinmiyor yazılır; eski/yeni DB kayıtları otomatik birleştirilmez.
 
-İlk pilot öncesi restore zorunlu doğrulamadır; sonraki aylık tekrar Architecture önerisidir. Deneme makinesinin geçici maliyeti bütçeye yazılır, kanıt alındıktan sonra gerekli olmayan deneme kaynakları kontrollü kaldırılır. **Makineyi silmeden önce (zorunlu adım):** Otomatik snapshot'lar kaynak instance ile birlikte silinebilir. Korunacak nokta önce **manuel snapshot** olarak alınır; tamamlandığı görülmeden ve kopya ilişkisi kaydedilmeden instance silinmez.
+İlk pilot öncesi restore zorunlu doğrulamadır; sonraki aylık tekrar Architecture önerisidir. Deneme makinesinin geçici maliyeti bütçeye ve restore kaydına yazılır; kanıt alındıktan sonra deneme makinesi kontrollü kaldırılır ve kaldırıldığı doğrulanır:
+
+```bash
+# hazırlandı, denenmedi (elle kurulumda denenecek)
+aws lightsail delete-instance --profile "$AWS_PROFILE" --region "$AWS_REGION" \
+  --instance-name "$DOLMUS_INSTANCE-restore-<tarih>"
+aws lightsail get-instance --profile "$AWS_PROFILE" --region "$AWS_REGION" \
+  --instance-name "$DOLMUS_INSTANCE-restore-<tarih>"   # beklenen: NotFoundException
+```
+
+**Makineyi silmeden önce (zorunlu adım):** Otomatik snapshot'lar kaynak instance ile birlikte silinebilir. Korunacak nokta önce **manuel snapshot** olarak alınır; tamamlandığı görülmeden ve kopya ilişkisi kaydedilmeden instance silinmez. Bu kural üretim instance'ı ve kanıt olarak saklanacak deneme makinesi için geçerlidir; deneme makinesi kaynak instance'ın otomatik snapshot'larını taşımaz.
 
 ```bash
 # hazırlandı, denenmedi (elle kurulumda denenecek)

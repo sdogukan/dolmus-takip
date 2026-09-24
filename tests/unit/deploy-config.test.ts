@@ -752,6 +752,39 @@ describe("docs/OPS.md", () => {
     expect(ops).toContain("**00:00 UTC = 03:00 Europe/Istanbul**");
   });
 
+  test("kontrollü restore: ayrı makine denemesi, maliyet ve temizlik kaydı; row_count_drop işletim kararı", () => {
+    const section = ops.slice(ops.indexOf("### Kontrollü restore"), ops.indexOf("## 5. Arıza müdahale yolları"));
+    expect(section).toContain("**A. Ayrı makinede restore denemesi.**");
+    expect(section).toContain("aws lightsail create-instances-from-snapshot");
+    expect(section).toContain("aws lightsail delete-instance");
+    expect(section).toContain("# beklenen: NotFoundException");
+    expect(section).toContain("| Deneme maliyeti |");
+    expect(section).toContain("| Temizlik |");
+    for (const field of ["recoverable_point", "recovery_duration_s", "loss_window_s"]) {
+      expect(section, field).toContain(`restore_record ${field}`);
+    }
+    expect(section).toContain("reason=row_count_drop");
+    expect(section).toContain("bu reddi aşmak için **silinmez**");
+    expect(section).toContain("/var/lib/dolmus-takip/preserved/<zaman>/");
+  });
+
+  test("OPS'taki db-restore çağrıları aracın gerçek komut/bayraklarıyla ve servis kullanıcısıyla", () => {
+    const script = read("scripts/db-restore.ts");
+    const lines = ops.split("\n").filter((line) => line.includes("scripts/db-restore.ts "));
+    const calls = lines.map((line) => /scripts\/db-restore\.ts (\w+)((?: --[a-z-]+ \S+)*)$/.exec(line.trim()));
+    expect(calls.map((call) => call?.[1]).sort()).toEqual(["install", "report", "verify"]);
+    for (const [index, call] of calls.entries()) {
+      expect(lines[index]).toContain("sudo -u dolmus-takip ");
+      const [, command, flags] = call!;
+      for (const flag of flags!.match(/--[a-z-]+/g) ?? []) {
+        expect(script, `${command} ${flag}`).toMatch(new RegExp(`\\b${command}: \\[[^\\]]*"${flag}"`));
+      }
+    }
+    expect(script).toContain('const DEFAULT_MAINTENANCE_FILE = "/var/lib/dolmus-takip/maintenance";');
+    expect(script).toContain('const DEFAULT_PRESERVED_DIR = "/var/lib/dolmus-takip/preserved";');
+    expect(script).toContain('const DEFAULT_OPS_LOCK = "/var/lib/dolmus-takip/ops.lock";');
+  });
+
   test("makineyi silmeden önce manuel snapshot adımı; her aws satırı profil+bölge taşır", () => {
     expect(ops).toContain("**Makineyi silmeden önce (zorunlu adım):**");
     expect(ops).toContain("aws lightsail create-instance-snapshot");

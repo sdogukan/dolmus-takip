@@ -230,8 +230,24 @@ function bundleDbInitIntoStandalone(): void {
   // yoktur; düz `node` onu çözemez.
   copyIntoStandalone("scripts/db-backup.ts");
   copyIntoStandalone("scripts/lib/backup-schedule.ts");
+  copyIntoStandalone("scripts/lib/copy-verification.ts");
   copyIntoStandalone("src/lib/work-calculation.ts");
   copyIntoStandalone("src/lib/package.json");
+  // Kontrollü restore (`scripts/db-restore.ts`) de arşivden çalışır. Rapor
+  // sorgu ağacı uzantısız import kullanır; çözümleyici kancası ve ağacın her
+  // dosyası AYNI yollarla gelir (release:verify `verify` ile kanıtlar).
+  copyIntoStandalone("scripts/db-restore.ts");
+  copyIntoStandalone("scripts/lib/ts-resolver.mjs");
+  copyIntoStandalone("src/server/usecases/reports/vehicle-period.ts");
+  copyIntoStandalone("src/server/usecases/reports/sums.ts");
+  copyIntoStandalone("src/server/usecases/work-entries/queries.ts");
+  copyIntoStandalone("src/server/usecases/drivers/queries.ts");
+  copyIntoStandalone("src/server/usecases/list-cursor.ts");
+  copyIntoStandalone("src/server/usecases/session/errors.ts");
+  copyIntoStandalone("src/server/data/scoped.ts");
+  copyIntoStandalone("src/lib/report-period.ts");
+  copyIntoStandalone("src/lib/work-time.ts");
+  copyIntoStandalone("src/lib/messages.ts");
 }
 
 /** `node -e "..."` standalone'un KENDİ `node_modules` kökünden çalıştırılır

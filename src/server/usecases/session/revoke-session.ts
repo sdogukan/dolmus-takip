@@ -186,3 +186,21 @@ export async function revokeSessionsForBusiness(
 ): Promise<void> {
   revokeSessionsForBusinessSync(db, businessId, clock);
 }
+
+/**
+ * Kontrollü restore (T6.5, `scripts/db-restore.ts install`): yedekten gelen
+ * DB'deki BÜTÜN oturumlar — araç credential'ı ve ekip (platform) oturumları
+ * birlikte — uygulama o DB üzerinde başlamadan iptal edilir. Aynı idempotent
+ * desen: yalnız `revoked_at IS NULL` satırlara dokunulur. İptal edilen satır
+ * sayısını döndürür (restore kaydı için).
+ */
+export function revokeAllSessionsSync(
+  db: BetterSQLite3Database<Schema>,
+  clock: Clock = systemClock,
+): number {
+  return db
+    .update(sessions)
+    .set({ revokedAt: clock().toISOString() })
+    .where(isNull(sessions.revokedAt))
+    .run().changes;
+}

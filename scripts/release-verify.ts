@@ -20,7 +20,9 @@
  *    Ardından arşivin KENDİ `scripts/platform-admin.ts create-first-admin`
  *    komutu AYNI geçici DB'de çalıştırılır (sunucudaki ilk yönetici adımı;
  *    import ağacında eksik dosya yalnız sunucuda patlamasın); ardından
- *    arşivin KENDİ `scripts/db-backup.ts run` + `status` komutları.
+ *    arşivin KENDİ `scripts/db-backup.ts run` + `status` komutları ve
+ *    üretilen kopyada arşivin KENDİ `scripts/db-restore.ts verify` komutu
+ *    (rapor sorgu ağacı ve çözümleyici kancası arşivde eksiksiz mi).
  * 5. Arşivin KENDİ `server.js`'ini geçici `PORT`/`HOSTNAME=127.0.0.1`/
  *    `APP_ORIGIN`/`DOLMUS_DB_PATH` ile başlatır, `/api/v1/health/live`'dan
  *    200 alır, süreci kapatır.
@@ -197,6 +199,23 @@ function runBackupCommands(extractDir: string, dbPath: string, backupDir: string
     fail(`Yedek dizininde tam olarak 1 manifest bekleniyordu, ${published.length} bulundu.`);
   }
   console.log("[release:verify] Geçici DB'de db-backup run/status çalıştı.");
+  runRestoreVerify(extractDir, path.join(backupDir, published[0]!));
+}
+
+/** Arşivin `scripts/db-restore.ts verify` komutu, arşivin kendi yedeğiyle
+ * alınmış kopyada (release_id = açılan dizin) sıfır çıkışla bitmeli. */
+function runRestoreVerify(extractDir: string, manifestPath: string): void {
+  const result = spawnSync(process.execPath, ["scripts/db-restore.ts", "verify", "--manifest", manifestPath], {
+    cwd: extractDir,
+    encoding: "utf8",
+  });
+  if (result.status !== 0 || !result.stdout.includes("event=restore_verified")) {
+    fail(
+      `Arşivin "scripts/db-restore.ts verify" komutu geçici kopyada başarısız oldu ` +
+        `(exit ${result.status}):\n${result.stdout}\n${result.stderr}`,
+    );
+  }
+  console.log("[release:verify] Geçici kopyada db-restore verify çalıştı.");
 }
 
 /** Boş bir TCP port bulur (0 numaralı porta bağlanıp OS'in verdiği gerçek

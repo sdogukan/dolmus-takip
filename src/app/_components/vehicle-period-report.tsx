@@ -20,6 +20,7 @@ import {
   vehiclePeriodReportView,
   type VehiclePeriodReportView,
 } from "../../lib/report-ui";
+import { PeoplePeriodReport } from "./people-period-report";
 import { secondaryButtonClass } from "./work-entry-form";
 
 type ReportState =
@@ -206,6 +207,7 @@ export function VehiclePeriodReport() {
                   ))}
                 </dl>
               </details>
+              <PeoplePeriodReport key={`${query.period}|${view.startDate}`} period={query.period} date={view.startDate} />
             </>
           )}
         </section>

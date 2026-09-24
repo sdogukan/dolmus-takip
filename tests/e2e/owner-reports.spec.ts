@@ -8,6 +8,8 @@ import { SEED_IDS, SEED_RAW_PLATES, SEED_TEST_PASSWORDS, SEED_USERNAMES } from "
  */
 
 const REPORT_URL = /\/api\/v1\/reports\/vehicles\?/u;
+const PEOPLE_URL = /\/api\/v1\/reports\/people\?/u;
+const PERSON_URL = /\/api\/v1\/reports\/people\/[^/?]+\?/u;
 const PLATE = SEED_RAW_PLATES.vehicleA2;
 const MONTHS = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
 const FORBIDDEN_WORDS = /net kâr|bakiye|kasa/iu;
@@ -131,9 +133,39 @@ test.describe("Sahip raporları (/sahip/raporlar)", () => {
     ] as const) {
       await expect(details.locator("div", { has: page.locator("dt", { hasText: label }) }).first()).toContainText(value);
     }
-    await expect(page.getByText("Kişiler")).toHaveCount(0);
+    await expect(details).toContainText("19 saat");
     await expect(page.getByText("Gün gün")).toHaveCount(0);
+
+    // Kişiler: iki kart (şoför + mal sahibi), her biri kendi 9 saat 30 dakikası; araç günü toplanmaz.
+    await expect(page.getByRole("tab", { name: "Kişiler", exact: true })).toBeVisible();
+    const cards = page.locator("li", { hasText: "Ayrıntıyı gör" });
+    await expect(cards).toHaveCount(2);
+    for (const index of [0, 1]) {
+      await expect(cards.nth(index)).toContainText("9 saat 30 dakika · 1 gün · 1 çalışma");
+    }
+    const ownerCard = cards.filter({ hasText: "Mal sahibi" });
+    await expect(ownerCard).toHaveCount(1);
+    await expect(ownerCard).toContainText("Pay 0,00 TL");
+    await expect(details).toContainText("19 saat");
     expect(await page.locator("main").innerText()).not.toMatch(FORBIDDEN_WORDS);
+
+    // Ayrıntı: şoförün mazot, diğer masraf, kalan ve kaydı; kayıt bağlantısı sahip kaydını açar.
+    await cards.filter({ hasNotText: "Mal sahibi" }).getByRole("button", { name: "Ayrıntıyı gör" }).click();
+    const totals = page.locator("dl[aria-label='Kişi dönem toplamı']");
+    for (const [label, value] of [
+      ["Mazot", "1.500,00 TL"],
+      ["Diğer masraf", "300,00 TL"],
+      ["Hesaplanan kalan", "6.200,00 TL"],
+    ] as const) {
+      await expect(totals.locator("div", { has: page.locator("dt", { hasText: label }) }).first()).toContainText(value);
+    }
+    const entryLink = page.getByRole("link", { name: "Kaydı aç" });
+    await expect(entryLink).toHaveCount(1);
+    await expect(entryLink).toHaveAttribute("href", `/sahip/kayitlar/${entryId}`);
+    expect(await page.locator("main").innerText()).not.toMatch(FORBIDDEN_WORDS);
+    await entryLink.click();
+    await page.waitForURL(`**/sahip/kayitlar/${entryId}`);
+    await openReport(page);
 
     // Önceki/sonraki dönem: sunucunun aralığı gösterilir, her seferinde API yeniden okunur.
     const previousRead = page.waitForResponse(REPORT_URL);
@@ -230,6 +262,137 @@ test.describe("Sahip raporları (/sahip/raporlar)", () => {
     await expect(page.locator("p", { hasText: "Hesaplanan kalan" }).first()).toContainText("-400,00 TL");
     await page.getByText("Hesap dökümünü gör").click();
     await expect(page.getByText("90.071.992.547.409,93 TL")).toBeVisible();
+  });
+
+  test.describe("Kişiler (taklit yanıtlarla)", () => {
+    const period = { kind: "month", startDate: "2030-01-01", nextStartDate: "2030-02-01" };
+    const vehicleReport = { report: { period, entryCount: 2, workDays: 1, durationMinutes: 1140, grossCents: "2000000", fuelCents: "300000", otherExpenseCents: "60000", shareCents: "200000", remainderCents: "1440000", confirmedReceivedCents: "0" } };
+    const totals = (personId: string, fullName: string, fuelCents: string, isOwner = false) => ({
+      personId, fullName, isOwner, entryCount: 1, workDays: 1, durationMinutes: 570, grossCents: "1000000", fuelCents, otherExpenseCents: "0", shareCents: "0", remainderCents: "500000",
+    });
+    const entry = (id: string) => ({ id, workDate: "2030-01-10", startsAt: "2030-01-10T05:00:00.000Z", endsAt: "2030-01-10T14:30:00.000Z", durationMinutes: 570, grossCents: "1000000", shareCents: "0", remainderCents: "500000", status: "pending" });
+    const personReport = (person: ReturnType<typeof totals>, entries: unknown[], nextCursor: string | null) => ({ report: { period, person, entries, nextCursor } });
+
+    async function openMocked(page: Page): Promise<void> {
+      await login(page, PLATE, SEED_TEST_PASSWORDS.owner, "/sahip");
+      await page.route(REPORT_URL, (route) => route.fulfill({ json: vehicleReport }));
+    }
+
+    test("yükleniyor ve hata: kart ve tutar yok, boş durum yok; tekrar dene toparlar", async ({ page }) => {
+      await openMocked(page);
+      let release: () => void = () => undefined;
+      const gate = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      await page.route(PEOPLE_URL, async (route) => {
+        await gate;
+        await route.fulfill({ status: 500, contentType: "application/json", body: JSON.stringify({ error: { code: "INTERNAL", message: "gizli ayrıntı" } }) });
+      });
+      await page.goto("/sahip/raporlar");
+      const panel = page.getByRole("tabpanel");
+      await expect(page.getByText("Kişiler yükleniyor…")).toBeVisible();
+      await expect(panel).not.toContainText("TL");
+      await expect(page.getByText("Bu dönemde kişi kaydı yok.")).toHaveCount(0);
+      release();
+
+      await expect(panel.getByText("Rapor yüklenemedi. Tekrar dene.")).toBeVisible();
+      await expect(page.getByText("gizli ayrıntı")).toHaveCount(0);
+      await expect(panel).not.toContainText("TL");
+      await expect(page.getByText("Bu dönemde kişi kaydı yok.")).toHaveCount(0);
+
+      await page.unroute(PEOPLE_URL);
+      await page.route(PEOPLE_URL, (route) => route.fulfill({ json: { report: { period, people: [totals("p1", "Ahmet", "0")] } } }));
+      await panel.getByRole("button", { name: "Tekrar dene" }).click();
+      await expect(page.locator("li", { hasText: "Ayrıntıyı gör" })).toHaveCount(1);
+    });
+
+    test("bozuk gövde hata sayılır; 401 yeniden giriş metni; başarılı boş yanıt boş durum", async ({ page }) => {
+      await openMocked(page);
+      await page.route(PEOPLE_URL, (route) => route.fulfill({ json: { report: { period, people: [{ personId: "p1" }] } } }));
+      await page.goto("/sahip/raporlar");
+      const panel = page.getByRole("tabpanel");
+      await expect(panel.getByText("Rapor yüklenemedi. Tekrar dene.")).toBeVisible();
+      await expect(page.getByRole("button", { name: "Ayrıntıyı gör" })).toHaveCount(0);
+
+      await page.unroute(PEOPLE_URL);
+      await page.route(PEOPLE_URL, (route) => route.fulfill({ status: 401, contentType: "application/json", body: JSON.stringify({ error: { code: "SESSION_EXPIRED", message: "x" } }) }));
+      await panel.getByRole("button", { name: "Tekrar dene" }).click();
+      await expect(panel.getByText("Oturumun sona erdi. Yeniden giriş yap.")).toBeVisible();
+      await expect(panel.getByRole("link", { name: "Giriş sayfasına git" })).toHaveAttribute("href", "/giris");
+
+      await page.unroute(PEOPLE_URL);
+      await page.route(PEOPLE_URL, (route) => route.fulfill({ json: { report: { period, people: [] } } }));
+      await page.reload();
+      await expect(page.getByText("Bu dönemde kişi kaydı yok.")).toBeVisible();
+    });
+
+    test("eski kişinin veya dönemin yanıtı yeni başlığın altında görünmez", async ({ page }) => {
+      await openMocked(page);
+      await page.route(PEOPLE_URL, (route) =>
+        route.fulfill({ json: { report: { period, people: [totals("p1", "Ahmet", "111100"), totals("p2", "Berk", "222200")] } } }),
+      );
+      await page.route(PERSON_URL, async (route) => {
+        if (route.request().url().includes("/people/p1?")) {
+          await new Promise((resolve) => setTimeout(resolve, 800));
+          await route.fulfill({ json: personReport(totals("p1", "Ahmet", "111100"), [entry("e-p1")], null) });
+        } else {
+          await route.fulfill({ json: personReport(totals("p2", "Berk", "222200"), [entry("e-p2")], null) });
+        }
+      });
+      await page.goto("/sahip/raporlar");
+      const cards = page.locator("li", { hasText: "Ayrıntıyı gör" });
+      await cards.filter({ hasText: "Ahmet" }).getByRole("button", { name: "Ayrıntıyı gör" }).click();
+      await expect(page.getByText("Kişi ayrıntısı yükleniyor…")).toBeVisible();
+      await page.getByRole("button", { name: "← Kişilere dön" }).click();
+      await cards.filter({ hasText: "Berk" }).getByRole("button", { name: "Ayrıntıyı gör" }).click();
+      await expect(page.getByRole("heading", { level: 3 })).toHaveText("Berk");
+      await expect(page.getByRole("link", { name: "Kaydı aç" })).toHaveAttribute("href", "/sahip/kayitlar/e-p2");
+      await page.waitForTimeout(1200);
+      await expect(page.getByRole("heading", { level: 3 })).toHaveText("Berk");
+      await expect(page.locator("dl[aria-label='Kişi dönem toplamı']")).toContainText("2.222,00 TL");
+      await expect(page.getByText("1.111,00 TL")).toHaveCount(0);
+
+      // Dönem değişince açık kişi ayrıntısı kalkar; yeni dönem yüklenene dek kişi verisi yok.
+      await page.route(REPORT_URL, async (route) => {
+        await new Promise((resolve) => setTimeout(resolve, 600));
+        await route.fulfill({ json: vehicleReport });
+      });
+      await page.getByRole("button", { name: "Bu yıl" }).click();
+      await expect(page.getByRole("heading", { level: 3 })).toHaveCount(0);
+      await expect(page.getByRole("tabpanel")).toHaveCount(0);
+    });
+
+    test("Daha fazla göster aynı kişinin sonraki sayfasını ekler", async ({ page }) => {
+      await openMocked(page);
+      await page.route(PEOPLE_URL, (route) => route.fulfill({ json: { report: { period, people: [totals("p1", "Ahmet", "0")] } } }));
+      await page.route(PERSON_URL, (route) => {
+        const cursor = new URL(route.request().url()).searchParams.get("cursor");
+        return route.fulfill({
+          json: cursor === null ? personReport(totals("p1", "Ahmet", "0"), [entry("e1")], "c1") : personReport(totals("p1", "Ahmet", "0"), [entry("e2")], null),
+        });
+      });
+      await page.goto("/sahip/raporlar");
+      await page.getByRole("button", { name: "Ayrıntıyı gör" }).click();
+      await expect(page.getByRole("link", { name: "Kaydı aç" })).toHaveCount(1);
+      await page.getByRole("button", { name: "Daha fazla göster" }).click();
+      await expect(page.getByRole("link", { name: "Kaydı aç" })).toHaveCount(2);
+      await expect(page.getByRole("button", { name: "Daha fazla göster" })).toHaveCount(0);
+    });
+
+    test("320 px genişlikte uzun ad sarılır, yatay kaydırma yok (liste ve ayrıntı)", async ({ page }) => {
+      await page.setViewportSize({ width: 320, height: 640 });
+      await openMocked(page);
+      const longName = "Çok Uzun Soyadlı Şoförümüz Abdurrahmanoğlu-Karadeniz-Yıldırımhanoğulları";
+      await page.route(PEOPLE_URL, (route) => route.fulfill({ json: { report: { period, people: [totals("p1", longName, "0", true)] } } }));
+      await page.route(PERSON_URL, (route) => route.fulfill({ json: personReport(totals("p1", longName, "0", true), [entry("e1")], null) }));
+      await page.goto("/sahip/raporlar");
+      const overflow = () => page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+      await expect(page.getByRole("button", { name: "Ayrıntıyı gör" })).toBeVisible();
+      expect(await overflow()).toBeLessThanOrEqual(0);
+      await page.getByRole("button", { name: "Ayrıntıyı gör" }).click();
+      await expect(page.getByRole("link", { name: "Kaydı aç" })).toBeVisible();
+      expect(await overflow()).toBeLessThanOrEqual(0);
+    });
   });
 
   test("320 px genişlikte yatay kaydırma yok", async ({ page }) => {

@@ -335,6 +335,31 @@ export const REPORT_MESSAGES = {
     entryCount: "Kayıt sayısı",
   },
   dayCount: (days: number): string => `${days} gün`,
+  /** "Kişiler" bölümü (`../app/_components/people-period-report.tsx`). */
+  people: {
+    sectionTabsLabel: "Rapor bölümü",
+    tab: "Kişiler",
+    loading: "Kişiler yükleniyor…",
+    empty: "Bu dönemde kişi kaydı yok.",
+    ownerLabel: "Mal sahibi",
+    entryCount: (count: number): string => `${count} çalışma`,
+    grossAndShare: (gross: string, share: string): string => `Hasılat ${gross} · Pay ${share}`,
+    openDetail: "Ayrıntıyı gör",
+    back: "← Kişilere dön",
+    detailLoading: "Kişi ayrıntısı yükleniyor…",
+    detailSummaryLabel: "Kişi dönem toplamı",
+    entriesHeading: "Kayıtlar",
+    openEntry: "Kaydı aç",
+    loadMore: "Daha fazla göster",
+    loadingMore: "Yükleniyor…",
+    totals: {
+      gross: "Hasılat",
+      fuel: "Mazot",
+      otherExpense: "Diğer masraf",
+      share: "Pay",
+      remainder: "Hesaplanan kalan",
+    },
+  },
 } as const;
 
 /** T2.4 — şoför yönetimi 422 `fields` metinleri (`../app/api/v1/drivers/_http.ts`

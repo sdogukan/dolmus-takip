@@ -74,6 +74,25 @@
 		respond "Not Found" 404
 	}
 
+	# Bakım kapısı (ARCHITECTURE §8.4, RELEASE §5): işaret dosyası varken sağlık
+	# uçları dışındaki her dış istek 503 alır ve 127.0.0.1:3000'e hiç gitmez.
+	# file eşleştiricisi her istekte dosyayı stat eder; işareti koymak/kaldırmak
+	# Caddy reload gerektirmez. İşaret yolu deploy/health/health-check.mts
+	# MAINTENANCE_FILE ile AYNIDIR. root yalnız bu eşleştiricinin kapsamındadır:
+	# verilmezse yol Caddy'nin çalışma dizinine göre birleştirilir. Site
+	# düzeyinde root/file_server YOKTUR. caddy kullanıcısı işareti stat
+	# edemezse (üst dizin geçilemezse) eşleşme olmaz ve trafik akar; dizin
+	# modları docs/SERVER-SETUP.md §2, doğrulama §5'tedir. handle blokları
+	# yazıldıkları sırayla denenir: @health önce, bu blok reverse_proxy'den önce.
+	@maintenance file {
+		root /
+		try_files /var/lib/dolmus-takip/maintenance
+	}
+	handle @maintenance {
+		header Retry-After 120
+		respond "Bakım çalışması sürüyor. Lütfen birkaç dakika sonra tekrar deneyin." 503
+	}
+
 	handle {
 		request_body {
 			max_size 1MB

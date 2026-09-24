@@ -32,6 +32,21 @@ function activeLines(text: string): string[] {
     .filter((line) => line !== "" && !line.startsWith("#"));
 }
 
+/** `opening` satırıyla açılan bloğun, eşleşen kapanış "}" dahil metni. */
+function blockText(text: string, opening: string): string {
+  const start = text.indexOf(opening);
+  expect(start, `"${opening}" yok`).toBeGreaterThan(-1);
+  let depth = 0;
+  for (let i = start; i < text.length; i += 1) {
+    if (text[i] === "{") depth += 1;
+    if (text[i] === "}") {
+      depth -= 1;
+      if (depth === 0) return text.slice(start, i + 1);
+    }
+  }
+  throw new Error(`"${opening}" bloğu kapanmıyor`);
+}
+
 describe("deploy/caddy/Caddyfile", () => {
   const caddyfile = read("deploy/caddy/Caddyfile");
   const lines = activeLines(caddyfile);
@@ -61,7 +76,13 @@ describe("deploy/caddy/Caddyfile", () => {
   test("yalnız 127.0.0.1:3000'e reverse_proxy; dosya sunumu yok", () => {
     expect(lines).toContain("reverse_proxy 127.0.0.1:3000");
     expect(lines.filter((line) => line.startsWith("reverse_proxy"))).toHaveLength(1);
-    expect(lines.some((line) => /^(file_server|root)\b/.test(line))).toBe(false);
+    expect(lines.some((line) => /^file_server\b/.test(line))).toBe(false);
+    // Tek root satırı bakım eşleştiricisinin içindedir (eşleştirici kapsamlı);
+    // site düzeyinde root yoktur.
+    const matcher = blockText(caddyfile, "@maintenance file {");
+    const outside = activeLines(caddyfile.replace(matcher, ""));
+    expect(outside.some((line) => /^root\b/.test(line))).toBe(false);
+    expect(lines.filter((line) => /^root\b/.test(line))).toEqual(["root /"]);
   });
 
   test("HTTPS'i kapatan veya http:// adres/trusted_proxies yok", () => {
@@ -76,6 +97,55 @@ describe("deploy/caddy/Caddyfile", () => {
     expect(caddyfile.indexOf("handle @health")).toBeLessThan(
       caddyfile.indexOf("reverse_proxy"),
     );
+  });
+
+  test("bakım kapısı: işaret yolunda istek başına dosya eşleştiricisi, sağlık uyumlu yol", () => {
+    const marker = "/var/lib/dolmus-takip/maintenance";
+    // Sağlık görevinin baktığı işaretle AYNI yol.
+    expect(read("deploy/health/health-check.mts")).toContain(
+      `const MAINTENANCE_FILE = "${marker}";`,
+    );
+    // root / verilmezse mutlak yol Caddy'nin çalışma dizinine göre birleşir;
+    // try_policy/split_path yok (varsayılan first_exist, dosya olarak).
+    expect(activeLines(blockText(caddyfile, "@maintenance file {"))).toEqual([
+      "@maintenance file {",
+      "root /",
+      `try_files ${marker}`,
+      "}",
+    ]);
+    expect(lines.filter((line) => line.startsWith("@maintenance"))).toHaveLength(1);
+    // Yapılandırma yeniden yüklenmeden açılıp kapanır: işaret env/import/vars
+    // ile değil, yalnız bu eşleştiriciyle okunur.
+    expect(lines.filter((line) => line.includes(marker))).toEqual([`try_files ${marker}`]);
+    expect(lines.some((line) => /^(import|vars|map)\b/.test(line))).toBe(false);
+  });
+
+  test("bakım kapısı: 503 + Retry-After, uygulamaya iletmez", () => {
+    const gate = activeLines(blockText(caddyfile, "handle @maintenance {"));
+    expect(gate[0]).toBe("handle @maintenance {");
+    expect(gate.at(-1)).toBe("}");
+    const body = gate.slice(1, -1);
+    expect(body).toHaveLength(2);
+    expect(body[0]).toMatch(/^header Retry-After \d+$/);
+    expect(Number.parseInt(body[0]?.split(" ")[2] ?? "0", 10)).toBeGreaterThan(0);
+    expect(body[1]).toMatch(/^respond ".+" 503$/);
+    expect(gate.some((line) => /reverse_proxy|file_server|handle_errors/.test(line))).toBe(false);
+  });
+
+  test("sıra: @health 404, sonra bakım kapısı, en son reverse_proxy", () => {
+    const health = caddyfile.indexOf("handle @health {");
+    const matcher = caddyfile.indexOf("@maintenance file {");
+    const gate = caddyfile.indexOf("handle @maintenance {");
+    const proxy = caddyfile.indexOf("reverse_proxy 127.0.0.1:3000");
+    expect(health).toBeGreaterThan(-1);
+    expect(health).toBeLessThan(matcher);
+    expect(matcher).toBeLessThan(gate);
+    expect(gate).toBeLessThan(proxy);
+    // reverse_proxy eşleştiricisiz son handle'dadır: Caddy aynı yönergeyi
+    // (handle) eşleştiricisi olanlar önce, yazıldıkları sırayla dener.
+    const handles = activeLines(caddyfile).filter((line) => line.startsWith("handle"));
+    expect(handles).toEqual(["handle @health {", "handle @maintenance {", "handle {"]);
+    expect(blockText(caddyfile, "\thandle {\n")).toContain("reverse_proxy 127.0.0.1:3000");
   });
 });
 
@@ -289,19 +359,30 @@ describe("deploy/systemd/dolmus-takip-backup.{timer,service}", () => {
     expect(service).not.toContain("[Install]");
   });
 
-  test("yedek birimi ile SERVER-SETUP §4 sürüm değiştirme AYNI kilit dosyasını kullanır", () => {
+  test("yedek birimi ile SERVER-SETUP §4 sürüm değiştirme (release-apply) AYNI kilit dosyasını kullanır", () => {
     const guide = read("docs/SERVER-SETUP.md");
     const releaseSection = guide.slice(
       guide.indexOf("## 4. Sürüm değiştirme"),
       guide.indexOf("## 5. Manuel doğrulama tablosu"),
     );
-    expect(releaseSection).toContain(`flock -w 900 -E 75 ${lockPath} bash -euc`);
-    // Migration kilit altındaki kabuğun içindedir, kilit dışında değil.
-    const locked = releaseSection.slice(releaseSection.indexOf("flock -w 900"));
-    expect(locked.indexOf("scripts/db-init.ts --existing")).toBeGreaterThan(-1);
-    expect(releaseSection.indexOf("flock -w 900")).toBeLessThan(
-      releaseSection.indexOf("scripts/db-init.ts --existing"),
+    // Elle yazılmış kilit bloğu yerine yayın aracı; migration §4'te kilit dışında elle çalıştırılmaz.
+    expect(releaseSection).toContain('cd "$REL" && sudo node scripts/release-apply.ts deploy\n');
+    expect(releaseSection).not.toMatch(/flock .*bash -euc/);
+    expect(releaseSection).not.toMatch(/^[^-#].*scripts\/db-init\.ts --existing/m);
+    expect(releaseSection).toContain(lockPath);
+
+    const tool = read("scripts/release-apply.ts");
+    expect(tool).toContain(`const DEFAULT_OPS_LOCK = "${lockPath}";`);
+    // Kilit, yayın aracındaki migration çağrısından ÖNCE alınır ve 900 sn / 75 ortak kilit modülündedir.
+    const deploy = tool.slice(tool.indexOf("async function runDeploy("));
+    expect(deploy.indexOf("acquireOpsLock(env, DEFAULT_OPS_LOCK)")).toBeGreaterThan(-1);
+    expect(deploy.indexOf("acquireOpsLock(env, DEFAULT_OPS_LOCK)")).toBeLessThan(
+      deploy.indexOf('["scripts/db-init.ts", "--existing"]'),
     );
+    const lock = read("scripts/lib/ops-lock.ts");
+    expect(lock).toContain("export const DEFAULT_OPS_LOCK_WAIT_SECONDS = 900;");
+    expect(lock).toContain("export const LOCK_BUSY_EXIT = 75;");
+    expect(lock).toContain('spawnSync("flock", ["-w", String(wait), "-E", String(LOCK_BUSY_EXIT), "3"]');
   });
 });
 
@@ -484,12 +565,12 @@ describe("docs/SERVER-SETUP.md", () => {
     expect(guide).not.toContain("enable dolmus-takip-health.timer\n");
   });
 
-  test("manuel doğrulama bölümü: 21 kontrol (9 kurulum + 7 sağlık otomasyonu + 5 yedek), hepsi doğrulanacak işaretli", () => {
+  test("manuel doğrulama bölümü: 27 kontrol (9 kurulum + 7 sağlık otomasyonu + 5 yedek + 3 bakım kapısı + 3 yayın aracı), hepsi doğrulanacak işaretli", () => {
     const start = guide.indexOf("## 5. Manuel doğrulama tablosu");
     expect(start).toBeGreaterThan(-1);
     const section = guide.slice(start, guide.indexOf("## 6."));
     const rows = section.split("\n").filter((l) => /^\| \d+ \|/.test(l));
-    expect(rows).toHaveLength(21);
+    expect(rows).toHaveLength(27);
     for (const row of rows) {
       expect(row).toContain("elle kurulumda doğrulanacak");
     }
@@ -514,9 +595,32 @@ describe("docs/SERVER-SETUP.md", () => {
       "Yedek zamanlayıcısı 02:30 Europe/Istanbul; telafi yok",
       "Lightsail otomatik snapshot 00:00 UTC; Türkiye eşlemesi",
       "Kopya–snapshot ilişkisi",
+      "Bakım kapısı: işaret varken dışarıya 503, reload yok",
+      "Bakım kapısı: işaret kalkınca trafik açılır, reload yok",
+      "Bakım kapısı açık kalamaz: `caddy` işareti görür; yayın dizinleri",
+      "Yayın aracı: bakım, eski release'in yayın öncesi kopyası, migration, trafik",
+      "Yayın aracı: trafik açılmadan DB geri dönüşü",
+      "Yayın aracı: trafik açıldıktan sonra DB geri dönüşü reddedilir",
     ]) {
       expect(section, topic).toContain(topic);
     }
+  });
+
+  test("bakım kapısı satırları: dışarıdan 503 + Retry-After, sağlık 404, yerelde live/ready; caddy stat kanıtı", () => {
+    const section = guide.slice(guide.indexOf("## 5. Manuel doğrulama tablosu"), guide.indexOf("## 6."));
+    const row = (n: number) => section.split("\n").find((l) => l.startsWith(`| ${n} |`)) ?? "";
+    const on = row(22);
+    expect(on).toContain("/dev/null /var/lib/dolmus-takip/maintenance");
+    expect(on).toContain('curl -si "https://$DOLMUS_DOMAIN/api/v1/health/live"');
+    expect(on).toContain("http://127.0.0.1:3000/api/v1/health/ready");
+    expect(on).toContain("`503` ve `Retry-After: 120`");
+    expect(on).toContain("dışarıdan yine `404`");
+    expect(row(23)).toContain("sudo rm /var/lib/dolmus-takip/maintenance");
+    const traverse = row(24);
+    expect(traverse).toContain("sudo -u caddy stat /var/lib/dolmus-takip/maintenance");
+    expect(traverse).toContain("`root:root 755`, `root:root 700`, `dolmus-takip:dolmus-takip 750`");
+    // Rehberdeki Retry-After değeri Caddyfile'daki ile aynı.
+    expect(read("deploy/caddy/Caddyfile")).toContain("header Retry-After 120");
   });
 
   test("dizin sözleşmesi ARCHITECTURE §8.1 ile aynı yollar", () => {
@@ -529,6 +633,8 @@ describe("docs/SERVER-SETUP.md", () => {
       "/var/lib/dolmus-takip/data/",
       "/var/lib/dolmus-takip/backup-ready/",
       "/var/lib/dolmus-takip/pre-migration/",
+      "/var/lib/dolmus-takip/preserved/",
+      "/var/lib/dolmus-takip/release-state/",
       "/var/lib/dolmus-takip/ops.lock",
       "/etc/dolmus-takip/",
     ]) {
@@ -536,13 +642,41 @@ describe("docs/SERVER-SETUP.md", () => {
     }
   });
 
+  test("§2 veri kökü, release-state ve preserved sahip/mod ile; §3.1 onları aynı sahip/modla yaratır", () => {
+    const table = guide.slice(guide.indexOf("## 2. Dizinler"), guide.indexOf("## 3. İlk kurulum"));
+    const row = (p: string) => table.split("\n").find((l) => l.startsWith(`| \`${p}\` |`)) ?? "";
+    expect(row("/var/lib/dolmus-takip/")).toMatch(/\| `root:root` \| `0755` \|$/);
+    expect(row("/var/lib/dolmus-takip/")).toContain("`caddy`");
+    expect(row("/var/lib/dolmus-takip/release-state/")).toMatch(/\| `root:root` \| `0700` \|$/);
+    expect(row("/var/lib/dolmus-takip/preserved/")).toMatch(
+      /\| `dolmus-takip:dolmus-takip` \| `0750` \|$/,
+    );
+    expect(row("/var/lib/dolmus-takip/maintenance")).toContain("Caddy");
+    expect(row("/var/lib/dolmus-takip/maintenance")).toMatch(/\| `root:root` \| `0644` \|$/);
+
+    const install = guide.slice(guide.indexOf("### 3.1"), guide.indexOf("### 3.2"));
+    expect(install).toContain("sudo install -d -m 0755 -o root -g root /var/lib/dolmus-takip\n");
+    expect(install).toContain(
+      "sudo install -d -m 0750 -o dolmus-takip -g dolmus-takip \\\n  /var/lib/dolmus-takip/data /var/lib/dolmus-takip/backup-ready /var/lib/dolmus-takip/pre-migration \\\n  /var/lib/dolmus-takip/preserved\n",
+    );
+    expect(install).toContain("sudo install -d -m 0700 -o root -g root /var/lib/dolmus-takip/release-state\n");
+    // Veri kökü alt dizinlerden önce açıkça kurulur (mod umask'a bırakılmaz).
+    expect(install.indexOf("-g root /var/lib/dolmus-takip\n")).toBeLessThan(
+      install.indexOf("/var/lib/dolmus-takip/data"),
+    );
+  });
+
   test("ilk şema ve sürüm geçişi servis kullanıcısıyla; geçişte --existing; atomik current", () => {
     expect(guide).toContain(
       "sudo -u dolmus-takip node --env-file=/etc/dolmus-takip/app.env scripts/db-init.ts\n",
     );
-    expect(guide).toContain(
-      "sudo -u dolmus-takip node --env-file=/etc/dolmus-takip/app.env scripts/db-init.ts --existing",
-    );
+    // Sürüm geçişinde db-init'i yayın aracı çağırır: servis kullanıcısıyla, app.env ile, --existing.
+    const tool = read("scripts/release-apply.ts");
+    expect(tool).toContain('const SERVICE_USER = "dolmus-takip";');
+    expect(tool).toContain('const DEFAULT_APP_ENV_FILE = "/etc/dolmus-takip/app.env";');
+    expect(tool).toContain('["-u", SERVICE_USER, "--", process.execPath, `--env-file=${paths.appEnvFile}`, ...args]');
+    expect(tool).toContain('runAsServiceUser(paths, selfReleaseDir, ["scripts/db-init.ts", "--existing"])');
+    expect(guide).toContain("Geçişte **`--existing`** kullanılır");
     expect(guide).toContain("mv -T /opt/dolmus-takip/current.tmp /opt/dolmus-takip/current");
     expect(guide).toContain("systemctl enable dolmus-takip.service caddy.service");
     // Root olarak db-init çalıştıran satır yok.
@@ -581,6 +715,59 @@ describe("docs/SERVER-SETUP.md", () => {
       expect(cmd).toContain('--profile "$AWS_PROFILE"');
       expect(cmd).toContain('--region "$AWS_REGION"');
     }
+  });
+
+  test("SERVER-SETUP ve RELEASE'teki release-apply çağrıları aracın gerçek komut/bayraklarıyla, root olarak, release dizininden", () => {
+    const tool = read("scripts/release-apply.ts");
+    const usage = /const USAGE =\n\s*"([^"]+)" \+\n\s*"([^"]+)";/.exec(tool);
+    expect(usage).not.toBeNull();
+    const usageText = `${usage![1]}${usage![2]}`;
+    for (const doc of ["docs/SERVER-SETUP.md", "docs/RELEASE.md"]) {
+      const lines = read(doc)
+        .split("\n")
+        .filter((line) => line.includes("scripts/release-apply.ts "));
+      expect(lines.length, doc).toBeGreaterThan(0);
+      for (const line of lines) {
+        for (const call of line.matchAll(/(\S+) node scripts\/release-apply\.ts (\w[\w-]*)((?: --[a-z-]+)*)/g)) {
+          const [, runner, command, flags] = call;
+          expect(runner, line).toBe("sudo");
+          expect(["deploy", "rollback", "mark-verified", "cleanup"], line).toContain(command);
+          expect(usageText, `${doc}: ${command}`).toContain(`${command} `);
+          if (command === "rollback") expect(flags, line).toMatch(/^ --code(-and-db)?$/);
+          for (const flag of flags!.match(/--[a-z-]+/g) ?? []) {
+            expect(usageText, `${doc}: ${command} ${flag}`).toMatch(new RegExp(`${command} \\[?${flag}\\b`));
+          }
+        }
+        expect(line, line).toMatch(/cd (\/opt\/dolmus-takip\/(current|releases\/<[^>]+>)|"\$REL") && sudo node scripts\/release-apply\.ts/);
+      }
+      expect(read(doc), doc).not.toMatch(/sudo -u dolmus-takip[^\n]*release-apply/);
+    }
+    for (const flag of ["--code", "--code-and-db", "--under-maintenance"]) {
+      expect(tool).toContain(`"${flag}"`);
+    }
+  });
+
+  test("RELEASE §7: araç koşulları ve F5 ileri düzeltme yolu; DECISIONS F5 çözüldü", () => {
+    const release = read("docs/RELEASE.md");
+    const section = release.slice(release.indexOf("## 7. Geri dönüş kararı"), release.indexOf("## 8."));
+    for (const marker of [
+      "### İleri düzeltme (F5)",
+      "Eski DB'ye otomatik dönme",
+      "`traffic_opened_at` yoksa",
+      "DB parmak izi kayıtlı olanla aynıysa",
+      "migration sayısı DB'den ölçülmüş ve 0 ise",
+      "`preserved/<zaman>/` altına taşınır",
+      "deploy --under-maintenance",
+      "yalnız insan kararıyla",
+      "reason=traffic_opened",
+    ]) {
+      expect(section, marker).toContain(marker);
+    }
+    // F5 yolunda canlı DB/WAL silinmez: yalnız kopyalanır.
+    const f5 = section.slice(section.indexOf("### İleri düzeltme (F5)"));
+    expect(f5).toContain('cp -p "$f" "$d/"');
+    expect(f5).not.toMatch(/\brm\b[^\n]*app\.sqlite|\bmv\b[^\n]*app\.sqlite/);
+    expect(read("docs/DECISIONS.md")).toMatch(/- F5: .*\*\*Çözüldü \(T6\.5, 2026-09-24\):\*\* \[RELEASE\.md\]\(RELEASE\.md\) §7 "İleri düzeltme \(F5\)"/);
   });
 
   test("release manifesti ve temizlik kuralı: kopyaya bağlı release ve manifesti silinmez", () => {
@@ -634,6 +821,39 @@ describe("docs/OPS.md", () => {
     expect(ops).toContain("Uyarı **yalnız journal'dadır**");
     expect(ops).toContain("en yeni **2** doğrulanmış SQLite kopyası");
     expect(ops).toContain("**00:00 UTC = 03:00 Europe/Istanbul**");
+  });
+
+  test("kontrollü restore: ayrı makine denemesi, maliyet ve temizlik kaydı; row_count_drop işletim kararı", () => {
+    const section = ops.slice(ops.indexOf("### Kontrollü restore"), ops.indexOf("## 5. Arıza müdahale yolları"));
+    expect(section).toContain("**A. Ayrı makinede restore denemesi.**");
+    expect(section).toContain("aws lightsail create-instances-from-snapshot");
+    expect(section).toContain("aws lightsail delete-instance");
+    expect(section).toContain("# beklenen: NotFoundException");
+    expect(section).toContain("| Deneme maliyeti |");
+    expect(section).toContain("| Temizlik |");
+    for (const field of ["recoverable_point", "recovery_duration_s", "loss_window_s"]) {
+      expect(section, field).toContain(`restore_record ${field}`);
+    }
+    expect(section).toContain("reason=row_count_drop");
+    expect(section).toContain("bu reddi aşmak için **silinmez**");
+    expect(section).toContain("/var/lib/dolmus-takip/preserved/<zaman>/");
+  });
+
+  test("OPS'taki db-restore çağrıları aracın gerçek komut/bayraklarıyla ve servis kullanıcısıyla", () => {
+    const script = read("scripts/db-restore.ts");
+    const lines = ops.split("\n").filter((line) => line.includes("scripts/db-restore.ts "));
+    const calls = lines.map((line) => /scripts\/db-restore\.ts (\w+)((?: --[a-z-]+ \S+)*)$/.exec(line.trim()));
+    expect(calls.map((call) => call?.[1]).sort()).toEqual(["install", "report", "verify"]);
+    for (const [index, call] of calls.entries()) {
+      expect(lines[index]).toContain("sudo -u dolmus-takip ");
+      const [, command, flags] = call!;
+      for (const flag of flags!.match(/--[a-z-]+/g) ?? []) {
+        expect(script, `${command} ${flag}`).toMatch(new RegExp(`\\b${command}: \\[[^\\]]*"${flag}"`));
+      }
+    }
+    expect(script).toContain('const DEFAULT_MAINTENANCE_FILE = "/var/lib/dolmus-takip/maintenance";');
+    expect(script).toContain('const DEFAULT_PRESERVED_DIR = "/var/lib/dolmus-takip/preserved";');
+    expect(script).toContain('const DEFAULT_OPS_LOCK = "/var/lib/dolmus-takip/ops.lock";');
   });
 
   test("makineyi silmeden önce manuel snapshot adımı; her aws satırı profil+bölge taşır", () => {

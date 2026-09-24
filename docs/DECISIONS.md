@@ -63,7 +63,7 @@ Faz 0: 14 doküman, 7 mercek, 38 aday bulgu, 3'lü çürütme; 20 birleşik bulg
 | F17 | "İşletme/araç genelinde çalışma günü" metriği adsız | "Araç çalışma günü" = dönemde en az bir kayıt olan farklı work_date sayısı; kişi çalışma günü kişi bazlı COUNT(DISTINCT work_date) | T5.2, T5.3 |
 
 ### M6 / deploy aşamasına ertelenenler
-- F5: Şema uyumsuz migration + yeni yazma sonrası "ileri düzeltme" prosedürü T6.5'te tasarlanıp RELEASE.md'ye yazılacak.
+- F5: Şema uyumsuz migration + yeni yazma sonrası "ileri düzeltme" prosedürü → **Çözüldü (T6.5, 2026-09-24):** [RELEASE.md](RELEASE.md) §7 "İleri düzeltme (F5)". `scripts/release-apply.ts` trafik açıldıktan (`traffic_opened_at`), DB parmak izi değiştikten veya yayın durumu okunamadığında eski DB'ye dönüşü reddeder; düzeltme bakım altında `deploy --under-maintenance` ile yeni release olarak yayımlanır, eski kopyaya dönüş yalnız insan kararıyla OPS §4-B yoludur.
 - F8 + F16: KVKK aydınlatma metni ve silme/anonimleştirme politikası → deploy öncesi **kullanıcıya sorulacak** (teknik yol: people.full_name anonimleştirme, mali kayıt silinmez).
 - F12: Ağır rapor sorgusu + eşzamanlı health-check senaryosu T5.5/T6.3 testine eklenecek; rapor aralığı ≤1 takvim yılı sınırı korunur.
 - F13: Giriş sayacı ve Argon2 kuyruk izleme satırları OPS.md'ye T6.3'te eklenecek.

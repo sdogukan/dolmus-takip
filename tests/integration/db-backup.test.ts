@@ -371,6 +371,48 @@ describe("scripts/db-backup.ts run", () => {
   });
 });
 
+describe("scripts/db-backup.ts pre-migration", () => {
+  it("02:55–04:00 penceresinde de run ile aynı biçimde doğrulanmış kopya + manifest yayımlar", () => {
+    const result = runCli(["pre-migration"], INSIDE_WINDOW);
+    expect(result.status, result.stdout + result.stderr).toBe(0);
+    expect(result.stdout).toMatch(/event=backup_published ts=\S+ mode=pre-migration stem=app-20260925T001000Z /);
+    const manifest = readManifest("app-20260925T001000Z");
+    expect(manifest.manifest_version).toBe(1);
+    expect(manifest.file).toBe("app-20260925T001000Z.sqlite");
+    expect(manifest.release_id).toBe(path.basename(fs.realpathSync(projectRoot)));
+    expect(manifest.sha256).toBe(sha256(path.join(backupDir, manifest.file)));
+    expect(manifest.row_counts.work_entries).toBe(2);
+    expect(manifest.checks).toEqual({
+      integrity_check: "ok",
+      foreign_key_violations: 0,
+      entry_amount_mismatches: 0,
+      unchecked_entries: 0,
+    });
+  });
+
+  it("saklama uygulamaz ve önceki kopyaya göre satır azalmasıyla reddetmez", () => {
+    expect(runCli(["pre-migration"], DAY1).status).toBe(0);
+    expect(runCli(["pre-migration"], DAY2).status).toBe(0);
+    withLiveDb((sqlite) => {
+      sqlite.prepare("DELETE FROM cash_confirmations WHERE id = 'cc-entry-2'").run();
+    });
+    const third = runCli(["pre-migration"], DAY3);
+    expect(third.status, third.stdout + third.stderr).toBe(0);
+    expect(published()).toHaveLength(6);
+    expect(readManifest("app-20260926T120000Z").row_counts.cash_confirmations).toBe(1);
+  });
+
+  it("kopya doğrulamasını geçmezse yayımlamaz", () => {
+    withLiveDb((sqlite) => {
+      sqlite.prepare("UPDATE work_entries SET share_cents = share_cents + 1 WHERE id = 'entry-1'").run();
+    });
+    const result = runCli(["pre-migration"], DAY1);
+    expect(result.status).not.toBe(0);
+    expect(result.stdout).toContain("reason=entry_amount_mismatch");
+    expect(fs.readdirSync(backupDir)).toEqual([]);
+  });
+});
+
 describe("scripts/db-backup.ts status", () => {
   it("kopya yokken sıfırdan farklı çıkar", () => {
     const result = runCli(["status"], DAY1);

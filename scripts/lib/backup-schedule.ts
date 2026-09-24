@@ -327,16 +327,18 @@ const PRIORITY: Record<LogLevel, string> = { info: "<6>", warn: "<4>", err: "<3>
 /**
  * Tek satır logfmt (`deploy/health/health-check.mts` ile aynı biçim); değerler
  * harf/rakam ve `._:/@+-` kümesine indirgenir (Türkçe harfler korunur), yani
- * boşluk/satır sonu/tırnak log satırını bölemez.
+ * boşluk/satır sonu/tırnak log satırını bölemez. `tag` satırı yazan aracı
+ * adlandırır (`scripts/db-restore.ts` `dolmus-restore` yazar).
  */
 export function formatLogLine(
   level: LogLevel,
   event: string,
   fields: Readonly<Record<string, string | number | boolean>>,
   now: Date,
+  tag: string = "dolmus-backup",
 ): string {
   const kv = Object.entries(fields)
     .map(([k, v]) => `${k}=${String(v).replace(/[^\p{L}\p{N}._:/@+-]/gu, "_").slice(0, 120)}`)
     .join(" ");
-  return `${PRIORITY[level]}dolmus-backup event=${event} ts=${now.toISOString()}${kv ? ` ${kv}` : ""}`;
+  return `${PRIORITY[level]}${tag} event=${event} ts=${now.toISOString()}${kv ? ` ${kv}` : ""}`;
 }

@@ -150,13 +150,16 @@ Manifest, arşivin yanındaki `<arşiv-adı-uzantısız>.manifest.json` dosyası
 | `/opt/dolmus-takip/releases/<release-id>` | Bir sürümün çıktısı (servis için salt okunur) | `root:root` | `0755` |
 | `/opt/dolmus-takip/releases/<release-id>.manifest.json` | O sürümün arşiv manifesti (§4); ona bağlı bir DB kopyası tutulduğu sürece silinmez | `root:root` | `0644` |
 | `/opt/dolmus-takip/current` | Aktif sürüme sembolik bağ | `root:root` | — |
+| `/var/lib/dolmus-takip/` | Kalıcı veri kökü. `caddy` kullanıcısı bakım işaretini `stat` edebilmek için bu dizini **geçebilmelidir**; geçemezse Caddy işareti yok sayar ve bakımda trafik uygulamaya akar | `root:root` | `0755` |
 | `/var/lib/dolmus-takip/data/` | Kalıcı DB (`app.sqlite`, `-wal`, `-shm`) | `dolmus-takip:dolmus-takip` | `0750` |
 | `/var/lib/dolmus-takip/backup-ready/` | Doğrulanmış tarihli DB kopyaları (T6.4) | `dolmus-takip:dolmus-takip` | `0750` |
 | `/var/lib/dolmus-takip/pre-migration/` | Yayın öncesi DB kopyası (T6.5) | `dolmus-takip:dolmus-takip` | `0750` |
+| `/var/lib/dolmus-takip/preserved/` | Restore veya DB geri dönüşünde yerinden çıkarılan `app.sqlite`/`-wal`/`-shm` dosyaları (`preserved/<zaman>/`); canlı DB/WAL silinmez, yalnız buraya taşınır (T6.5) | `dolmus-takip:dolmus-takip` | `0750` |
+| `/var/lib/dolmus-takip/release-state/` | Yayın durumu kaydı: sürüm, önceki sürüm, faz, DB parmak izi, `traffic_opened_at` (T6.5). Yalnız root okur/yazar | `root:root` | `0700` |
 | `/var/lib/dolmus-takip/ops.lock` | **Ortak işletim kilidi** (`flock`): sürüm değiştirme/migration (root, §4) ve günlük yedek (`dolmus-takip`) aynı dosyayı kilitler. Yedek birimi dosyayı okuma kipinde açar; bu yüzden grup okuma izni yeter | `root:dolmus-takip` | `0640` |
 | `/opt/dolmus-takip/health/` | Sağlık görevi betikleri (`deploy/health/`; `current`'a bağlı değildir) | `root:root` | `0755` |
 | `/var/lib/dolmus-takip/health/` | Sağlık görevi durumu: `state.json`, `run.lock`, **`recovery.lock`** (kalıcı kurtarma kilidi). Sağlık biriminin yazabildiği tek yol; servis kullanıcısı yazamaz | `root:root` | `0700` |
-| `/var/lib/dolmus-takip/maintenance` | Bakım işareti (dosya varsa sağlık görevi restart etmez). T6.5 bakım akışı oluşturur/kaldırır | `root:root` | `0644` |
+| `/var/lib/dolmus-takip/maintenance` | Bakım işareti. Dosya varken Caddy sağlık uçları dışındaki her dış isteği `503` + `Retry-After` ile keser (uygulamaya iletmez; her istekte dosya kontrolü, Caddy reload gerekmez) ve sağlık görevi restart etmez. T6.5 bakım akışı oluşturur/kaldırır | `root:root` | `0644` |
 | `/etc/dolmus-takip/` | Servis ayarları | `root:dolmus-takip` | `0750` |
 | `/etc/dolmus-takip/app.env`, `domain.env` | Ayar dosyaları | `root:dolmus-takip` | `0640` |
 
@@ -195,8 +198,13 @@ getent passwd dolmus-takip >/dev/null || \
   sudo useradd --system --home-dir /var/lib/dolmus-takip --shell /usr/sbin/nologin dolmus-takip
 
 sudo install -d -m 0755 -o root -g root /opt/dolmus-takip /opt/dolmus-takip/releases
+# Kalıcı veri kökü açıkça 0755: caddy kullanıcısı bakım işaretini stat edebilmeli (§2)
+sudo install -d -m 0755 -o root -g root /var/lib/dolmus-takip
 sudo install -d -m 0750 -o dolmus-takip -g dolmus-takip \
-  /var/lib/dolmus-takip/data /var/lib/dolmus-takip/backup-ready /var/lib/dolmus-takip/pre-migration
+  /var/lib/dolmus-takip/data /var/lib/dolmus-takip/backup-ready /var/lib/dolmus-takip/pre-migration \
+  /var/lib/dolmus-takip/preserved
+# Yayın durumu kaydı: yalnız root
+sudo install -d -m 0700 -o root -g root /var/lib/dolmus-takip/release-state
 sudo install -d -m 0750 -o root -g dolmus-takip /etc/dolmus-takip
 # Sağlık görevi: betikler ve kök sahipli durum/kilit dizini (servis kullanıcısı yazamaz)
 sudo install -d -m 0755 -o root -g root /opt/dolmus-takip/health
@@ -205,7 +213,7 @@ sudo install -d -m 0700 -o root -g root /var/lib/dolmus-takip/health
 sudo install -m 0640 -o root -g dolmus-takip /dev/null /var/lib/dolmus-takip/ops.lock
 ```
 
-`/var/lib/dolmus-takip` üst dizini `install -d` tarafından `root:root` `0755` oluşturulur; servis kullanıcısı yalnız alt dizinlere yazar. `data` dizini DB komutlarından **önce** ve servis kullanıcısı sahipli yaratılmalıdır (yukarıdaki sıra). `flock` kilit dosyasını `O_CREAT` ile açar; dosya kurulumda yaratıldığı için yedek birimi (yazma izni olmayan, `ProtectSystem=strict` altında çalışan `dolmus-takip`) onu yalnız okuma kipinde açıp kilitler. Bu, kurulumda satır 17 ile doğrulanır; varsayılmaz.
+`/var/lib/dolmus-takip` üst dizini açıkça `root:root` `0755` kurulur (dizin önceden varsa sahip ve mod düzeltilir); servis kullanıcısı yalnız alt dizinlere yazar. Caddy'nin bakım kapısı işareti her istekte `caddy` kullanıcısıyla `stat` eder; dizin geçilemezse işaret yok sayılır ve bakımda trafik akar. Bu, kurulumda satır 24 ile doğrulanır. `data` dizini DB komutlarından **önce** ve servis kullanıcısı sahipli yaratılmalıdır (yukarıdaki sıra). `flock` kilit dosyasını `O_CREAT` ile açar; dosya kurulumda yaratıldığı için yedek birimi (yazma izni olmayan, `ProtectSystem=strict` altında çalışan `dolmus-takip`) onu yalnız okuma kipinde açıp kilitler. Bu, kurulumda satır 17 ile doğrulanır; varsayılmaz.
 
 ### 3.2 Ayar dosyaları (alan adı tek yerde)
 
@@ -315,7 +323,7 @@ aws lightsail get-instance --profile "$AWS_PROFILE" --region "$AWS_REGION" \
 
 ## 4. Sürüm değiştirme (tekrarlanabilir)
 
-> Hazırlandı, henüz gerçek sunucuda denenmedi. Bakım modu ve migration öncesi kopya adımları [RELEASE.md](RELEASE.md) §5'tedir ve T6.5'te otomatikleşir; burada sürüm dizini, `current` mekaniği ve **ortak işletim kilidi** verilir. Sürüm değiştirmenin durdurma, migration, `current` değişimi ve başlatma adımları günlük yedekle **aynı** kilit dosyasını (`/var/lib/dolmus-takip/ops.lock`) tutar; böylece yedek ile migration aynı anda çalışmaz.
+> Hazırlandı, henüz gerçek sunucuda denenmedi. Sürüm değişimi yeni release'in içindeki `scripts/release-apply.ts` ile yapılır: bakım işareti, yayın öncesi DB kopyası, migration, `current` değişimi, localhost hazırlık ve salt okunur mali kontrol, trafiğin açılması tek komuttur ve hepsi günlük yedekle **aynı** ortak işletim kilidi (`/var/lib/dolmus-takip/ops.lock`, en çok 900 sn beklenir; alınamazsa 75 ile çıkar) altında çalışır. Yayın sırası ve geri dönüş kararı [RELEASE.md](RELEASE.md) §5 ve §7'dedir.
 
 ```bash
 # hazırlandı, denenmedi (elle kurulumda denenecek)
@@ -327,24 +335,34 @@ sudo install -d -m 0755 -o root -g root "$REL"
 sha256sum <archive>
 # 3) arşivi yeni dizine aç
 sudo tar -xzf <archive> -C "$REL"
-# 4-6) ortak işletim kilidi altında (en çok 900 sn beklenir; alınamazsa DUR): servisi durdur,
-#      migration'ı MEVCUT DB üzerinde servis kullanıcısı olarak çalıştır, current'ı atomik değiştir, başlat
-sudo flock -w 900 -E 75 /var/lib/dolmus-takip/ops.lock bash -euc '
-  REL="$1"
-  systemctl stop dolmus-takip.service
-  cd "$REL" && sudo -u dolmus-takip node --env-file=/etc/dolmus-takip/app.env scripts/db-init.ts --existing
-  ln -sfn "$REL" /opt/dolmus-takip/current.tmp && mv -T /opt/dolmus-takip/current.tmp /opt/dolmus-takip/current
-  systemctl start dolmus-takip.service
-' _ "$REL"
-# 7) sürüm manifestini release'in yanında sakla (§4 temizlik kuralı) ve iç kontrol
+# 4) sürüm manifestini release'in yanına koy: yayın aracı release dizinindeki migration
+#    dosyalarını bu manifestteki hash'lerle denetler (§4 temizlik kuralı da ona bağlıdır)
 sudo install -m 0644 -o root -g root <archive-manifest>.json "/opt/dolmus-takip/releases/<yeni-id>.manifest.json"
-curl -fsS http://127.0.0.1:3000/api/v1/health/live
+# 5) yayın: root olarak, YENİ release dizininden; çıkış 0 ve event=release_traffic_opened olmadan yayın bitmemiştir
+cd "$REL" && sudo node scripts/release-apply.ts deploy
+# 6) yayın durumu kaydı (sürüm, önceki sürüm, faz, pre_migration, migrations_applied, traffic_opened_at)
+sudo cat /var/lib/dolmus-takip/release-state/state.json
 ```
 
-- Geçişte **`--existing`** kullanılır: yol yanlış ya da kayıpsa düz `db-init` boş bir DB yaratır ve uygulama boş bir müşteri sistemi açardı; `--existing` bu durumda hata verip durur.
-- `current` yalnız geçici bağ + `mv -T` ile değişir (atomik); yarım açılmış bir çıktı hiçbir an `current` olmaz.
-- Kilit alınamazsa (`flock` 75 ile çıkar) hiçbir adım çalışmaz; sürüm değiştirme, çalışan bir yedek bitmeden başlatılmaz. Kilidin sahibini doğrulamadan dosyayı silme ([OPS](OPS.md) §3).
-- **Release manifesti ve temizlik kuralı:** her kopya, uyumlu olduğu release'in kimliğini (`release_id`) manifestinde taşır. Bir release dizini ve `<release-id>.manifest.json` dosyası, o release'e bağlı bir DB kopyası (`backup-ready`, en yeni iki sağlam kopya) veya pre-migration kopyası tutulduğu sürece **silinmez**; `current` de silinmez. Temizlikten önce hangi release'lerin gerektiği okunur: `cd /opt/dolmus-takip/current && sudo -u dolmus-takip env DOLMUS_BACKUP_DIR=/var/lib/dolmus-takip/backup-ready node --env-file=/etc/dolmus-takip/app.env scripts/db-backup.ts status` çıktısındaki `release_ids=` listesi. Listede olmayan ve `current` olmayan eski release'ler silinebilir; liste okunamıyorsa hiçbiri silinmez.
+Yayın sonrası doğrulama ([RELEASE.md](RELEASE.md) §6) bittikten sonra sonuç kaydedilir ve eski sürümler temizlenir; geri dönüş yalnız [RELEASE.md](RELEASE.md) §7 kararıyla ve geri alınan (yeni) release'in dizininden çalıştırılır:
+
+```bash
+# hazırlandı, denenmedi (elle kurulumda denenecek)
+cd /opt/dolmus-takip/current && sudo node scripts/release-apply.ts mark-verified
+cd /opt/dolmus-takip/current && sudo node scripts/release-apply.ts cleanup
+# geri dönüş (RELEASE §7): yalnız kod / trafik açılmadan kod + DB
+cd /opt/dolmus-takip/releases/<yeni-id> && sudo node scripts/release-apply.ts rollback --code
+cd /opt/dolmus-takip/releases/<yeni-id> && sudo node scripts/release-apply.ts rollback --code-and-db
+```
+
+- **`deploy` sırası:** ön kontrol (`current` var ve yeni release değil, `recovery.lock` yok, release manifesti migration dosyalarıyla aynı) → kilit → önceki yayın çözülmüş (trafik açık, doğrulanmış veya geri alınmış) ve bakım işareti yok → bakım işareti → `dolmus-takip.service` durdurulur → **çalışan eski release'in** `db-backup.ts pre-migration`'ı doğrulanmış yayın öncesi kopyayı `/var/lib/dolmus-takip/pre-migration/` altına yazar (manifest `backup-ready` ile aynı biçim, `release_id` = eski release) → yeni release'in `db-init.ts --existing`'i tek kez → uygulanan migration sayısı DB'den ölçülür → `current` değişir → başlatılır → `http://127.0.0.1:3000/api/v1/health/live` ve `/ready` → salt okunur mali kontrol → `traffic_opened_at` yazılır → bakım işareti kalkar. Her fazda `release-state/state.json` atomik yazılır.
+- **Bakım işareti servis durmadan önce konur:** Caddy yeni dış istekleri `503` ile keser; Next.js standalone sunucusu `SIGTERM`'de yeni bağlantı almayı bırakıp süren istekleri bitirdikten sonra çıkar (`next` 16.3.5 `dist/server/lib/start-server.js`, `server.close`); systemd durdurma zaman aşımı (varsayılan 90 sn) dolarsa `SIGKILL` gelir.
+- **Başarısızlıkta işaret yerinde kalır**, başarısız faz `state.json`'a yazılır ve yeni bir `deploy` o yayın çözülene dek reddedilir. Yayın öncesi kopya başarısızsa `db-init` hiç çalışmaz, eski release `current`'ta kalır ve bakım altında yeniden başlatılır; bakımdan çıkış [RELEASE.md](RELEASE.md) §7'deki `rollback --code` ile olur.
+- Geçişte **`--existing`** kullanılır (araç `db-init.ts`'i böyle çağırır): yol yanlış ya da kayıpsa düz `db-init` boş bir DB yaratır ve uygulama boş bir müşteri sistemi açardı; `--existing` bu durumda hata verip durur. İlk şema yalnız §3.4'tür; `current` yoksa `deploy` reddeder.
+- DB'ye dokunan her adım (yayın öncesi kopya, `db-init`, mali kontrol, DB geri dönüşü) servis kullanıcısıyla (`runuser -u dolmus-takip`, `--env-file=/etc/dolmus-takip/app.env`) çalışır; araç root olarak yalnız servisi, `current`'ı, bakım işaretini ve `release-state`'i yönetir. Yayın durumu dizini root'a ait `0700` değilse araç çalışmaz.
+- `current` yalnız geçici bağ + rename ile değişir (`ln -sfn` + `mv -T` ile aynı atomik değişim); yarım açılmış bir çıktı hiçbir an `current` olmaz.
+- Kilit alınamazsa (75) hiçbir adım çalışmaz; sürüm değiştirme, çalışan bir yedek bitmeden başlatılmaz. Kilidin sahibini doğrulamadan dosyayı silme ([OPS](OPS.md) §3). `recovery.lock` varken araç başlatmaz; `start-limit-hit` birim durumuyla hata olarak yazılır, `systemctl reset-failed`'ı araç asla çağırmaz ([OPS](OPS.md) §5-B).
+- **Release manifesti ve temizlik kuralı:** her kopya, uyumlu olduğu release'in kimliğini (`release_id`) manifestinde taşır. Bir release dizini ve `<release-id>.manifest.json` dosyası, o release'e bağlı bir DB kopyası (`backup-ready`, en yeni iki sağlam kopya) veya pre-migration kopyası tutulduğu sürece **silinmez**; `current` de silinmez. Temizliği `cleanup` yapar: `current`, yayın durumundaki release, `mark-verified` öncesi önceki release ve yayın öncesi kopyası ile `backup-ready`/`pre-migration` manifestlerinin `release_id`'leri korunur; okunamayan veya yarım bir manifest varsa hiçbir şey silinmez. Hangi release'lerin kopyalarca gerektiği elle de okunabilir: `cd /opt/dolmus-takip/current && sudo -u dolmus-takip env DOLMUS_BACKUP_DIR=/var/lib/dolmus-takip/backup-ready node --env-file=/etc/dolmus-takip/app.env scripts/db-backup.ts status` çıktısındaki `release_ids=` listesi.
 - Eski release dizinleri, yedek/pre-migration kopyasının referans verdiği sürüm dahil, temizlikte korunur ([ARCHITECTURE](ARCHITECTURE.md) §8.4).
 
 ## 5. Manuel doğrulama tablosu
@@ -374,11 +392,17 @@ Bu tablodaki **hiçbir satır henüz doğrulanmadı**; hepsi manuel kurulum sır
 | 19 | Yedek zamanlayıcısı 02:30 Europe/Istanbul; telafi yok | `systemctl list-timers dolmus-takip-backup.timer --no-pager`; `systemctl cat dolmus-takip-backup.timer`; `sudo reboot` (02:30 sonrası), dönünce `systemctl list-timers dolmus-takip-backup.timer` | Sonraki tetik 02:30 Europe/Istanbul (= 23:30 UTC); `Persistent` yok, reboot sonrası kaçan koşu telafi edilmez, sonraki gün 02:30'da çalışır | elle kurulumda doğrulanacak |
 | 20 | Lightsail otomatik snapshot 00:00 UTC; Türkiye eşlemesi | §3.5'teki `get-instance` ve `get-auto-snapshots` komutları; ertesi gün `date` ve `status` | `addOns[].snapshotTimeOfDay` = `00:00` (03:00 Europe/Istanbul); en az bir snapshot `Success`; gerçek başlangıç/tamamlanma zamanı kayda yazılır, tam dakika varsayılmaz | elle kurulumda doğrulanacak |
 | 21 | Kopya–snapshot ilişkisi | Snapshot tarihi/kimliği ile en yeni kopyanın manifestindeki `published_at` zamanını yan yana koy: `sudo -u dolmus-takip sh -c 'cat /var/lib/dolmus-takip/backup-ready/*.manifest.json'` (release kimliği için §4'teki `status` komutu) | Kopya, snapshot başlangıcından önce yayımlanmış (23:55 UTC öncesi); bağ kurulamıyorsa o gün yeni başarılı DB yedeği ilan edilmez ([OPS](OPS.md) §4) | elle kurulumda doğrulanacak |
+| 22 | Bakım kapısı: işaret varken dışarıya 503, reload yok | Caddy'ye reload/restart komutu vermeden: `sudo install -m 0644 -o root -g root /dev/null /var/lib/dolmus-takip/maintenance`; dışarıdan `curl -si "https://$DOLMUS_DOMAIN/"`, `curl -si "https://$DOLMUS_DOMAIN/api/v1/session"`, `curl -si "https://$DOLMUS_DOMAIN/api/v1/health/live" \| head -1`; sunucuda `curl -fsS http://127.0.0.1:3000/api/v1/health/live`, `curl -fsS http://127.0.0.1:3000/api/v1/health/ready` | Sayfa ve API yolları `503` ve `Retry-After: 120`; gövde Caddy'nin bakım metnidir (`Bakım çalışması sürüyor`), yani istek uygulamaya iletilmedi; sağlık ucu dışarıdan yine `404`; yerelde `live`/`ready` `200`; hepsi işaret konduktan hemen sonra, Caddy reload edilmeden | elle kurulumda doğrulanacak |
+| 23 | Bakım kapısı: işaret kalkınca trafik açılır, reload yok | (22)'nin devamı, yine reload/restart yok: `sudo rm /var/lib/dolmus-takip/maintenance`; dışarıdan `curl -si "https://$DOLMUS_DOMAIN/" \| head -1`; tarayıcıdan giriş | İlk istekten itibaren normal yanıt (503 değil), giriş çalışır | elle kurulumda doğrulanacak |
+| 24 | Bakım kapısı açık kalamaz: `caddy` işareti görür; yayın dizinleri | `stat -c '%U:%G %a %n' /var/lib/dolmus-takip /var/lib/dolmus-takip/release-state /var/lib/dolmus-takip/preserved`; işaret varken `sudo -u caddy stat /var/lib/dolmus-takip/maintenance`; `systemctl show caddy -p User` | `root:root 755`, `root:root 700`, `dolmus-takip:dolmus-takip 750`; `caddy` kullanıcısıyla `stat` başarılı (`Permission denied` yok); Caddy `User=caddy`. `stat` başarısızsa kapı açık kalır (trafik akar): kurulum durur, dizin modu düzeltilir | elle kurulumda doğrulanacak |
+| 25 | Yayın aracı: bakım, eski release'in yayın öncesi kopyası, migration, trafik | Deneme kaydı varken yeni `<yeni-id>` ile §4 adım 1–6; yayın sürerken ayrı oturumda dışarıdan `curl -si "https://$DOLMUS_DOMAIN/" \| head -1` tekrarla; sonra `sudo cat /var/lib/dolmus-takip/release-state/state.json`, `sudo -u dolmus-takip sh -c 'cat /var/lib/dolmus-takip/pre-migration/*.manifest.json' \| grep -E '"(stem\|release_id)"'`, `ls -l /var/lib/dolmus-takip/data` | Yayın boyunca dışarıya `503`, `event=release_traffic_opened` sonrası normal yanıt; `state.json` `phase=traffic_open`, `pre_migration` ve `traffic_opened_at` dolu, `migrations_applied` beklenen sayı; pre-migration manifestinin `release_id`'si önceki release (kopya `runuser` ortamıyla `DOLMUS_BACKUP_DIR`'ı aldı); `data` dosyaları `dolmus-takip` sahipli; deneme kaydı duruyor | elle kurulumda doğrulanacak |
+| 26 | Yayın aracı: trafik açılmadan DB geri dönüşü | Yalnız deneme kaydıyla: yeni bir `deploy` sürerken journal'da `event=release_service_started` görününce ayrı oturumda `sudo systemctl stop dolmus-takip.service` (hazırlık süresi dolar, yayın `reason=readiness_failed` ile bakımda kalır); sonra `cd /opt/dolmus-takip/releases/<yeni-id> && sudo node scripts/release-apply.ts rollback --code-and-db`; `ls -l /var/lib/dolmus-takip/preserved/*/` | `event=restore_installed` (ortak kilit `runuser` üzerinden devralındı: `ops_lock_busy`/`ops_lock_unavailable` yok); yeni DB/WAL `preserved/<zaman>/` altında, silinmedi; `current` önceki release; eski oturumlar iptal (yeniden giriş gerekir); trafik açık, `state.json` `phase=rolled_back` | elle kurulumda doğrulanacak |
+| 27 | Yayın aracı: trafik açıldıktan sonra DB geri dönüşü reddedilir | Satır 25'teki yayında: `cd /opt/dolmus-takip/releases/<yeni-id> && sudo node scripts/release-apply.ts rollback --code-and-db`; `systemctl is-active dolmus-takip`; `ls /var/lib/dolmus-takip/maintenance` | `reason=traffic_opened`, çıkış 1; servis `active` kalır, bakım işareti yok, DB'ye dokunulmaz ([RELEASE](RELEASE.md) §7 F5 yolu) | elle kurulumda doğrulanacak |
 
-**PİLOT İÇİN HAZIR DEĞİL.** Bu tablo tamamlanıp kaydedilene ve M6'nın kalan işleri (sağlık otomasyonunun 10–16. satırlarla gerçek denemesi, restore, yük ve veri bütünlüğü kabulü ile 17–21. satırların gerçek denemesi) yapılana dek bu makine gerçek müşteri verisi taşımaz.
+**PİLOT İÇİN HAZIR DEĞİL.** Bu tablo tamamlanıp kaydedilene ve M6'nın kalan işleri (sağlık otomasyonunun 10–16. satırlarla gerçek denemesi, restore, yük ve veri bütünlüğü kabulü ile 17–27. satırların gerçek denemesi) yapılana dek bu makine gerçek müşteri verisi taşımaz.
 
 ## 6. Kapsam dışı ve durum
 
-Bu belge kaynak oluşturmaz ve AWS'ye komut çalıştırmaz; kurulum, sertifika alma ve yeniden başlatma denemeleri elle kurulum sırasında yapılır (§5). Önceki gerçek makine denemeleri (ISSUE-24/25/26/28) elle kurulum tamamlanana dek ertelenmiştir ([PROGRESS](PROGRESS.md)). 30 saniyelik sağlık zamanlayıcısı, kalıcı kurtarma kilidi, journald sınırı ve Caddy erişim günlüğü **hazırlandı, denenmedi** (`deploy/health/`, §3.3, §5 satır 10–16; işleyiş ve kilit kaldırma yordamı [OPS](OPS.md) §2, §5-B). Günlük yedek birimi ve zamanlayıcısı ile Lightsail otomatik snapshot da **hazırlandı, denenmedi** (§3.3, §3.5, §5 satır 17–21; [OPS](OPS.md) §4). Bakım akışının kendisi (bakım işaretini oluşturma/kaldırma) ve otomatik yayın T6.5'tedir; o zamana dek §4'te servis durdurulduğu için uygulama etkin değildir ve sağlık görevi restart yapmaz, başlatmadan sonra 90 saniyelik tolerans işler. Uygulama servis dosyası `Restart=on-failure`, `RestartSec=10s`, `StartLimitIntervalSec=900`, `StartLimitBurst=3` değerlerini taşır; sağlık görevi systemd'nin start sınırını hiçbir zaman sıfırlamaz.
+Bu belge kaynak oluşturmaz ve AWS'ye komut çalıştırmaz; kurulum, sertifika alma ve yeniden başlatma denemeleri elle kurulum sırasında yapılır (§5). Önceki gerçek makine denemeleri (ISSUE-24/25/26/28) elle kurulum tamamlanana dek ertelenmiştir ([PROGRESS](PROGRESS.md)). 30 saniyelik sağlık zamanlayıcısı, kalıcı kurtarma kilidi, journald sınırı ve Caddy erişim günlüğü **hazırlandı, denenmedi** (`deploy/health/`, §3.3, §5 satır 10–16; işleyiş ve kilit kaldırma yordamı [OPS](OPS.md) §2, §5-B). Günlük yedek birimi ve zamanlayıcısı ile Lightsail otomatik snapshot da **hazırlandı, denenmedi** (§3.3, §3.5, §5 satır 17–21; [OPS](OPS.md) §4). Caddy bakım kapısı (işaret varken dışarıya 503) ve `release-state`/`preserved` dizinleri de **hazırlandı, denenmedi** (§2, §3.1, §5 satır 22–24). Bakım işaretini koyan/kaldıran yayın aracı (`scripts/release-apply.ts`, §4) da **hazırlandı, denenmedi** (§5 satır 25–27); işaret varken sağlık görevi restart yapmaz, başlatmadan sonra 90 saniyelik tolerans işler. Uygulama servis dosyası `Restart=on-failure`, `RestartSec=10s`, `StartLimitIntervalSec=900`, `StartLimitBurst=3` değerlerini taşır; sağlık görevi systemd'nin start sınırını hiçbir zaman sıfırlamaz.
 
 Sürüm dizini `ProtectSystem=strict` ile salt okunurdur ve `ReadWritePaths` yalnız `/var/lib/dolmus-takip/data`'dır. Uygulama `next/image` veya ISR kullanmadığı için çalışma anında sürüm dizinine yazması beklenmez; bu **gerçek makinede doğrulanmamıştır** (manuel kurulumda servis kullanıcısıyla ilk istekler sonrası `journalctl` ile izlenir).

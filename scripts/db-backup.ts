@@ -1,5 +1,5 @@
 /**
- * Günlük tutarlı SQLite kopyası — `node scripts/db-backup.ts [run|status]`
+ * Günlük tutarlı SQLite kopyası — `node scripts/db-backup.ts [run|status|pre-migration]`
  * (T6.4, S6.4; ARCHITECTURE.md "Flow: Daily backup", OPS.md §4).
  *
  * ## `run` (varsayılan)
@@ -29,6 +29,18 @@
  * Çıkış kodu 0 yalnız kopya doğrulanıp yayımlandığında; diğer her sonuç 0
  * dışıdır ve nedenini adlandıran TEK bir `err`/`warn` logfmt satırı yazar.
  *
+ * ## `pre-migration`
+ *
+ * Yayın öncesi kopya (T6.5; `scripts/release-apply.ts deploy` bakım işareti
+ * konmuş ve uygulama durdurulmuşken, ÇALIŞAN ESKİ release'in dizininden
+ * çağırır). `run` ile aynı kopya, doğrulama, yayın sırası ve manifest
+ * (`release_id` = bu eski release); farkları: 02:55–04:00 penceresi ve
+ * önceki manifeste göre satır azalması kuralı UYGULANMAZ (yayın gece de
+ * yapılabilir; kopya bir önceki yayın kopyasıyla değil, canlı DB'yle
+ * karşılaştırılır), kopyalama bütçesi sabit `OFF_WINDOW_BUDGET_MS`'tir ve
+ * saklama YOKTUR (kopyaları yalnız `release-apply cleanup` siler).
+ * `DOLMUS_BACKUP_DIR` bu kipte `.../pre-migration` dizinidir.
+ *
  * ## `status`
  *
  * Salt okunur: tutulan kopyaları, hash uyumunu ve kopyaların referans verdiği
@@ -47,24 +59,15 @@
  * AYNI (açık uzantı, bkz. `./package.json`); bu dosyanın göreli import ağacı
  * `release-build.ts` `bundleDbInitIntoStandalone`'da eksiksiz kopyalanır.
  */
-import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import Database from "better-sqlite3";
-import {
-  assertMigrationsApplied,
-  openDatabaseConnection,
-  resolveDbPathFromEnv,
-} from "../src/server/data/db.ts";
-import {
-  CALCULATION_VERSION,
-  calculateWorkEntryAmounts,
-  type WorkKind,
-} from "../src/lib/work-calculation.ts";
+import { openDatabaseConnection, resolveDbPathFromEnv } from "../src/server/data/db.ts";
 import {
   backupStem,
   copyDeadline,
+  OFF_WINDOW_BUDGET_MS,
   copyFileName,
   decidePublish,
   findRowCountDrops,
@@ -79,23 +82,15 @@ import {
   type BackupManifest,
   type LogLevel,
 } from "./lib/backup-schedule.ts";
+import {
+  CopyRejectedError as BackupRejectedError,
+  sha256OfFile,
+  verifyCopy,
+  type Fields,
+} from "./lib/copy-verification.ts";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const migrationsFolder = path.join(path.resolve(__dirname, ".."), "drizzle");
-
-type Fields = Record<string, string | number | boolean>;
-
-/** Bir kopyanın yayımlanmama nedeni; `reason` log satırına aynen yazılır. */
-class BackupRejectedError extends Error {
-  readonly reason: string;
-  readonly fields: Fields;
-  constructor(reason: string, message: string, fields: Fields = {}) {
-    super(message);
-    this.name = "BackupRejectedError";
-    this.reason = reason;
-    this.fields = fields;
-  }
-}
 
 let clock: () => Date = () => new Date();
 
@@ -140,24 +135,6 @@ function fsyncPath(target: string): void {
   }
 }
 
-function sha256OfFile(file: string): { sha256: string; size: number } {
-  const hash = crypto.createHash("sha256");
-  const fd = fs.openSync(file, "r");
-  let size = 0;
-  try {
-    const buffer = Buffer.allocUnsafe(1024 * 1024);
-    for (;;) {
-      const read = fs.readSync(fd, buffer, 0, buffer.length, null);
-      if (read === 0) break;
-      hash.update(buffer.subarray(0, read));
-      size += read;
-    }
-  } finally {
-    fs.closeSync(fd);
-  }
-  return { sha256: hash.digest("hex"), size };
-}
-
 /** Önceki (öldürülmüş) koşudan kalan YALNIZ bu aracın kendi geçici adları. */
 function removeOwnTempFiles(dir: string): number {
   let removed = 0;
@@ -199,206 +176,24 @@ function readCompleteSets(dir: string): ReadManifest[] {
 }
 
 // ---------------------------------------------------------------------------
-// Kopya doğrulaması
-// ---------------------------------------------------------------------------
-
-interface VerifiedCopy {
-  sqliteVersion: string;
-  schema: BackupManifest["schema"];
-  lastRecord: BackupManifest["last_committed_record"];
-  rowCounts: Record<string, number>;
-  totals: Record<string, string>;
-  uncheckedEntries: number;
-}
-
-const sumText = (column: string): string => `CAST(COALESCE(SUM(${column}), 0) AS TEXT)`;
-
-function readRowCounts(copy: InstanceType<typeof Database>): Record<string, number> {
-  const tables = copy
-    .prepare(
-      "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite\\_%' ESCAPE '\\' AND name <> '__drizzle_migrations' ORDER BY name",
-    )
-    .all() as { name: string }[];
-  const counts: Record<string, number> = {};
-  for (const { name } of tables) {
-    const row = copy
-      .prepare(`SELECT COUNT(*) AS count FROM "${name.replaceAll('"', '""')}"`)
-      .get() as { count: number };
-    counts[name] = row.count;
-  }
-  return counts;
-}
-
-function verifyEntryAmounts(copy: InstanceType<typeof Database>): {
-  mismatches: number;
-  unchecked: number;
-} {
-  const rows = copy
-    .prepare(
-      "SELECT work_kind, gross_cents, fuel_cents, other_expense_cents, share_bps, share_cents, remainder_cents, calculation_version FROM work_entries",
-    )
-    .safeIntegers(true)
-    .iterate() as IterableIterator<{
-    work_kind: string;
-    gross_cents: bigint;
-    fuel_cents: bigint;
-    other_expense_cents: bigint;
-    share_bps: bigint;
-    share_cents: bigint;
-    remainder_cents: bigint;
-    calculation_version: bigint;
-  }>;
-  let mismatches = 0;
-  let unchecked = 0;
-  for (const row of rows) {
-    if (row.calculation_version !== BigInt(CALCULATION_VERSION)) {
-      unchecked += 1;
-      continue;
-    }
-    if (row.work_kind !== "owner" && row.work_kind !== "driver") {
-      mismatches += 1;
-      continue;
-    }
-    try {
-      const expected = calculateWorkEntryAmounts(
-        row.work_kind as WorkKind,
-        row.gross_cents,
-        row.fuel_cents,
-        row.other_expense_cents,
-      );
-      if (
-        BigInt(expected.shareBps) !== row.share_bps ||
-        BigInt(expected.shareCents) !== row.share_cents ||
-        BigInt(expected.remainderCents) !== row.remainder_cents
-      ) {
-        mismatches += 1;
-      }
-    } catch {
-      mismatches += 1;
-    }
-  }
-  return { mismatches, unchecked };
-}
-
-/** Kopyanın KENDİ salt okunur bağlantısında tüm kontroller; herhangi biri kalırsa fırlatır. */
-function verifyCopy(copyPath: string): VerifiedCopy {
-  const copy = new Database(copyPath, { readonly: true, fileMustExist: true });
-  try {
-    const journalMode = copy.pragma("journal_mode", { simple: true });
-    if (journalMode !== "delete") {
-      throw new BackupRejectedError(
-        "copy_not_self_contained",
-        `Kopyanın journal_mode değeri "delete" değil: "${String(journalMode)}".`,
-      );
-    }
-
-    const integrity = copy.pragma("integrity_check") as { integrity_check: string }[];
-    if (integrity.length !== 1 || integrity[0]!.integrity_check !== "ok") {
-      throw new BackupRejectedError("integrity_check_failed", "Kopyada integrity_check başarısız.", {
-        problems: integrity.length,
-      });
-    }
-
-    const violations = copy.pragma("foreign_key_check") as unknown[];
-    if (violations.length > 0) {
-      throw new BackupRejectedError(
-        "foreign_key_check_failed",
-        "Kopyada foreign_key_check ihlali var.",
-        { violations: violations.length },
-      );
-    }
-
-    try {
-      assertMigrationsApplied(copy, migrationsFolder);
-    } catch (error) {
-      throw new BackupRejectedError(
-        "schema_not_current",
-        error instanceof Error ? error.message : String(error),
-      );
-    }
-
-    const entries = verifyEntryAmounts(copy);
-    if (entries.mismatches > 0) {
-      throw new BackupRejectedError(
-        "entry_amount_mismatch",
-        "Kopyada payı/kalanı yeniden hesapla uyuşmayan iş kaydı var.",
-        { mismatches: entries.mismatches },
-      );
-    }
-
-    const migrations = copy
-      .prepare(
-        "SELECT COUNT(*) AS count, CAST(COALESCE(MAX(created_at), 0) AS TEXT) AS last_created_at FROM __drizzle_migrations",
-      )
-      .get() as { count: number; last_created_at: string };
-    const lastMigration = copy
-      .prepare("SELECT hash FROM __drizzle_migrations ORDER BY created_at DESC, id DESC LIMIT 1")
-      .get() as { hash: string };
-
-    const totals = copy
-      .prepare(
-        `SELECT ${sumText("gross_cents")} AS gross, ${sumText("fuel_cents")} AS fuel, ` +
-          `${sumText("other_expense_cents")} AS other, ${sumText("share_cents")} AS share, ` +
-          `${sumText("remainder_cents")} AS remainder FROM work_entries`,
-      )
-      .get() as Record<"gross" | "fuel" | "other" | "share" | "remainder", string>;
-    const received = copy
-      .prepare(`SELECT ${sumText("received_cents")} AS received FROM cash_confirmations`)
-      .get() as { received: string };
-
-    const revision = copy
-      .prepare(
-        "SELECT entry_id, version, created_at FROM work_entry_revisions ORDER BY created_at DESC, entry_id DESC, version DESC LIMIT 1",
-      )
-      .get() as BackupManifest["last_committed_record"]["work_entry_revision"] | undefined;
-    const confirmation = copy
-      .prepare(
-        "SELECT entry_id, entry_version, confirmed_at FROM cash_confirmations ORDER BY confirmed_at DESC, id DESC LIMIT 1",
-      )
-      .get() as BackupManifest["last_committed_record"]["cash_confirmation"] | undefined;
-    const audit = copy
-      .prepare("SELECT id, occurred_at FROM admin_audit ORDER BY occurred_at DESC, id DESC LIMIT 1")
-      .get() as BackupManifest["last_committed_record"]["admin_audit"] | undefined;
-
-    return {
-      sqliteVersion: (copy.prepare("SELECT sqlite_version() AS v").get() as { v: string }).v,
-      schema: {
-        applied_migrations: migrations.count,
-        last_migration_created_at: migrations.last_created_at,
-        last_migration_hash: lastMigration.hash,
-      },
-      lastRecord: {
-        work_entry_revision: revision ?? null,
-        cash_confirmation: confirmation ?? null,
-        admin_audit: audit ?? null,
-      },
-      rowCounts: readRowCounts(copy),
-      totals: {
-        gross_cents: totals.gross,
-        fuel_cents: totals.fuel,
-        other_expense_cents: totals.other,
-        share_cents: totals.share,
-        remainder_cents: totals.remainder,
-        received_cents: received.received,
-      },
-      uncheckedEntries: entries.unchecked,
-    };
-  } finally {
-    copy.close();
-  }
-}
-
-// ---------------------------------------------------------------------------
 // run
 // ---------------------------------------------------------------------------
 
+/** `daily`: `run` (günlük, pencere ve saklama kurallı); `pre-migration`: yayın öncesi kopya. */
+type BackupMode = "daily" | "pre-migration";
+
 class DeadlineExceededError extends BackupRejectedError {
-  constructor() {
-    super("deadline_passed", "Kopyalama 02:55 son saatine kadar bitmedi.");
+  constructor(mode: BackupMode) {
+    super(
+      "deadline_passed",
+      mode === "daily"
+        ? "Kopyalama 02:55 son saatine kadar bitmedi."
+        : "Yayın öncesi kopya süre bütçesi içinde bitmedi.",
+    );
   }
 }
 
-async function takeCopy(dbPath: string, tmpCopy: string, deadline: Date): Promise<void> {
+async function takeCopy(dbPath: string, tmpCopy: string, deadline: Date, mode: BackupMode): Promise<void> {
   const source = openDatabaseConnection(dbPath);
   try {
     await source.backup(tmpCopy, {
@@ -406,7 +201,7 @@ async function takeCopy(dbPath: string, tmpCopy: string, deadline: Date): Promis
         // Backup API kaynak başka süreççe yazılırsa baştan başlar; döngü
         // sonsuz denenmez, son saatle sınırlıdır. Sayfaların tamamı tek
         // adımda aktarılarak yeniden başlama penceresi daraltılır.
-        if (clock().getTime() >= deadline.getTime()) throw new DeadlineExceededError();
+        if (clock().getTime() >= deadline.getTime()) throw new DeadlineExceededError(mode);
         return 0x7fffffff;
       },
     });
@@ -436,20 +231,24 @@ function makeSelfContained(tmpCopy: string): void {
   }
 }
 
-async function runBackup(env: Record<string, string | undefined>): Promise<void> {
+async function runBackup(env: Record<string, string | undefined>, mode: BackupMode): Promise<void> {
   const dbPath = resolveDbPathFromEnv(env);
   const dir = resolveBackupDir(env);
   const startedAt = clock();
-  const deadline = copyDeadline(startedAt);
+  const daily = mode === "daily";
+  const deadline = daily ? copyDeadline(startedAt) : new Date(startedAt.getTime() + OFF_WINDOW_BUDGET_MS);
   const releaseId = path.basename(fs.realpathSync(process.cwd()));
+  const modeField: Fields = daily ? {} : { mode };
 
-  const early = decidePublish(startedAt, deadline);
-  if (!early.ok) {
-    throw new BackupRejectedError(early.reason, "Şu an kopya yayımlanamaz (02:55–04:00 Europe/Istanbul).");
+  if (daily) {
+    const early = decidePublish(startedAt, deadline);
+    if (!early.ok) {
+      throw new BackupRejectedError(early.reason, "Şu an kopya yayımlanamaz (02:55–04:00 Europe/Istanbul).");
+    }
   }
 
   const cleaned = removeOwnTempFiles(dir);
-  log("info", "backup_start", { release_id: releaseId, stale_temp_removed: cleaned });
+  log("info", "backup_start", { ...modeField, release_id: releaseId, stale_temp_removed: cleaned });
 
   const stem = backupStem(startedAt);
   const finalCopy = path.join(dir, copyFileName(stem));
@@ -463,12 +262,12 @@ async function runBackup(env: Record<string, string | undefined>): Promise<void>
   let copyPublished = false;
   let manifestPublished = false;
   try {
-    await takeCopy(dbPath, tmpCopy, deadline);
+    await takeCopy(dbPath, tmpCopy, deadline, mode);
     fs.chmodSync(tmpCopy, 0o600);
     makeSelfContained(tmpCopy);
 
     const before = sha256OfFile(tmpCopy);
-    const verified = verifyCopy(tmpCopy);
+    const verified = verifyCopy(tmpCopy, migrationsFolder);
     const after = sha256OfFile(tmpCopy);
     if (before.sha256 !== after.sha256 || before.size !== after.size) {
       throw new BackupRejectedError(
@@ -478,7 +277,7 @@ async function runBackup(env: Record<string, string | undefined>): Promise<void>
     }
     const verifiedAt = clock();
 
-    const previous = readCompleteSets(dir)[0];
+    const previous = daily ? readCompleteSets(dir)[0] : undefined;
     if (previous !== undefined) {
       const drops = findRowCountDrops(previous.manifest.row_counts, verified.rowCounts);
       if (drops.length > 0) {
@@ -493,9 +292,11 @@ async function runBackup(env: Record<string, string | undefined>): Promise<void>
 
     // Yayın anı kararı: saat bu noktada korumalı pencereye düştüyse yayımlanmaz.
     const publishedAt = clock();
-    const decision = decidePublish(publishedAt, deadline);
-    if (!decision.ok) {
-      throw new BackupRejectedError(decision.reason, "Kopya süresi içinde yayımlanamadı.");
+    if (daily) {
+      const decision = decidePublish(publishedAt, deadline);
+      if (!decision.ok) {
+        throw new BackupRejectedError(decision.reason, "Kopya süresi içinde yayımlanamadı.");
+      }
     }
 
     const manifest: BackupManifest = {
@@ -542,6 +343,7 @@ async function runBackup(env: Record<string, string | undefined>): Promise<void>
     fsyncPath(dir);
 
     log("info", "backup_published", {
+      ...modeField,
       stem,
       sha256: manifest.sha256,
       size_bytes: manifest.size_bytes,
@@ -560,7 +362,7 @@ async function runBackup(env: Record<string, string | undefined>): Promise<void>
     removeTempArtifacts(tmpManifest);
   }
 
-  applyRetention(dir);
+  if (daily) applyRetention(dir);
 }
 
 /** Yalnız yeni kopya yayımlandıktan sonra çağrılır. */
@@ -637,8 +439,8 @@ function runStatus(env: Record<string, string | undefined>): void {
 
 async function main(): Promise<void> {
   const [command = "run", ...rest] = process.argv.slice(2);
-  if (rest.length > 0 || (command !== "run" && command !== "status")) {
-    throw new BackupRejectedError("usage", "Kullanım: db-backup.ts [run|status]");
+  if (rest.length > 0 || (command !== "run" && command !== "status" && command !== "pre-migration")) {
+    throw new BackupRejectedError("usage", "Kullanım: db-backup.ts [run|status|pre-migration]");
   }
   clock = resolveClock(process.env);
   if (process.env.DOLMUS_BACKUP_NOW) {
@@ -647,7 +449,7 @@ async function main(): Promise<void> {
   if (command === "status") {
     runStatus(process.env);
   } else {
-    await runBackup(process.env);
+    await runBackup(process.env, command === "run" ? "daily" : "pre-migration");
   }
 }
 

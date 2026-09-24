@@ -254,7 +254,7 @@ describe("teslim onayı (T4.1)", () => {
   });
 
   describe("ekip adına onay: onaylayan özeti", () => {
-    it("destek, 10.000/2.000/6.200 kaydı 600000 ile onaylar: yanıt ve sonraki sahip GET'i aynı platform_user aktörünü taşır, tutarlar değişmez; şoför GET'i actor null; kimlik sızmaz", async () => {
+    it("destek, 10.000/2.000/6.200 kaydı 600000 ile onaylar: yanıt ve sonraki sahip GET'i aynı platform_user aktörünü taşır, tutarlar değişmez; şoför GET'i yalnız tür taşır; kimlik sızmaz", async () => {
       const id = await seedDriverEntry("c-actor");
       const response = await confirm(support, id, confirmBody("k-actor", 1, "600000"), SEED_IDS.vehicleA1);
       expect(response.status).toBe(200);
@@ -276,7 +276,8 @@ describe("teslim onayı (T4.1)", () => {
       expect(ownerListed.confirmation).toEqual(body.workEntry.confirmation);
 
       const driverView = (await (await getOne(driver, id)).json()).workEntry;
-      expect(driverView.confirmation).toMatchObject({ receivedCents: "600000", entryVersion: 2, actor: null });
+      expect(driverView.confirmation).toMatchObject({ receivedCents: "600000", entryVersion: 2 });
+      expect(driverView.confirmation.actor).toEqual({ kind: "platform_user" });
 
       const [confirmation] = rows("SELECT actor_session_id, actor_platform_user_id FROM cash_confirmations");
       for (const value of Object.values(confirmation!)) {

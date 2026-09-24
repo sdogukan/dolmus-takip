@@ -132,7 +132,7 @@ export function WorkEntryConfirmPanel({
           <span>{TEXT.confirmedAtLabel}</span>
           <span className="text-right">{TEXT.confirmedAtValue(formatWorkDate(at.date), at.time)}</span>
         </p>
-        {entry.confirmation.actor?.kind === "platform_user" && (
+        {entry.confirmation.actor?.kind === "platform_user" && entry.confirmation.actor.username && (
           <p className="text-base text-[var(--color-text-secondary)]">
             {TEXT.supportTrace(entry.confirmation.actor.username)}
           </p>

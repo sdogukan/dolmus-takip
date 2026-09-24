@@ -45,13 +45,14 @@ import { useEffect, useRef, useState } from "react";
 import { adminReadErrorMessage } from "../../lib/admin-search";
 import { readClientState, type ClientStateScope } from "../../lib/client-state";
 import { COMMON_SCREEN_MESSAGES, WORK_ENTRY_MESSAGES as TEXT } from "../../lib/messages";
-import { formatTlAmount, parseApiCents, parseTlAmount, type ParseTlResult } from "../../lib/money";
+import { formatTlAmount, parseTlAmount, type ParseTlResult } from "../../lib/money";
 import { useStoredDraft } from "../../lib/use-stored-draft";
 import { AmountOutOfRangeError, calculateWorkEntryAmounts, type WorkKind } from "../../lib/work-calculation";
 import {
   buildWorkEntryBody,
   canResolveUnknown,
   classifyWorkEntryResponse,
+  deliveryStatusView,
   draftAfterCreated,
   draftAfterRelease,
   emptyWorkEntryDraft,
@@ -74,6 +75,7 @@ import {
 import { evaluateWorkTime, formatDuration, formatWorkDate } from "../../lib/work-time";
 import { ConfirmDialog } from "./confirm-dialog";
 import { useUnsavedChanges } from "./unsaved-changes";
+import { WorkEntryDeliveryStatus } from "./work-entry-delivery-status";
 
 export type WorkEntryMode = "driver" | "owner" | "staff";
 
@@ -195,7 +197,7 @@ export const secondaryButtonClass =
 export const primaryButtonClass =
   "min-h-14 w-full rounded-[var(--radius-control)] bg-[var(--color-primary)] px-4 text-lg font-semibold text-[var(--color-on-primary)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)] focus-visible:ring-offset-2 disabled:opacity-70";
 
-const linkButtonClass =
+export const linkButtonClass =
   "inline-flex min-h-[var(--control-min-height)] items-center self-start rounded-[var(--radius-control)] px-1 text-base font-medium text-[var(--color-primary)] underline focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]";
 
 export const OTHER_NOTE_MAX_LENGTH = 200;
@@ -646,7 +648,6 @@ export function WorkEntryForm({
         : undefined;
 
   if (saved) {
-    const remainder = parseApiCents(saved.remainderCents);
     const wrapClass = "[overflow-wrap:anywhere]";
     return (
       <section className="flex min-w-0 flex-col gap-4">
@@ -664,22 +665,7 @@ export function WorkEntryForm({
         <p className={`text-lg text-[var(--color-text)] ${wrapClass}`}>
           {TEXT.savedWhen(formatWorkDate(saved.workDate), formatWorkTimeRange(saved.startsAt, saved.endsAt))}
         </p>
-        <p className="flex flex-wrap justify-between gap-x-4 gap-y-1 text-lg tabular-nums">
-          <span>{saved.workKind === "owner" ? TEXT.savedOwnerRemainder : TEXT.savedRemainder}</span>
-          <span className={`font-semibold ${wrapClass}`}>
-            {remainder === null ? "—" : formatTlAmount(remainder)}
-          </span>
-        </p>
-        <p className="text-lg font-medium text-[var(--color-text)]">
-          {saved.status === "pending"
-            ? TEXT.statusPending
-            : saved.status === "confirmed"
-              ? TEXT.statusConfirmed
-              : TEXT.statusNotRequired}
-        </p>
-        {mode === "driver" && saved.status === "pending" && (
-          <p className="text-base text-[var(--color-text-secondary)]">{TEXT.resultHint}</p>
-        )}
+        <WorkEntryDeliveryStatus view={deliveryStatusView(saved, mode)} />
         <div role="status" aria-live="polite">
           {refresh?.status === "loading" && (
             <p className="text-base text-[var(--color-text-secondary)]">{TEXT.refreshing}</p>

@@ -49,6 +49,14 @@ async function loginAsDriver(page: Page, plate: string, password: string): Promi
   await page.waitForURL("**/sofor");
 }
 
+async function loginAsOwnerAt(page: Page): Promise<void> {
+  await page.goto("/giris");
+  await page.getByLabel("Plaka").fill(SEED_RAW_PLATES.vehicleA1);
+  await page.getByLabel("Şifre").fill(SEED_TEST_PASSWORDS.owner);
+  await page.getByRole("button", { name: "Giriş yap", exact: true }).click();
+  await page.waitForURL("**/sahip");
+}
+
 async function openSeedForm(page: Page): Promise<void> {
   await loginAsDriver(page, SEED_RAW_PLATES.vehicleA1, SEED_TEST_PASSWORDS.driver);
   await expect(page.getByRole("option", { name: "Hüseyin Ak" })).toBeAttached();
@@ -879,6 +887,50 @@ test.describe("Şoför günlük kayıt formu (/sofor)", () => {
     await expect(page.getByRole("alert").filter({ hasText: "Güncel kayıt okunamadı" })).toHaveCount(0);
     await expect(page.getByText("Henüz doğrulanmadı")).toBeVisible();
     expect(reads).toEqual(["GET", "GET"]);
+  });
+
+  test("sonuç ekranı: kişi · plaka, gün · saat, 'Teslim edilecek tutar' + 'Henüz doğrulanmadı'; 'Teslim ettim'/'Onaya gönder' yok; sahip onaylayınca 'Yenile' alınan tutarı ayrı satırda gösterir", async ({
+    page,
+    browser,
+  }, testInfo) => {
+    await openSeedForm(page);
+    await fillValidForm(page, "2026-08-17");
+    await fillMoney(page, "10.000", "1.800");
+    await page.getByRole("button", { name: "Kaydet", exact: true }).click();
+    await expect(page.getByText("Kaydedildi", { exact: true })).toBeVisible();
+    await expect(page.getByText(`Hüseyin Ak · ${PLATE_DISPLAY}`)).toBeVisible();
+    await expect(page.getByText("17 Ağustos 2026 · 08:00–17:30")).toBeVisible();
+    await expect(page.getByText("Teslim edilecek tutar")).toHaveCount(1);
+    await expect(page.getByText("6.200,00 TL")).toBeVisible();
+    await expect(page.getByText("Henüz doğrulanmadı")).toHaveCount(1);
+    await expect(page.getByText("Mal sahibi parayı aldığında burada görebileceksin.")).toBeVisible();
+    await expect(page.getByRole("button", { name: /Teslim ettim|Onaya gönder/ })).toHaveCount(0);
+
+    // Sahip aynı kaydı 6.000 ile onaylar.
+    const owner = await (await browser.newContext({ baseURL: testInfo.project.use.baseURL })).newPage();
+    await loginAsOwnerAt(owner);
+    const entryHref = await page.getByRole("link", { name: "Kaydı aç" }).getAttribute("href");
+    const entryId = entryHref!.split("/").pop()!;
+    await owner.goto(`/sahip/kayitlar/${entryId}`);
+    await owner.waitForLoadState("networkidle");
+    await owner.getByLabel("Aldığım tutar (TL)").fill("6.000");
+    await owner.getByRole("button", { name: "Parayı aldım, tutar doğru" }).click();
+    await expect(owner.getByText("Teslim doğrulandı")).toBeVisible();
+
+    await page.getByRole("button", { name: "Yenile" }).click();
+    await expect(page.getByText("Teslim doğrulandı")).toHaveCount(1);
+    await expect(page.locator("p", { hasText: "Teslim edilecek tutar" })).toContainText("6.200,00 TL");
+    await expect(page.locator("p", { hasText: "Alınan tutar" })).toContainText("6.000,00 TL");
+    await expect(page.getByText("Doğrulama zamanı")).toBeVisible();
+    await expect(page.getByText("Henüz doğrulanmadı")).toHaveCount(0);
+    await expect(page.getByText("Mal sahibi parayı aldığında burada görebileceksin.")).toHaveCount(0);
+
+    // Okunamayan 'Yenile': önceki durum ve tutarlar kalır.
+    await page.route(`**/api/v1/work-entries/${entryId}`, (route) => route.abort());
+    await page.getByRole("button", { name: "Yenile" }).click();
+    await expect(page.getByRole("alert").filter({ hasText: "Güncel kayıt okunamadı. Tekrar dene." })).toBeVisible();
+    await expect(page.getByText("Teslim doğrulandı")).toHaveCount(1);
+    await expect(page.locator("p", { hasText: "Alınan tutar" })).toContainText("6.000,00 TL");
   });
 
   test("320 px: form ve sonuç ekranında yatay kaydırma yok; uzun ad + büyük tutar; kontroller ≥ 48 px, Kaydet ≥ 56 px", async ({

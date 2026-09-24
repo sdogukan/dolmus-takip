@@ -1028,6 +1028,105 @@ test.describe("Şoför kayıt listesi ve düzenleme (/sofor/kayitlar)", () => {
     await expect(page.getByLabel("Hasılat")).toHaveCount(0);
   });
 
+  test("şoför detayı teslim durumunu gösterir: açılışta istek yok, 'Yenile' onayı okur (alınan/beklenen ayrı satır, doğrulama zamanı), okunamazsa son bilinen kalır, düzeltmeden sonra yalnız yeni sürüm", async ({
+    page,
+    browser,
+  }, testInfo) => {
+    await login(page, SEED_RAW_PLATES.vehicleA1, SEED_TEST_PASSWORDS.owner, "/sahip");
+    await createOwnerEntry(page, { date: "2026-06-28", kind: "driver" });
+    const entryId = page.url().split("/").pop()!;
+
+    const driver = await (await browser.newContext({ baseURL: testInfo.project.use.baseURL })).newPage();
+    await login(driver, SEED_RAW_PLATES.vehicleA1, SEED_TEST_PASSWORDS.driver, "/sofor");
+    await driver.goto(`/sofor/kayitlar/${entryId}`);
+    await driver.waitForLoadState("networkidle");
+
+    // Bekleyen: durum bir kez, ipucu var; onay/düzeltme/geçmiş kontrolü yok.
+    await expect(driver.getByText("Henüz doğrulanmadı")).toHaveCount(1);
+    await expect(driver.getByText("Mal sahibi parayı aldığında burada görebileceksin.")).toBeVisible();
+    await expect(detailRow(driver, "Teslim edilecek tutar")).toContainText("6.200,00 TL");
+    await expect(driver.getByText("Alınan tutar")).toHaveCount(0);
+    await expect(driver.getByRole("button", { name: CONFIRM })).toHaveCount(0);
+    await expect(driver.getByRole("button", { name: CORRECT })).toHaveCount(0);
+    await expect(driver.getByRole("button", { name: "Kaydı düzenle", exact: true })).toHaveCount(0);
+    await expect(driver.getByRole("link", { name: /geçmiş/i })).toHaveCount(0);
+    await expectNoHorizontalScroll(driver);
+
+    // Açılıştan sonra 'Yenile'ye basılana dek kayıt okuması gitmez (yoklama yok).
+    const reads: string[] = [];
+    driver.on("request", (request) => {
+      if (request.method() === "GET" && /\/api\/v1\/work-entries\//.test(request.url())) reads.push(request.url());
+    });
+    await driver.waitForTimeout(1500);
+    expect(reads).toHaveLength(0);
+
+    // Sahip 6.000 onaylar (beklenen 6.200); şoför 'Yenile' ile görür.
+    await confirmEntry(page, "6.000");
+    await driver.getByRole("button", { name: "Yenile" }).click();
+    await expect(driver.getByText("Teslim doğrulandı")).toHaveCount(1);
+    await expect(detailRow(driver, "Teslim edilecek tutar")).toContainText("6.200,00 TL");
+    await expect(detailRow(driver, "Alınan tutar")).toContainText("6.000,00 TL");
+    await expect(detailRow(driver, "Doğrulama zamanı")).toContainText(/\d{4} · \d{2}:\d{2}/);
+    await expect(driver.getByText("Henüz doğrulanmadı")).toHaveCount(0);
+    await expect(driver.getByText("Sahip adına platform desteği")).toHaveCount(0);
+    expect(reads).toHaveLength(1);
+    await expectNoHorizontalScroll(driver);
+
+    // Okunamayan 'Yenile': son bilinen durum ve tutarlar kalır.
+    await driver.route(`**/api/v1/work-entries/${entryId}`, (route) => route.abort());
+    await driver.getByRole("button", { name: "Yenile" }).click();
+    await expect(driver.getByRole("alert").filter({ hasText: "Güncel kayıt okunamadı. Tekrar dene." })).toBeVisible();
+    await expect(driver.getByText("Teslim doğrulandı")).toHaveCount(1);
+    await expect(detailRow(driver, "Alınan tutar")).toContainText("6.000,00 TL");
+    await expect(detailRow(driver, "Teslim edilecek tutar")).toContainText("6.200,00 TL");
+    await driver.unroute(`**/api/v1/work-entries/${entryId}`);
+
+    // Sahip düzeltip onaylar (beklenen 7.800, alınan 6.100); şoför yalnız yeni sürümü görür.
+    await openCorrectForm(page);
+    await page.getByLabel("Hasılat").fill("12.000");
+    await page.getByLabel("Aldığım tutar (TL)").fill("6.100");
+    await page.getByRole("button", { name: CORRECT }).click();
+    await expect(page.getByText(CORRECTED_TEXT)).toBeVisible();
+    await driver.getByRole("button", { name: "Yenile" }).click();
+    await expect(detailRow(driver, "Teslim edilecek tutar")).toContainText("7.800,00 TL");
+    await expect(detailRow(driver, "Alınan tutar")).toContainText("6.100,00 TL");
+    await expect(driver.getByText("6.000,00 TL")).toHaveCount(0);
+    await expect(driver.getByText("6.200,00 TL")).toHaveCount(0);
+    await expect(driver.getByText("Teslim doğrulandı")).toHaveCount(1);
+  });
+
+  test("ekip sahip adına onaylayınca şoför 'Sahip adına platform desteği' görür, kullanıcı adı yok; liste satırı 'Teslim doğrulandı' der", async ({
+    page,
+    browser,
+  }, testInfo) => {
+    await login(page, SEED_RAW_PLATES.vehicleA1, SEED_TEST_PASSWORDS.owner, "/sahip");
+    await createOwnerEntry(page, { date: "2026-06-29", kind: "driver" });
+    const entryId = page.url().split("/").pop()!;
+
+    const staff = await (await browser.newContext({ baseURL: testInfo.project.use.baseURL })).newPage();
+    await loginAsAdmin(staff);
+    await staff.goto(`/yonetim/araclar/${SEED_IDS.vehicleA1}/kayitlar/${entryId}`);
+    await staff.waitForLoadState("networkidle");
+    await staff.getByLabel("Sahip adına alınan tutar").fill("6.000");
+    await staff.getByRole("button", { name: "Sahip adına teslimi onayla" }).click();
+    await expect(staff.getByText(`Sahip adına platform desteği · ${SEED_USERNAMES.admin}`)).toBeVisible();
+
+    const driver = await (await browser.newContext({ baseURL: testInfo.project.use.baseURL })).newPage();
+    await login(driver, SEED_RAW_PLATES.vehicleA1, SEED_TEST_PASSWORDS.driver, "/sofor");
+    await driver.goto(`/sofor/kayitlar/${entryId}`);
+    await driver.waitForLoadState("networkidle");
+    await expect(driver.getByText("Teslim doğrulandı")).toHaveCount(1);
+    await expect(driver.getByText("Sahip adına platform desteği", { exact: true })).toBeVisible();
+    await expect(driver.getByText(SEED_USERNAMES.admin)).toHaveCount(0);
+    await expect(detailRow(driver, "Alınan tutar")).toContainText("6.000,00 TL");
+
+    await driver.goto("/sofor/kayitlar");
+    await driver.getByLabel("Kimin kayıtları?").selectOption({ label: "Hüseyin Ak" });
+    const row = driver.getByRole("link", { name: /29 Haziran 2026/ }).first();
+    await expect(row).toContainText("Teslim doğrulandı");
+    await expect(row).not.toContainText("Onaylandı");
+  });
+
   test("şoför sahibin kendi kaydını göremez (K1): 404; sahip oturumu /sofor/kayitlar'dan /sahip'e yönlenir", async ({
     page,
     browser,

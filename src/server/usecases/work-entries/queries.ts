@@ -41,13 +41,16 @@ export interface WorkEntryView {
 /** Onaylayan özeti: yalnız tür (+ ekip için kullanıcı adı); hiçbir kimlik dışarı çıkmaz. */
 export type WorkEntryConfirmationActor = { kind: "vehicle_credential" } | { kind: "platform_user"; username: string };
 
+/** Şoför görünümü: yalnız tür; `username` anahtarı YOKTUR (ekip kullanıcı adı şoföre sızmaz). */
+export type WorkEntryDriverConfirmationActor = { kind: WorkEntryConfirmationActor["kind"] };
+
 /** Oturum/credential/kişi kimliği taşımaz; kuruş ondalık tam sayı metnidir.
- * `actor`: şoför oturumuna her zaman `null` (ekip kullanıcı adı şoföre sızmaz). */
+ * `actor`: şoför oturumunda yalnız tür (kullanıcı adı yok), sahip/ekip oturumunda tür + ekip kullanıcı adı. */
 export interface WorkEntryConfirmationView {
   receivedCents: string;
   confirmedAt: string;
   entryVersion: number;
-  actor: WorkEntryConfirmationActor | null;
+  actor: WorkEntryConfirmationActor | WorkEntryDriverConfirmationActor | null;
 }
 
 /** Kaydın ham satırı (düzenleme kararları için) + kişinin adı + güncel sürümün onayı. */
@@ -96,7 +99,10 @@ export function toWorkEntryView({ entry: e, fullName, confirmation, confirmedByU
           receivedCents: String(confirmation.receivedCents),
           confirmedAt: confirmation.confirmedAt,
           entryVersion: confirmation.entryVersion,
-          actor: scope.actor === "driver" ? null : toConfirmationActor(confirmation.actorKind, confirmedByUsername),
+          actor:
+            scope.actor === "driver"
+              ? { kind: confirmation.actorKind }
+              : toConfirmationActor(confirmation.actorKind, confirmedByUsername),
         }
       : null,
   };

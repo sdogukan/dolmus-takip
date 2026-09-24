@@ -28,6 +28,7 @@
  * bırakır ama kullanıcının alan değerleri karşılaştırma taslağı olarak KALIR ve
  * güncel kayıt yeniden okunur. Sunucunun `error.message`'ı BASILMAZ.
  */
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import type { ClientStateScope } from "../../lib/client-state";
 import {
@@ -43,6 +44,7 @@ import {
   buildWorkEntryPatchBody,
   canEditEntry,
   classifyWorkEntryUpdateResponse,
+  deliveryStatusView,
   editDraftFromEntry,
   editPersonOptions,
   emptyConfirmDraft,
@@ -57,6 +59,7 @@ import {
   workEntryConfirmDraftName,
   workEntryEditDraftName,
   workEntryErrorMessage,
+  workEntryLoginHref,
   type SelectableDriver,
   type WorkEntryDetail,
   type WorkEntryConfirmDraft,
@@ -68,6 +71,7 @@ import { ConfirmDialog } from "./confirm-dialog";
 import { useUnsavedChanges } from "./unsaved-changes";
 import { WorkEntryConfirmPanel } from "./work-entry-confirm-panel";
 import { WorkEntryCorrectForm } from "./work-entry-correct-form";
+import { WorkEntryDeliveryStatus } from "./work-entry-delivery-status";
 import {
   amountInputProps,
   computeSummary,
@@ -75,6 +79,7 @@ import {
   errorTextClass,
   fetchDrivers,
   labelClass,
+  linkButtonClass,
   OTHER_NOTE_MAX_LENGTH,
   primaryButtonClass,
   randomRequestId,
@@ -124,7 +129,9 @@ async function patchWorkEntry(
   return classifyWorkEntryUpdateResponse({ status: response.status, body });
 }
 
-type RereadResult = { ok: true; entry: WorkEntryDetail } | { ok: false; message: string };
+type RereadResult =
+  | { ok: true; entry: WorkEntryDetail }
+  | { ok: false; message: string; sessionEnded?: boolean };
 
 async function fetchWorkEntry(entryId: string, targetVehicleId: string | undefined): Promise<RereadResult> {
   let response: Response;
@@ -143,7 +150,11 @@ async function fetchWorkEntry(entryId: string, targetVehicleId: string | undefin
   }
   if (!response.ok) {
     const code = (body as { error?: { code?: string } } | null)?.error?.code;
-    return { ok: false, message: workEntryErrorMessage(response.status, code) };
+    return {
+      ok: false,
+      message: workEntryErrorMessage(response.status, code),
+      sessionEnded: response.status === 401,
+    };
   }
   const entry = parseWorkEntryDetail((body as { workEntry?: unknown } | null)?.workEntry);
   return entry ? { ok: true, entry } : { ok: false, message: TEXT.refreshFailed };
@@ -169,7 +180,7 @@ function statusText(status: WorkEntryDetail["status"]): string {
   return TEXT.statusNotRequired;
 }
 
-function EntryDetail({ entry }: { entry: WorkEntryDetail }) {
+function EntryDetail({ entry, mode }: { entry: WorkEntryDetail; mode: WorkEntryMode }) {
   const start = istanbulWallClock(entry.startsAt);
   const end = istanbulWallClock(entry.endsAt);
   return (
@@ -195,11 +206,17 @@ function EntryDetail({ entry }: { entry: WorkEntryDetail }) {
         />
       )}
       <DetailRow label={TEXT.detailShare} value={formatCents(entry.shareCents)} />
-      <DetailRow
-        label={entry.workKind === "owner" ? TEXT.detailOwnerRemainder : TEXT.detailRemainder}
-        value={formatCents(entry.remainderCents)}
-      />
-      <p className="text-lg font-medium text-[var(--color-text)]">{statusText(entry.status)}</p>
+      {mode === "driver" ? (
+        <WorkEntryDeliveryStatus view={deliveryStatusView(entry, mode)} />
+      ) : (
+        <>
+          <DetailRow
+            label={entry.workKind === "owner" ? TEXT.detailOwnerRemainder : TEXT.detailRemainder}
+            value={formatCents(entry.remainderCents)}
+          />
+          <p className="text-lg font-medium text-[var(--color-text)]">{statusText(entry.status)}</p>
+        </>
+      )}
       <p className="text-base text-[var(--color-text-secondary)]">{TEXT.versionLabel(entry.version)}</p>
     </section>
   );
@@ -290,8 +307,14 @@ export function WorkEntryEditForm({
   const controllerRef = useRef<AbortController | null>(null);
   const refreshedKeyRef = useRef("");
   const draftRef = useRef(draft);
+  const entryRef = useRef(entry);
+  const statusRefreshingRef = useRef(false);
+  const [statusRefresh, setStatusRefresh] = useState<
+    { status: "idle" } | { status: "loading" } | { status: "error"; message: string; sessionEnded: boolean }
+  >({ status: "idle" });
   useEffect(() => {
     draftRef.current = draft;
+    entryRef.current = entry;
   });
 
   const editable = !disabled && canEditEntry(mode, entry, today);
@@ -533,6 +556,29 @@ export function WorkEntryEditForm({
     }
   }
 
+  /**
+   * Şoför "Yenile": kaydı okur (yazmaz), sonsuza kadar bekleyen istek yok, otomatik tekrar yok.
+   * Başarıda kayıt (değerler + onay) bütünüyle değişir, düzenleme taslağı `adoptEntry` yolundan geçer;
+   * eski bir okuma daha yeni sürümü ezmez. Başarısızlıkta son bilinen durum ve tutarlar kalır.
+   */
+  async function refreshDriverStatus(): Promise<void> {
+    if (statusRefreshingRef.current) return;
+    statusRefreshingRef.current = true;
+    setStatusRefresh({ status: "loading" });
+    const result = await fetchWorkEntry(entryRef.current.id, targetVehicleId);
+    statusRefreshingRef.current = false;
+    if (!result.ok) {
+      setStatusRefresh({
+        status: "error",
+        message: result.sessionEnded ? COMMON_SCREEN_MESSAGES.sessionEnded : TEXT.refreshFailed,
+        sessionEnded: result.sessionEnded === true,
+      });
+      return;
+    }
+    if (result.entry.version >= entryRef.current.version) adoptEntry(result.entry);
+    setStatusRefresh({ status: "idle" });
+  }
+
   /** Onay çakışmasında güncel kaydı okur; başarısızsa kullanıcıya gösterilecek mesajı döner. */
   async function rereadForConfirm(): Promise<string | null> {
     const result = await fetchWorkEntry(entry.id, targetVehicleId);
@@ -543,7 +589,38 @@ export function WorkEntryEditForm({
 
   return (
     <div className="flex flex-col gap-6">
-      {ownerView ? <OwnerEntrySummary entry={entry} plate={plate ?? "—"} /> : <EntryDetail entry={entry} />}
+      {ownerView ? <OwnerEntrySummary entry={entry} plate={plate ?? "—"} /> : <EntryDetail entry={entry} mode={mode} />}
+
+      {mode === "driver" && (
+        <div className="flex flex-col gap-3">
+          <div role="status" aria-live="polite">
+            {statusRefresh.status === "loading" && (
+              <p className="text-base text-[var(--color-text-secondary)]">{TEXT.refreshing}</p>
+            )}
+          </div>
+          {statusRefresh.status === "error" && (
+            <p
+              role="alert"
+              className="rounded-[var(--radius-control)] bg-[var(--color-error-surface)] px-3 py-2 text-base text-[var(--color-error)]"
+            >
+              {statusRefresh.message}
+            </p>
+          )}
+          {statusRefresh.status === "error" && statusRefresh.sessionEnded && (
+            <Link href={workEntryLoginHref(mode)} className={linkButtonClass}>
+              {TEXT.loginLink}
+            </Link>
+          )}
+          <button
+            type="button"
+            disabled={statusRefresh.status === "loading"}
+            onClick={() => void refreshDriverStatus()}
+            className={secondaryButtonClass}
+          >
+            {TEXT.refresh}
+          </button>
+        </div>
+      )}
 
       {canConfirm && (
         <WorkEntryConfirmPanel

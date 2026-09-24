@@ -599,6 +599,8 @@ export const WORK_ENTRY_MESSAGES = {
   receivedLabelOnBehalf: "Sahip adına alınan tutar",
   confirmButtonOnBehalf: "Sahip adına teslimi onayla",
   supportTrace: (username: string): string => `Sahip adına platform desteği · ${username}`,
+  // Şoför görünümü: ekip kullanıcı adı şoföre gösterilmez.
+  supportTraceAnonymous: "Sahip adına platform desteği",
   confirmSending: "Onaylanıyor…",
   confirmRetry: "Sonucu şimdi kontrol et",
   deliveryConfirmed: "Teslim doğrulandı",

@@ -5,6 +5,7 @@ import {
   formatTlAmount,
   MAX_CENTS,
   parseApiCents,
+  parseApiTotalCents,
   parseSignedApiCents,
   parseTlAmount,
 } from "./money";
@@ -109,6 +110,18 @@ describe("API kuruş metni", () => {
     expect(parseSignedApiCents("-9007199254740991")).toBe(-MAX_CENTS);
     for (const bad of ["-0", "-", "--1", "-01", "+1", "1.0", "", "-9007199254740992"]) {
       expect(parseSignedApiCents(bad)).toBeNull();
+    }
+  });
+
+  it("parseApiTotalCents üst sınırsızdır; eksi kabul, -0 ve bozuk metin null", () => {
+    expect(parseApiTotalCents("1440000")).toBe(1440000n);
+    expect(parseApiTotalCents("-40000")).toBe(-40000n);
+    expect(parseApiTotalCents("0")).toBe(0n);
+    expect(parseApiTotalCents("9007199254740993")).toBe(9007199254740993n);
+    expect(parseApiTotalCents("-9007199254740993")).toBe(-9007199254740993n);
+    expect(parseApiTotalCents("123456789012345678901234567890")).toBe(123456789012345678901234567890n);
+    for (const bad of ["-0", "-", "--1", "01", "-01", "+1", "1.0", "", " 1", "1e3"]) {
+      expect(parseApiTotalCents(bad)).toBeNull();
     }
   });
 });

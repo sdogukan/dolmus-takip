@@ -112,6 +112,17 @@ export function parseSignedApiCents(text: string): bigint | null {
   return magnitude <= MAX_CENTS ? cents : null;
 }
 
+/**
+ * Dönem toplamı (`grossCents` … `remainderCents`): eksi olabilen ondalık tam
+ * sayı metni, ÜST SINIR YOK — toplamlar tek kaydın `MAX_CENTS` sınırını
+ * aşabilir ve sunucu bunları kesin metin olarak döndürür. Geçersizse ve "-0"
+ * için `null`. `Number()` KULLANILMAZ.
+ */
+export function parseApiTotalCents(text: string): bigint | null {
+  if (!SIGNED_API_CENTS.test(text) || text === "-0") return null;
+  return BigInt(text);
+}
+
 function toBigIntCents(cents: number | bigint): bigint {
   if (typeof cents === "bigint") return cents;
   if (!Number.isSafeInteger(cents)) {

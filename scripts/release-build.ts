@@ -252,6 +252,13 @@ function bundleDbInitIntoStandalone(): void {
   copyIntoStandalone("src/server/usecases/access/bump-platform-user-version.ts");
   copyIntoStandalone("src/server/usecases/access/run-access-change-transaction.ts");
   copyIntoStandalone("src/server/usecases/package.json");
+  // Günlük yedek (`scripts/db-backup.ts`) de arşivden çalışır. `src/lib/
+  // work-time.ts` (uzantısız `./messages` import'u) BİLEREK import ağacında
+  // yoktur; düz `node` onu çözemez.
+  copyIntoStandalone("scripts/db-backup.ts");
+  copyIntoStandalone("scripts/lib/backup-schedule.ts");
+  copyIntoStandalone("src/lib/work-calculation.ts");
+  copyIntoStandalone("src/lib/package.json");
 }
 
 /** `node -e "..."` standalone'un KENDİ `node_modules` kökünden çalıştırılır

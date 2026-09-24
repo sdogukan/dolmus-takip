@@ -262,6 +262,7 @@ describe("release:build / release:verify boru hattı (T6.1, S6.1)", () => {
         `release:verify başarısız olmamalı:\n${verify.stdout}\n${verify.stderr}`,
       ).toBe(0);
       expect(verify.stdout).toMatch(/health\/live.*200/);
+      expect(verify.stdout).toContain("db-backup run/status çalıştı");
       expect(verify.stdout).toContain("Doğrulama BAŞARILI");
     },
     TEST_TIMEOUT_MS,

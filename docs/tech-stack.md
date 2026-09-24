@@ -141,7 +141,7 @@ _Recorded in TECH-STACK §4 and ARCHITECTURE §6 row 'JWT / e-posta tokenları'.
 
 Single AWS Lightsail (Frankfurt, Linux, 2 vCPU / 2 GB RAM / 60 GB SSD / IPv4 / 3 TB, 12 USD/month), Ubuntu LTS, Caddy reverse proxy + HTTPS, systemd, Next.js standalone output on 127.0.0.1:3000
 
-_Cost-first single machine (ADR-001); no HA claim. Next listens on localhost only; Caddy exposes 80/443. Capacity not guaranteed: 100-concurrent-user load test planned on the target machine (M6). Not yet provisioned (PROGRESS: M6 open)._
+_Cost-first single machine (ADR-001); no HA claim. Next listens on localhost only; Caddy exposes 80/443. Capacity not guaranteed: 100-concurrent-user load test planned on the target machine (M6). Not yet provisioned (PROGRESS: M6 open). Deployment config now lives in the repo (deploy/): Caddyfile with site address {$DOLMUS_DOMAIN} (automatic certificate + HTTP→HTTPS), reverse_proxy to 127.0.0.1:3000 only; dolmus-takip.service (User dolmus-takip, WorkingDirectory /opt/dolmus-takip/current, HOSTNAME=127.0.0.1 PORT=3000, APP_ORIGIN=https://${DOLMUS_DOMAIN}, ProtectSystem=strict with only /var/lib/dolmus-takip/data writable); Caddy drop-in reads the same /etc/dolmus-takip/domain.env. Marked prepared but not tried on a real server (ISSUE-29)._
 
 ### Candidates
 
@@ -265,7 +265,7 @@ _TECH-STACK §8, ARCHITECTURE §8.2; last item from the product owner's answer o
 
 None for now — no external health check and no team alert channel; only the local 30 s systemd health timer
 
-_Product owner answer: not needed for now. This supersedes the go-live prerequisite in ARCHITECTURE §8.2 'Makine sorunu' and §11: the local timer stops together with the machine, so a full machine outage is not detected automatically. Can be added later without code changes (external probe on /api/v1/health/live)._
+_Conflict: the approved rationale says an external probe on /api/v1/health/live 'can be added later without code changes', but the code written for this task (deploy/caddy/Caddyfile, matcher @health on /api/v1/health and /api/v1/health/*) answers 404 to every request from outside, and tests/unit/deploy-config.test.ts asserts it. The API Endpoint List already marks the health endpoints 'Localhost only via Caddy'. Existing value kept unchanged — keep the Caddy block and correct the note, or expose /api/v1/health/live publicly?_
 
 ## CI/CD
 

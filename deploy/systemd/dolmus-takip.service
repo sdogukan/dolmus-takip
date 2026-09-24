@@ -1,0 +1,39 @@
+# Dolmuş Takip uygulama servisi — /etc/systemd/system/dolmus-takip.service
+# HAZIRLANDI, gerçek sunucuda DENENMEDİ (ISSUE-29). docs/SERVER-SETUP.md.
+[Unit]
+Description=Dolmus Takip (Next.js standalone)
+After=network.target
+# ARCHITECTURE §8.2: sınıra ulaşınca ekip müdahalesi gerekir.
+StartLimitIntervalSec=900
+StartLimitBurst=3
+
+[Service]
+Type=simple
+User=dolmus-takip
+Group=dolmus-takip
+# app-db.ts drizzle/ klasörünü process.cwd()'den çözer: çalışma dizini
+# sürüm kökü olmalıdır.
+WorkingDirectory=/opt/dolmus-takip/current
+# DOLMUS_DOMAIN alan adının TEK kaynağıdır (Caddy de aynı dosyayı okur);
+# APP_ORIGIN ondan türetilir, elle ikinci bir APP_ORIGIN YAZILMAZ.
+EnvironmentFile=/etc/dolmus-takip/domain.env
+EnvironmentFile=/etc/dolmus-takip/app.env
+# Dinleme adresi topoloji sözleşmesidir: yalnız 127.0.0.1:3000 (Caddy önde).
+Environment=NODE_ENV=production
+Environment=HOSTNAME=127.0.0.1
+Environment=PORT=3000
+Environment=NEXT_TELEMETRY_DISABLED=1
+# ${DOLMUS_DOMAIN} systemd tarafından EnvironmentFile'dan genişletilir.
+ExecStart=/usr/bin/env APP_ORIGIN=https://${DOLMUS_DOMAIN} /usr/bin/node server.js
+Restart=on-failure
+RestartSec=10s
+
+# Sürüm dizini salt okunur; yalnız kalıcı DB dizini yazılabilir.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/dolmus-takip/data
+
+[Install]
+WantedBy=multi-user.target

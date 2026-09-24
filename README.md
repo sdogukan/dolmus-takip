@@ -66,9 +66,11 @@ sessizce bir varsayılana düşmez.
   çalışmayı reddeder ve veritabanı dosyasına hiç dokunmaz. Kullandığı test
   şifreleri `.env.example` içinde belgelenir ve **gerçek kurulumda
   kullanılmaz**.
-- Gerçek üretim dosya yerleşimi (`/var/lib/dolmus-takip/...`, yedekleme,
-  geri yükleme) `docs/ARCHITECTURE.md` §8 ve M6 paketlerinin kapsamındadır;
-  bu depo o makineyi kurmaz.
+- Gerçek üretim dosya yerleşimi (`/var/lib/dolmus-takip/...`), Caddy/systemd
+  yapılandırması (`deploy/`) ve ilk kurulum/sürüm değiştirme komutları
+  `docs/SERVER-SETUP.md` içinde hazırlanmıştır; **gerçek sunucuda
+  denenmemiştir** (ISSUE-29). Yedekleme ve geri yükleme
+  `docs/ARCHITECTURE.md` §8 ve M6 paketlerinin kapsamındadır.
 
 ## Üretim çıktısı (standalone) notu
 

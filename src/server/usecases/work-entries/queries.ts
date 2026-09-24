@@ -6,8 +6,9 @@
  * HÂLÂ seçilebilir (aktif atama + aktif kişi, sahip hariç) kayıtları görür.
  * Sahip/ekip görünürlüğü kapsamla sınırlıdır.
  */
-import { and, desc, eq, lt, or, type SQL } from "drizzle-orm";
+import { and, desc, eq, gte, lt, or, type SQL } from "drizzle-orm";
 import { WORK_ENTRY_MESSAGES as TEXT } from "../../../lib/messages";
+import type { ReportPeriod } from "../../../lib/report-period";
 import type { Scope } from "../../auth/scope";
 import type { AppDatabase } from "../../data/db";
 import { scopedVehiclesFilter, scopeFilter } from "../../data/scoped";
@@ -193,6 +194,9 @@ export function readWorkEntryForScope(
 
 export interface ListWorkEntriesOptions {
   workerPersonId?: string;
+  /** Yarı açık `work_date` aralığı `[startDate, nextStartDate)`; yoksa tarih sınırı yok. */
+  period?: ReportPeriod;
+  status?: WorkEntryView["status"];
   cursor?: string;
   limit: number;
 }
@@ -222,6 +226,10 @@ export function listWorkEntriesForScope(
 
   const conditions: (SQL | undefined)[] = [entryScopeWhere(scope), driverVisibilityWhere(scope)];
   if (options.workerPersonId) conditions.push(eq(workEntries.personId, options.workerPersonId));
+  if (options.period) {
+    conditions.push(gte(workEntries.workDate, options.period.startDate), lt(workEntries.workDate, options.period.nextStartDate));
+  }
+  if (options.status) conditions.push(eq(workEntries.status, options.status));
   if (options.cursor !== undefined) {
     const [workDate, id] = requireCursor(options.cursor, 2) as [string, string];
     conditions.push(

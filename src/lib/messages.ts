@@ -444,6 +444,8 @@ export const SUPPORT_MESSAGES = {
   inactiveTarget: "Araç veya işletme pasif; bilgiler okunabilir, değişiklik yapılamaz.",
   pageTitle: "Destek",
   linkDrivers: "Şoförler",
+  linkSummary: "Özet",
+  linkReports: "Raporlar",
   linkVehicle: "Araç bilgisi",
   linkAudit: "Bu aracın işlem geçmişi",
   linkWorkEntry: "+ Çalışma kaydı gir",

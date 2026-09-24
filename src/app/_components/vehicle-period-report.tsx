@@ -23,7 +23,7 @@ import {
   type VehiclePeriodReportView,
 } from "../../lib/report-ui";
 import { DailyEntriesReport } from "./daily-entries-report";
-import { PeoplePeriodReport } from "./people-period-report";
+import { PeoplePeriodReport, reportLoginHref } from "./people-period-report";
 import { secondaryButtonClass } from "./work-entry-form";
 
 type ReportState =
@@ -42,12 +42,13 @@ interface ReportQuery {
 
 type FetchResult = { kind: "ok"; view: VehiclePeriodReportView } | { kind: "unauthorized" } | { kind: "error" };
 
-async function fetchReport(query: ReportQuery, signal: AbortSignal): Promise<FetchResult> {
+async function fetchReport(query: ReportQuery, signal: AbortSignal, targetVehicleId?: string): Promise<FetchResult> {
   let response: Response;
   try {
     response = await fetch(buildVehiclePeriodReportUrl(query.period, query.date), {
       signal,
       credentials: "same-origin",
+      headers: targetVehicleId ? { "X-Target-Vehicle": targetVehicleId } : undefined,
     });
   } catch (error) {
     if (signal.aborted) throw error;
@@ -78,7 +79,8 @@ const SECTIONS: { key: ReportSection; label: string }[] = [
   { key: "daily", label: TEXT.daily.tab },
 ];
 
-export function VehiclePeriodReport() {
+/** `targetVehicleId` verilirse destek (ekip) modu: istekler `X-Target-Vehicle` taşır, bağlantılar yönetim sayfalarına gider. */
+export function VehiclePeriodReport({ targetVehicleId }: { targetVehicleId?: string } = {}) {
   const [query, setQuery] = useState<ReportQuery>({ period: "month", date: undefined });
   const [attempt, setAttempt] = useState(0);
   const [state, setState] = useState<ReportState>({ status: "loading" });
@@ -89,7 +91,7 @@ export function VehiclePeriodReport() {
     void (async () => {
       let result: FetchResult;
       try {
-        result = await fetchReport(query, controller.signal);
+        result = await fetchReport(query, controller.signal, targetVehicleId);
       } catch {
         return; // kesildi: sonraki istek durumu belirler
       }
@@ -101,7 +103,18 @@ export function VehiclePeriodReport() {
       );
     })();
     return () => controller.abort();
-  }, [query, attempt]);
+  }, [query, targetVehicleId, attempt]);
+
+  // Geri-ileri önbelleğinden dönüş: sayfa bileşen durumuyla geri gelir; tutarlar temizlenip yeniden okunur.
+  useEffect(() => {
+    function onPageShow(event: PageTransitionEvent): void {
+      if (!event.persisted) return;
+      setState({ status: "loading" });
+      setAttempt((value) => value + 1);
+    }
+    window.addEventListener("pageshow", onPageShow);
+    return () => window.removeEventListener("pageshow", onPageShow);
+  }, []);
 
   function go(next: ReportQuery): void {
     setState({ status: "loading" });
@@ -163,7 +176,7 @@ export function VehiclePeriodReport() {
           <p role="alert" className="text-base text-[var(--color-error)]">
             {COMMON_SCREEN_MESSAGES.sessionEnded}
           </p>
-          <Link href="/giris" className={`${secondaryButtonClass} inline-flex items-center`}>
+          <Link href={reportLoginHref(targetVehicleId)} className={`${secondaryButtonClass} inline-flex items-center`}>
             {TEXT.loginAgain}
           </Link>
         </div>
@@ -235,9 +248,19 @@ export function VehiclePeriodReport() {
               </div>
               <div role="tabpanel" aria-label={SECTIONS.find(({ key }) => key === section)!.label} className="flex flex-col gap-4">
                 {section === "people" ? (
-                  <PeoplePeriodReport key={`${query.period}|${view.startDate}`} period={query.period} date={view.startDate} />
+                  <PeoplePeriodReport
+                    key={`${query.period}|${view.startDate}`}
+                    period={query.period}
+                    date={view.startDate}
+                    targetVehicleId={targetVehicleId}
+                  />
                 ) : (
-                  <DailyEntriesReport key={`${query.period}|${view.startDate}`} period={query.period} date={view.startDate} />
+                  <DailyEntriesReport
+                    key={`${query.period}|${view.startDate}`}
+                    period={query.period}
+                    date={view.startDate}
+                    targetVehicleId={targetVehicleId}
+                  />
                 )}
               </div>
             </>

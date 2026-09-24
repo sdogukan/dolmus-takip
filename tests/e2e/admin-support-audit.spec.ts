@@ -253,7 +253,7 @@ test.describe("Yönetim araması (/yonetim)", () => {
 });
 
 test.describe("Destek ekranı (/yonetim/araclar/:id/destek)", () => {
-  test("hedef ve gerçek ekip kimliğini gösterir; çalışma kaydı bağlantısı vardır, teslim/rapor bağlantısı yoktur; bilinmeyen araç 404", async ({
+  test("hedef ve gerçek ekip kimliğini gösterir; çalışma kaydı, Özet ve Raporlar bağlantıları vardır, teslim bağlantısı yoktur; bilinmeyen araç 404", async ({
     page,
   }) => {
     await loginAsAdmin(page);
@@ -271,10 +271,18 @@ test.describe("Destek ekranı (/yonetim/araclar/:id/destek)", () => {
       `/yonetim/araclar/${vehicleId}/kayit/yeni`,
     );
 
+    // Özet ve raporlar vardır ve bağlanır (destek modu sayfaları).
+    await expect(page.getByRole("link", { name: "Özet", exact: true })).toHaveAttribute(
+      "href",
+      `/yonetim/araclar/${vehicleId}/ozet`,
+    );
+    await expect(page.getByRole("link", { name: "Raporlar", exact: true })).toHaveAttribute(
+      "href",
+      `/yonetim/araclar/${vehicleId}/raporlar`,
+    );
+
     // Dürüstlük: hâlâ olmayan işler bağlanmaz.
-    await expect(
-      page.getByRole("link", { name: /günlük|Teslim|onay|Rapor|Özet|Kayıtlar/i }),
-    ).toHaveCount(0);
+    await expect(page.getByRole("link", { name: /günlük|Teslim|onay|Kayıtlar/i })).toHaveCount(0);
     await expect(
       page.getByRole("button", { name: /Çalışma kaydı|günlük|Teslim|onay|Rapor/i }),
     ).toHaveCount(0);

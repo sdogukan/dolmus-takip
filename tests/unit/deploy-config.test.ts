@@ -218,6 +218,93 @@ describe("deploy/systemd/dolmus-takip-health.{timer,service}", () => {
   });
 });
 
+describe("deploy/systemd/dolmus-takip-backup.{timer,service}", () => {
+  const timer = read("deploy/systemd/dolmus-takip-backup.timer");
+  const timerLines = activeLines(timer);
+  const unit = read("deploy/systemd/dolmus-takip-backup.service");
+  const service = activeLines(unit);
+  const health = activeLines(read("deploy/systemd/dolmus-takip-health.service"));
+  const lockPath = "/var/lib/dolmus-takip/ops.lock";
+
+  test("zamanlayıcı her gün 02:30 Europe/Istanbul; telafi yok (Persistent=false)", () => {
+    expect(timerLines).toContain("OnCalendar=*-*-* 02:30:00 Europe/Istanbul");
+    expect(timerLines).toContain("Persistent=false");
+    expect(timerLines.some((line) => /^Persistent=true/.test(line))).toBe(false);
+    expect(timerLines).toContain("Unit=dolmus-takip-backup.service");
+    expect(timerLines).toContain("WantedBy=timers.target");
+  });
+
+  test("birim oneshot ve root değil: dolmus-takip olarak, release kökünden", () => {
+    expect(service).toContain("Type=oneshot");
+    expect(service).toContain("User=dolmus-takip");
+    expect(service).toContain("Group=dolmus-takip");
+    expect(service).not.toContain("User=root");
+    expect(service).toContain("WorkingDirectory=/opt/dolmus-takip/current");
+    expect(service).toContain("EnvironmentFile=/etc/dolmus-takip/app.env");
+    expect(service).toContain("Environment=DOLMUS_BACKUP_DIR=/var/lib/dolmus-takip/backup-ready");
+    // Doğrulama saati yalnız test içindir; birimde asla ayarlanmaz.
+    expect(unit).not.toContain("DOLMUS_BACKUP_NOW");
+  });
+
+  test("ortak işletim kilidi flock ile, sınırlı bekleme (-w) ve ayırt edilir çıkış kodu; kopya CLI'si run", () => {
+    const exec = service.find((line) => line.startsWith("ExecStart="));
+    expect(exec).toBe(
+      `ExecStart=/usr/bin/flock -w 600 -E 75 ${lockPath} /usr/bin/node scripts/db-backup.ts run`,
+    );
+    // Engellemeyen (-n) veya sınırsız bekleyen sarmalayıcı değil.
+    expect(exec).not.toMatch(/flock -n|flock (?!-w)/);
+    const wait = Number.parseInt(/-w (\d+)/.exec(exec ?? "")?.[1] ?? "0", 10);
+    const timeout = Number.parseInt(
+      (service.find((line) => line.startsWith("TimeoutStartSec=")) ?? "").split("=")[1] ?? "0",
+      10,
+    );
+    expect(wait).toBeGreaterThan(0);
+    expect(timeout).toBeGreaterThan(wait);
+  });
+
+  test("sağlık birimiyle aynı sertleştirme; yazılabilir yollar yalnız veri ve hazır kopya dizini", () => {
+    for (const line of [
+      "NoNewPrivileges=true",
+      "PrivateTmp=true",
+      "ProtectSystem=strict",
+      "ProtectHome=true",
+      "PrivateDevices=true",
+      "ProtectKernelTunables=true",
+      "ProtectKernelModules=true",
+      "ProtectControlGroups=true",
+      "RestrictNamespaces=true",
+      "LockPersonality=true",
+    ]) {
+      expect(health, `health: ${line}`).toContain(line);
+      expect(service, line).toContain(line);
+    }
+    // WAL DB'yi okumak veri dizinine (-shm) yazma gerektirir; yalnız bu iki yol.
+    expect(service.filter((line) => line.startsWith("ReadWritePaths="))).toEqual([
+      "ReadWritePaths=/var/lib/dolmus-takip/data /var/lib/dolmus-takip/backup-ready",
+    ]);
+  });
+
+  test("bakım işaretine ve sağlık kilidine dokunmaz; [Install] yok", () => {
+    expect(unit.replace(/^#.*$/gm, "")).not.toMatch(/maintenance|recovery\.lock|health\/run\.lock/);
+    expect(service).not.toContain("[Install]");
+  });
+
+  test("yedek birimi ile SERVER-SETUP §4 sürüm değiştirme AYNI kilit dosyasını kullanır", () => {
+    const guide = read("docs/SERVER-SETUP.md");
+    const releaseSection = guide.slice(
+      guide.indexOf("## 4. Sürüm değiştirme"),
+      guide.indexOf("## 5. Manuel doğrulama tablosu"),
+    );
+    expect(releaseSection).toContain(`flock -w 900 -E 75 ${lockPath} bash -euc`);
+    // Migration kilit altındaki kabuğun içindedir, kilit dışında değil.
+    const locked = releaseSection.slice(releaseSection.indexOf("flock -w 900"));
+    expect(locked.indexOf("scripts/db-init.ts --existing")).toBeGreaterThan(-1);
+    expect(releaseSection.indexOf("flock -w 900")).toBeLessThan(
+      releaseSection.indexOf("scripts/db-init.ts --existing"),
+    );
+  });
+});
+
 describe("deploy/health betikleri", () => {
   test("yalnız node: yerleşikleri ve kendi modülü; dış paket yok", () => {
     for (const file of ["deploy/health/health-check.mts", "deploy/health/health-decision.mts"]) {
@@ -268,6 +355,8 @@ describe("deploy/ dosya başlıkları", () => {
     for (const file of [
       "deploy/systemd/dolmus-takip-health.service",
       "deploy/systemd/dolmus-takip-health.timer",
+      "deploy/systemd/dolmus-takip-backup.service",
+      "deploy/systemd/dolmus-takip-backup.timer",
       "deploy/journald/dolmus-takip.conf",
       "deploy/systemd/dolmus-takip.service",
       "deploy/systemd/caddy.service.d/override.conf",
@@ -395,12 +484,12 @@ describe("docs/SERVER-SETUP.md", () => {
     expect(guide).not.toContain("enable dolmus-takip-health.timer\n");
   });
 
-  test("manuel doğrulama bölümü: 16 kontrol (9 kurulum + 7 sağlık otomasyonu), hepsi doğrulanacak işaretli", () => {
+  test("manuel doğrulama bölümü: 21 kontrol (9 kurulum + 7 sağlık otomasyonu + 5 yedek), hepsi doğrulanacak işaretli", () => {
     const start = guide.indexOf("## 5. Manuel doğrulama tablosu");
     expect(start).toBeGreaterThan(-1);
     const section = guide.slice(start, guide.indexOf("## 6."));
     const rows = section.split("\n").filter((l) => /^\| \d+ \|/.test(l));
-    expect(rows).toHaveLength(16);
+    expect(rows).toHaveLength(21);
     for (const row of rows) {
       expect(row).toContain("elle kurulumda doğrulanacak");
     }
@@ -420,6 +509,11 @@ describe("docs/SERVER-SETUP.md", () => {
       "kalıcı kilit; reboot sonrası da başlatmaz",
       "Bakım işareti restart'ı engeller",
       "Caddy erişim günlüğü başlıksız; journald sınırı",
+      "Ortak işletim kilidi: yedek birimi sandbox altında kilidi açar",
+      "Günlük kopya birimi: `dolmus-takip` olarak",
+      "Yedek zamanlayıcısı 02:30 Europe/Istanbul; telafi yok",
+      "Lightsail otomatik snapshot 00:00 UTC; Türkiye eşlemesi",
+      "Kopya–snapshot ilişkisi",
     ]) {
       expect(section, topic).toContain(topic);
     }
@@ -435,6 +529,7 @@ describe("docs/SERVER-SETUP.md", () => {
       "/var/lib/dolmus-takip/data/",
       "/var/lib/dolmus-takip/backup-ready/",
       "/var/lib/dolmus-takip/pre-migration/",
+      "/var/lib/dolmus-takip/ops.lock",
       "/etc/dolmus-takip/",
     ]) {
       expect(guide, p).toContain(p);
@@ -452,6 +547,47 @@ describe("docs/SERVER-SETUP.md", () => {
     expect(guide).toContain("systemctl enable dolmus-takip.service caddy.service");
     // Root olarak db-init çalıştıran satır yok.
     expect(guide).not.toMatch(/^sudo node .*db-init/m);
+  });
+
+  test("yedek kurulumu: kilit dosyası, birimler, zamanlayıcı servislerden sonra etkinleşir", () => {
+    for (const marker of [
+      "sudo install -m 0640 -o root -g dolmus-takip /dev/null /var/lib/dolmus-takip/ops.lock",
+      "deploy/systemd/dolmus-takip-backup.service /etc/systemd/system/dolmus-takip-backup.service",
+      "deploy/systemd/dolmus-takip-backup.timer /etc/systemd/system/dolmus-takip-backup.timer",
+    ]) {
+      expect(guide, marker).toContain(marker);
+    }
+    expect(guide.indexOf("sudo systemctl enable --now dolmus-takip-backup.timer")).toBeGreaterThan(
+      guide.indexOf("sudo systemctl start dolmus-takip.service caddy.service"),
+    );
+    // Kilit dosyası, kullanılacağı §4'ten ve birimlerin kurulumundan önce yaratılır.
+    expect(guide.indexOf("/dev/null /var/lib/dolmus-takip/ops.lock")).toBeLessThan(
+      guide.indexOf("deploy/systemd/dolmus-takip-backup.service /etc/systemd"),
+    );
+  });
+
+  test("Lightsail otomatik snapshot 00:00 UTC ve yazılı Türkiye–UTC eşlemesi; her aws satırı profil+bölge taşır", () => {
+    expect(guide).toContain("snapshotTimeOfDay=00:00");
+    expect(guide).toContain("**00:00 UTC = 03:00 Europe/Istanbul**");
+    expect(guide).toContain("UTC+3");
+    expect(guide).toContain("aws lightsail get-auto-snapshots");
+    const section = guide.slice(guide.indexOf("### 3.5"), guide.indexOf("## 4."));
+    const awsCommands = section
+      .replace(/\\\n\s*/g, " ")
+      .split("\n")
+      .filter((l) => /^\s*aws lightsail /.test(l));
+    expect(awsCommands).toHaveLength(3);
+    for (const cmd of awsCommands) {
+      expect(cmd).toContain('--profile "$AWS_PROFILE"');
+      expect(cmd).toContain('--region "$AWS_REGION"');
+    }
+  });
+
+  test("release manifesti ve temizlik kuralı: kopyaya bağlı release ve manifesti silinmez", () => {
+    expect(guide).toContain("<release-id>.manifest.json");
+    expect(guide).toContain("**Release manifesti ve temizlik kuralı:**");
+    expect(guide).toContain("scripts/db-backup.ts status");
+    expect(guide).toContain("**silinmez**");
   });
 
   test("her komut bloğunun başında 'denenmedi' işareti var", () => {
@@ -486,5 +622,31 @@ describe("docs/OPS.md", () => {
     expect(ops).toContain("`q` ve `cursor` sorgu değerleri silinir");
     expect(ops).not.toContain("sorgu dizesi dahil");
     expect(ops).not.toContain("varsayım, kodda ayrıca doğrulanmadı");
+  });
+
+  test("günlük yedek: üç ayrı kayıt, bağlanamayan snapshot iyi yedek ilan edilmez, journal uyarısı, saklama", () => {
+    for (const record of ["'DB kopyası hazır'", "'AWS snapshot başarılı'", "'restore sınandı'"]) {
+      expect(ops, record).toContain(record);
+    }
+    expect(ops).toContain("**üç ayrı günlük kayıt**");
+    expect(ops).toContain("**iyi yedek ilan edilmez**");
+    expect(ops).toContain("event=backup_failed");
+    expect(ops).toContain("Uyarı **yalnız journal'dadır**");
+    expect(ops).toContain("en yeni **2** doğrulanmış SQLite kopyası");
+    expect(ops).toContain("**00:00 UTC = 03:00 Europe/Istanbul**");
+  });
+
+  test("makineyi silmeden önce manuel snapshot adımı; her aws satırı profil+bölge taşır", () => {
+    expect(ops).toContain("**Makineyi silmeden önce (zorunlu adım):**");
+    expect(ops).toContain("aws lightsail create-instance-snapshot");
+    const awsCommands = ops
+      .replace(/\\\n\s*/g, " ")
+      .split("\n")
+      .filter((l) => /^\s*aws lightsail /.test(l));
+    expect(awsCommands.length).toBeGreaterThan(0);
+    for (const cmd of awsCommands) {
+      expect(cmd).toContain('--profile "$AWS_PROFILE"');
+      expect(cmd).toContain('--region "$AWS_REGION"');
+    }
   });
 });

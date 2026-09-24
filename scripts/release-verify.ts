@@ -19,7 +19,8 @@
  *    makinedeki GERÇEK ilk kurulum adımı).
  *    Ardından arşivin KENDİ `scripts/platform-admin.ts create-first-admin`
  *    komutu AYNI geçici DB'de çalıştırılır (sunucudaki ilk yönetici adımı;
- *    import ağacında eksik dosya yalnız sunucuda patlamasın).
+ *    import ağacında eksik dosya yalnız sunucuda patlamasın); ardından
+ *    arşivin KENDİ `scripts/db-backup.ts run` + `status` komutları.
  * 5. Arşivin KENDİ `server.js`'ini geçici `PORT`/`HOSTNAME=127.0.0.1`/
  *    `APP_ORIGIN`/`DOLMUS_DB_PATH` ile başlatır, `/api/v1/health/live`'dan
  *    200 alır, süreci kapatır.
@@ -161,6 +162,41 @@ function runCreateFirstAdmin(extractDir: string, dbPath: string): void {
     );
   }
   console.log("[release:verify] Geçici DB'de create-first-admin çalıştı.");
+}
+
+/** Sabit, korumalı pencere (02:55–04:00 Europe/Istanbul) DIŞINDA bir an:
+ * doğrulama günün hangi saatinde koşarsa koşsun kopyanın pencere kuralına
+ * takılıp yalancı hata vermemesi için (`DOLMUS_BACKUP_NOW`, bkz. db-backup.ts). */
+const BACKUP_VERIFY_NOW = "2026-01-15T12:00:00.000Z";
+
+/** Arşivin `scripts/db-backup.ts run` ve `status` komutlarını geçici DB'de
+ * çalıştırır; import ağacında eksik dosya yalnız sunucuda patlamasın. */
+function runBackupCommands(extractDir: string, dbPath: string, backupDir: string): void {
+  fs.mkdirSync(backupDir, { recursive: true });
+  const env = {
+    ...process.env,
+    DOLMUS_DB_PATH: dbPath,
+    DOLMUS_BACKUP_DIR: backupDir,
+    DOLMUS_BACKUP_NOW: BACKUP_VERIFY_NOW,
+  };
+  for (const command of ["run", "status"]) {
+    const result = spawnSync(process.execPath, ["scripts/db-backup.ts", command], {
+      cwd: extractDir,
+      encoding: "utf8",
+      env,
+    });
+    if (result.status !== 0) {
+      fail(
+        `Arşivin "scripts/db-backup.ts ${command}" komutu geçici DB'de başarısız oldu ` +
+          `(exit ${result.status}):\n${result.stdout}\n${result.stderr}`,
+      );
+    }
+  }
+  const published = fs.readdirSync(backupDir).filter((name) => name.endsWith(".manifest.json"));
+  if (published.length !== 1) {
+    fail(`Yedek dizininde tam olarak 1 manifest bekleniyordu, ${published.length} bulundu.`);
+  }
+  console.log("[release:verify] Geçici DB'de db-backup run/status çalıştı.");
 }
 
 /** Boş bir TCP port bulur (0 numaralı porta bağlanıp OS'in verdiği gerçek
@@ -323,6 +359,7 @@ async function main(): Promise<void> {
 
     runDbInit(extractDir, dbPath);
     runCreateFirstAdmin(extractDir, dbPath);
+    runBackupCommands(extractDir, dbPath, path.join(dbTempDir, "backup-ready"));
     await startServerAndCheckHealth(extractDir, dbPath);
 
     console.log(

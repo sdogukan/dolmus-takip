@@ -43,7 +43,7 @@ Lightsail'ın CPU/ağ metrikleri, yerel RAM/disk/servis ölçümleri ve journald
 | Giriş sayacı (F13) | Uygulama logunda `RATE_LIMITED` ve `HASH_QUEUE_FULL` (429) satırları: `[<uç>] <KOD> (request_id=…)`. Plaka, IP, kullanıcı adı ve parola satıra yazılmaz. `journalctl -u dolmus-takip \| grep -c RATE_LIMITED` ile sayılır; sayısal alarm eşiği pilot ölçümüyle belirlenir | Yeni bir yoğunlaşma (ör. dakikada tekrarlayan satırlar) brute-force veya tek kaynak taşması olabilir; 429'u meşru engellenme diye gizleme, kaynağı `request_id` ile araştır |
 | Argon2 hash kuyruğu (F13) | Yalnız `HASH_QUEUE_FULL` satırında `hash_active=<n> hash_pending=<n> hash_longest_wait_ms=<ms>`; sınırlar 4 eşzamanlı / 100 bekleyen / 10 sn ([DECISIONS](DECISIONS.md)) | Kuyruk dolması login yavaşlığı ve CPU baskısıdır; `hash_pending` sürekli sınıra yakınsa saldırı mı gerçek yük mü ayır, sınırı gerekçesiz yükseltme |
 | Yanıt/hata | Normal karışık yük başlangıç hedefi: kayıt p95 ≤2 sn, rapor p95 ≤3 sn, beklenmeyen hata <%1 | Canlı alarm penceresini pilot ölçümüyle belirle; 409/429/yetki reddini ayır, meşru engellenmeyi gizleme |
-| Günlük yedek | Hazırlık gecikmesi/başarısızlığı, tamamlanmayan snapshot veya belirsiz kopya ilişkisi | Son doğrulanmış kurtarma noktasını göster; yedek arızasını uyar; §4'teki üç durumu ayrı izle |
+| Günlük yedek | `dolmus-takip-backup.service` (02:30 Europe/Istanbul) `dolmus-backup event=…` satırlarını journal'a yazar; başarısız koşu `event=backup_failed reason=… message=…` (`err` önceliği) yazar ve **birim başarısız** görünür (`systemctl --failed`); kilit 600 sn içinde alınamazsa `flock` 75 ile çıkar. Uyarı **yalnız journal'dadır** (§1: ekip kanalı kurulana dek kimseye ulaşmaz). `journalctl -u dolmus-takip-backup.service -p err --since "-26h" --no-pager` günlük kontrole girer; tamamlanmayan snapshot veya belirsiz kopya ilişkisi de aynı kontrolde aranır | Son doğrulanmış kurtarma noktasını göster; yedek arızasını uyar; §4'teki üç durumu ayrı izle |
 
 Dış kontrol yalnız herkese açık giriş sayfasına erişir; şifreyle otomatik müşteri işlemi yapmaz. İç canlılık/hazırlık localhost'ta kalır. Dış kontrol hizmetin erişilebilirliğini, yerel hazırlık DB'yi ölçer; ikisi birlikte denenir. Planlı bakımın uyarı davranışı belirlenir, bakım kaydı kaybolmaz.
 
@@ -64,15 +64,17 @@ Loglar zaman, request_id, sürüm, işlem türü ve gerekli hata kodunu taşır;
 
 ### Günlük hazırlık ve kontrol
 
-Seçim günde bir Lightsail otomatik snapshot ve son **7** otomatik snapshot'tır. Yerelde son **2** doğrulanmış SQLite kopyası tutulur; bunlar ayrı bir uzak yedek değildir. S3/saatlik yedek planı yoktur. Yedi snapshot sınırı uygulamadaki en az beş yıllık kayıt/revizyon saklama süresini kısaltmaz.
+Seçim günde bir Lightsail otomatik snapshot ve son **7** otomatik snapshot'tır. Yerelde en yeni **2** doğrulanmış SQLite kopyası (ve bağlı release'leri) tutulur; yeni kopya yayımlandıktan **sonra** eskisi temizlenir, kopya başarısızsa hiçbir kopya silinmez. Bunlar ayrı bir uzak yedek değildir ve yerel kopya tek başına makine kaybına karşı yedek sayılmaz. S3/saatlik yedek planı yoktur. Yedi snapshot sınırı uygulamadaki en az beş yıllık kayıt/revizyon saklama süresini kısaltmaz.
 
-1. Architecture başlangıç önerisi: Europe/Istanbul 02:30 hazırlık, 02:55 hazır kopya son saati, 03:00 snapshot hedefi. AWS UTC dönüşümünü ve gerçek snapshot penceresini kurulumda doğrula; tam dakikada başlama varsayma.
-2. Ortak işletim kilidiyle SQLite Backup API kullanarak tarihli geçici kopya al. Hazırlıkla eşzamanlı yayın/migration/restore çalıştırma; normal kısa kullanıcı işlemleri Backup API'nin tutarlı görüntüsüyle yürüyebilir.
+1. Takvim: Europe/Istanbul 02:30 hazırlık (`dolmus-takip-backup.timer`, telafi koşusu yok), 02:55 hazır kopya son saati, Lightsail otomatik snapshot **00:00 UTC = 03:00 Europe/Istanbul** (Türkiye sabit UTC+3; kurulum [SERVER-SETUP](SERVER-SETUP.md) §3.5). Gerçek snapshot başlangıcını kurulumda doğrula; tam dakikada başlama varsayma.
+2. Ortak işletim kilidiyle (`/var/lib/dolmus-takip/ops.lock`; yayın/migration de aynı dosyayı tutar) SQLite Backup API kullanarak tarihli geçici kopya al (`dolmus-takip` olarak `scripts/db-backup.ts run`). Hazırlıkla eşzamanlı yayın/migration/restore çalıştırma; normal kısa kullanıcı işlemleri Backup API'nin tutarlı görüntüsüyle yürüyebilir.
 3. Kopyanın kendi bağlantısında `integrity_check`, `foreign_key_check`, son kayıt/revizyon, güncel onay ve mali toplamları doğrula. Hazırlık sürerken değişen canlı toplamlarla yanlış eşitlik arama.
 4. Manifestte kopya hash'i, şema/uygulama sürümü, kopyadaki son commit edilmiş işlem ve doğrulama zamanını tut. Kopya/manifesti diske senkronla; hazır adına atomik taşı ve dizini senkronla.
 5. Hazır kopyayı snapshot penceresinde değiştirme. Son saate yetişmediyse bugünkü snapshot'a girmiş sayma; önceki sağlamı koru ve gecikmeyi uyar.
 6. Her kopyanın uyumlu release çıktısı ve sürüm manifestini kopya tutulduğu sürece koru; snapshot bu kodu da kapsasın. Yeni kopya başarısızsa eski sağlam kopyayı temizleme.
 7. AWS snapshot kimliği/durumu/zamanını, önceden hazır olan değişmez kopya ve uyumlu release ile ilişkilendir. Son yedi snapshot ve yerelde son iki sağlam kopya saklamasını günlük denetle.
+
+Üç durum **üç ayrı günlük kayıt** olarak tutulur; birinin kaydı diğerinin yerine yazılmaz: (1) **'DB kopyası hazır'** — her gün kopya birimi çıkışı ve `backup_copy`/`backup_status` satırları; (2) **'AWS snapshot başarılı'** — her gün `get-auto-snapshots` durumu ve zamanı; (3) **'restore sınandı'** — yalnız ayrı makinede yapılan restore denemesinde, snapshot kimliğiyle.
 
 | Ayrı durum | Gerekli kanıt | Kanıtlamadığı şey |
 |---|---|---|
@@ -80,7 +82,7 @@ Seçim günde bir Lightsail otomatik snapshot ve son **7** otomatik snapshot'tı
 | AWS snapshot başarılı | AWS tamamlanma durumu/kimliği/zamanı; hazır kopyayla doğrulanmış ilişki | Bu snapshot'tan uygulamanın gerçekten geri açıldığı |
 | Restore sınandı | Belirli snapshot'tan ayrı makinede giriş/veri/rapor kontrolleri ve süre kaydı | Daha sonraki bütün snapshot'ların sınandığı |
 
-Kopya/snapshot bağı belirsizse yeni başarılı DB yedeği ilan edilmez. Son geçerli nokta ve başarısız günler görünür tutulur. Günlük kontrol kaydı; kopya/hash/son işlem, release, snapshot kimliği/durumu, ilişki sonucu, son restore ve kontrol eden kişiyi içerir.
+Snapshot ile hazır kopya arasındaki bağ kurulamıyorsa (kopya snapshot başlangıcından önce yayımlanmamış, manifest yok veya hash uyuşmuyor) o snapshot **iyi yedek ilan edilmez**; yalnız 'AWS snapshot başarılı' kaydı düşülür, 'DB kopyası hazır' kaydı ayrıca değerlendirilir. Kopya/snapshot bağı belirsizse yeni başarılı DB yedeği ilan edilmez. Son geçerli nokta ve başarısız günler görünür tutulur. Günlük kontrol kaydı; kopya/hash/son işlem, release, snapshot kimliği/durumu, ilişki sonucu, son restore ve kontrol eden kişiyi içerir.
 
 ### Kontrollü restore
 
@@ -93,7 +95,16 @@ Kopya/snapshot bağı belirsizse yeni başarılı DB yedeği ilan edilmez. Son g
 
 Günlük aralık ve hazırlık penceresi kadar yeni kayıt kaybı olabilir; yedek arızaları aralığı uzatır. Sıfır kayıp veya kesin toparlanma süresi sözü verilmez. Kayıp aralığı bilinmiyorsa bilinmiyor yazılır; eski/yeni DB kayıtları otomatik birleştirilmez.
 
-İlk pilot öncesi restore zorunlu doğrulamadır; sonraki aylık tekrar Architecture önerisidir. Deneme makinesinin geçici maliyeti bütçeye yazılır, kanıt alındıktan sonra gerekli olmayan deneme kaynakları kontrollü kaldırılır. Kaynak makine silinmeden korunacak otomatik snapshot önce manuel snapshot olarak saklanır.
+İlk pilot öncesi restore zorunlu doğrulamadır; sonraki aylık tekrar Architecture önerisidir. Deneme makinesinin geçici maliyeti bütçeye yazılır, kanıt alındıktan sonra gerekli olmayan deneme kaynakları kontrollü kaldırılır. **Makineyi silmeden önce (zorunlu adım):** Otomatik snapshot'lar kaynak instance ile birlikte silinebilir. Korunacak nokta önce **manuel snapshot** olarak alınır; tamamlandığı görülmeden ve kopya ilişkisi kaydedilmeden instance silinmez.
+
+```bash
+# hazırlandı, denenmedi (elle kurulumda denenecek)
+aws lightsail create-instance-snapshot --profile "$AWS_PROFILE" --region "$AWS_REGION" \
+  --instance-name "$DOLMUS_INSTANCE" --instance-snapshot-name "$DOLMUS_INSTANCE-manuel-<tarih>"
+aws lightsail get-instance-snapshot --profile "$AWS_PROFILE" --region "$AWS_REGION" \
+  --instance-snapshot-name "$DOLMUS_INSTANCE-manuel-<tarih>" --query 'instanceSnapshot.[name,state,createdAt]' --output text
+# state = available olmadan instance silinmez
+```
 
 ## 5. Arıza müdahale yolları
 
@@ -125,7 +136,7 @@ Günlük aralık ve hazırlık penceresi kadar yeni kayıt kaybı olabilir; yede
 ### E. Yedek hazırlığı veya snapshot başarısız
 
 **Tetikleyici:** Son saat kaçtı, doğrulama başarısız, AWS snapshot tamamlanmadı veya kopya ilişkisi belirsiz.  
-**Müdahale:** Önceki sağlam kopya/release'i koru; disk, ortak kilit, görev/log ve snapshot durumunu incele. Geç tamamlanan kopyayı bugünkü snapshot içinde varmış gibi işaretleme; son güvenli kurtarma noktasını güncelle.  
+**Müdahale:** Önceki sağlam kopya/release'i koru; disk, ortak kilit, görev/log ve snapshot durumunu incele: `journalctl -u dolmus-takip-backup.service --since "-26h" --no-pager` (`event=backup_failed reason=…`; `flock` 75 = kilit alınamadı, yayın/migration/restore sürüyor olabilir), `systemctl --failed`. Uyarı yalnız journal'dadır; ekip kanalı kurulana dek günlük kontrolde aranır. Geç tamamlanan kopyayı bugünkü snapshot içinde varmış gibi işaretleme; son güvenli kurtarma noktasını güncelle.  
 **Eskalasyon / dönüş:** Sorumlu nedeni düzeltir ve sonraki geçerli hazırlık/snapshot ilişkisini doğrular. Tutarlılık şüphesinde ayrı restore sınanır; yerel kopya başarısı tek başına olayı kapatmaz.
 
 ### F. Yanlış mali sonuç veya yetkisiz erişim şüphesi

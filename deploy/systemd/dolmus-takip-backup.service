@@ -1,0 +1,41 @@
+# Dolmuş Takip günlük DB kopyası — /etc/systemd/system/dolmus-takip-backup.service
+# HAZIRLANDI, gerçek sunucuda DENENMEDİ (manuel kurulumda denenecek). docs/SERVER-SETUP.md.
+# ARCHITECTURE §8.4: dolmus-takip-backup.timer tetikler (her gün 02:30 Europe/Istanbul);
+# kendi başına etkinleştirilmez ([Install] yok). Bakım işaretini oluşturmaz/kaldırmaz.
+[Unit]
+Description=Dolmus Takip gunluk tutarli SQLite kopyasi (scripts/db-backup.ts run)
+# Bu görevin kendisi başlatma sınırına takılmasın; her koşu ayrı bir oneshot.
+StartLimitIntervalSec=0
+
+[Service]
+Type=oneshot
+# DB komutları root olarak çalıştırılmaz (docs/SERVER-SETUP.md §2).
+User=dolmus-takip
+Group=dolmus-takip
+# db-backup.ts release kimliğini realpath(cwd)'den alır: current sembolik bağı
+# çalışan sürüm dizinine çözülür.
+WorkingDirectory=/opt/dolmus-takip/current
+EnvironmentFile=/etc/dolmus-takip/app.env
+Environment=DOLMUS_BACKUP_DIR=/var/lib/dolmus-takip/backup-ready
+# Ortak işletim kilidi (yayın/migration ile aynı dosya): tutuluysa en çok 600 sn
+# bekler, sonra 75 ile çıkar ve birim başarısız görünür (journal'da görünür hata;
+# kopya denenmez). Kilit dosyası kurulumda root:dolmus-takip 0640 yaratılır; flock
+# onu okuma kipinde açar, bu yüzden yazma izni gerekmez.
+ExecStart=/usr/bin/flock -w 600 -E 75 /var/lib/dolmus-takip/ops.lock /usr/bin/node scripts/db-backup.ts run
+# Kilit beklemesi (600 sn) + kopya süresi için pay.
+TimeoutStartSec=1500s
+
+# Yazılabilir yollar: WAL veritabanını okumak veri dizinindeki -shm'e ve dizine
+# yazma gerektirir; kopya hazır dizinine yazılır.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/dolmus-takip/data /var/lib/dolmus-takip/backup-ready
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_UNIX
+RestrictNamespaces=true
+LockPersonality=true

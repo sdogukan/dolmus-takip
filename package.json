@@ -24,7 +24,8 @@
     "ci:local": "node scripts/ci-local.ts",
     "perf:reports": "node --import ./scripts/lib/ts-resolver.mjs scripts/report-query-plan.ts",
     "load:seed": "node --import ./scripts/lib/ts-resolver.mjs scripts/load-seed.ts",
-    "load:run": "node --import ./scripts/lib/ts-resolver.mjs scripts/load-run.ts"
+    "load:run": "node --import ./scripts/lib/ts-resolver.mjs scripts/load-run.ts",
+    "integrity:check": "node scripts/integrity-check.ts"
   },
   "dependencies": {
     "next": "16.3.5",

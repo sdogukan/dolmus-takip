@@ -36,12 +36,26 @@ describe("deploy/caddy/Caddyfile", () => {
   const caddyfile = read("deploy/caddy/Caddyfile");
   const lines = activeLines(caddyfile);
 
-  test("tek site adresi {$DOLMUS_DOMAIN}; başka üst düzey adres yok", () => {
-    // Girintisiz, "{" ile biten satırlar üst düzey bloklardır.
+  test("tek site adresi {$DOLMUS_DOMAIN}; başka üst düzey adres yok (yalnız genel seçenek bloğu ek)", () => {
+    // Girintisiz, "{" ile biten satırlar üst düzey bloklardır; adressiz "{"
+    // genel seçenek bloğudur, ikinci bir site adresi bunu geçemez.
     const topLevel = caddyfile
       .split("\n")
-      .filter((line) => /^[^\s#].*\{\s*$/.test(line));
-    expect(topLevel).toEqual(["{$DOLMUS_DOMAIN} {"]);
+      .filter((line) => /^(?:[^\s#].*)?\{\s*$/.test(line));
+    expect(topLevel).toEqual(["{", "{$DOLMUS_DOMAIN} {"]);
+  });
+
+  test("genel seçenek bloğu yalnız adlandırılmış hata logu taşır", () => {
+    const start = caddyfile.indexOf("\n{\n") + 1;
+    const end = caddyfile.indexOf("\n}\n", start) + 3;
+    const globalLines = activeLines(caddyfile.slice(start, end));
+    expect(globalLines.filter((l) => /^(log|include|output|format)\b/.test(l))).toEqual([
+      "log error_filtered {",
+      "output stdout",
+      "format filter {",
+      "include http.log.error",
+    ]);
+    expect(globalLines.some((l) => /^(auto_https|admin|email|servers|acme_|debug)\b/.test(l))).toBe(false);
   });
 
   test("yalnız 127.0.0.1:3000'e reverse_proxy; dosya sunumu yok", () => {
@@ -76,6 +90,30 @@ describe("deploy/caddy/Caddyfile erişim günlüğü", () => {
     expect(lines).toContain("resp_headers delete");
     // log bloğu site bloğundan sonra açılır (global seçenek bloğu değil).
     expect(caddyfile.indexOf("{$DOLMUS_DOMAIN} {")).toBeLessThan(caddyfile.indexOf("\tlog {"));
+  });
+
+  test("her iki süzgeç (site erişim + genel hata logu) aynı alanları siler/maskeler", () => {
+    const filterFields = (text: string) =>
+      activeLines(text)
+        .join("\n")
+        .match(/fields \{[\s\S]*?request>remote_port delete/g) ?? [];
+    const blocks = filterFields(caddyfile);
+    expect(blocks).toHaveLength(2);
+    for (const block of blocks) {
+      expect(block).toContain("request>headers delete");
+      expect(block).toContain("resp_headers delete");
+      expect(block).toMatch(/request>uri query \{\s*delete q\s*delete cursor\s*\}/);
+      expect(block).toMatch(/request>remote_ip ip_mask \{\s*ipv4 16\s*ipv6 32\s*\}/);
+      expect(block).toMatch(/request>client_ip ip_mask \{\s*ipv4 16\s*ipv6 32\s*\}/);
+      expect(block).toContain("request>remote_port delete");
+      // Yol lazım: request>uri bütünüyle silinmez, değerler hash'lenmez.
+      expect(block).not.toMatch(/request>uri delete|hash/);
+    }
+    expect(blocks[0]).toBe(blocks[1]);
+  });
+
+  test("genel log http.log.error'u içerir", () => {
+    expect(lines).toContain("include http.log.error");
   });
 
   test("başlıkları geri getiren alan yok (delete dışında request>headers/resp_headers eylemi)", () => {
@@ -444,6 +482,9 @@ describe("docs/OPS.md", () => {
 
   test("Caddy erişim satırının içeriği ve başlık yokluğu yazılı", () => {
     expect(ops).toContain("istek ve yanıt başlıklarını hiç içermez");
-    expect(ops).toContain("istemci IP'si");
+    expect(ops).toContain("maskelenmiş istemci IP'si (IPv4 /16, IPv6 /32)");
+    expect(ops).toContain("`q` ve `cursor` sorgu değerleri silinir");
+    expect(ops).not.toContain("sorgu dizesi dahil");
+    expect(ops).not.toContain("varsayım, kodda ayrıca doğrulanmadı");
   });
 });

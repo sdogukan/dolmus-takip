@@ -59,7 +59,7 @@ Ajan betiği: scratchpad/task-uygula.js (args: task, story, milestone, steps?, e
 
 ## M6 — İşletim doğrulaması ve kontrollü pilot
 - [ ] M6 ÖN-KAPI: kullanıcıya sor → AWS hesabı/Lightsail, alan adı, şifre teslim yöntemi, uyarı kanalı, dış sağlık kontrolü, KVKK metni/silme politikası (F8/F14/F16), GitHub push
-- [ ] T6.2 (S6.2) Lightsail, HTTPS, kalıcı dizinler, sürümlü kurulum
+- [ ] T6.2 (S6.2) Lightsail, HTTPS, kalıcı dizinler, sürümlü kurulum — durum: hazırlandı, elle izlenebilir rehber (SERVER-SETUP) + arşivde ilk yönetici komutu; gerçek makinede DENENMEDİ, pilot için hazır değil. ISSUE-24/25/26/28 gerçek makine denemeleri elle kurulum tamamlanana dek ertelendi (bkz. DECISIONS "T6.2 elle kurulum kararı")
 - [ ] T6.3 (S6.3) Çökme/donma denetimi, dış sağlık kontrolü, uyarı (+F13 OPS satırları)
 - [ ] T6.4 (S6.4) Tutarlı günlük DB kopyası, snapshot, saklama
 - [ ] T6.5 (S6.5) Restore, migration, güvenli geri dönüş (+F5 ileri düzeltme prosedürü)

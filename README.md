@@ -69,7 +69,7 @@ sessizce bir varsayılana düşmez.
 - Gerçek üretim dosya yerleşimi (`/var/lib/dolmus-takip/...`), Caddy/systemd
   yapılandırması (`deploy/`) ve ilk kurulum/sürüm değiştirme komutları
   `docs/SERVER-SETUP.md` içinde hazırlanmıştır; **gerçek sunucuda
-  denenmemiştir** (ISSUE-29). Yedekleme ve geri yükleme
+  denenmemiştir** (manuel kurulumda denenecek). Yedekleme ve geri yükleme
   `docs/ARCHITECTURE.md` §8 ve M6 paketlerinin kapsamındadır.
 
 ## Üretim çıktısı (standalone) notu

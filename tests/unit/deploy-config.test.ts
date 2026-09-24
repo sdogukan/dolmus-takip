@@ -8,7 +8,8 @@ import { describe, expect, test } from "vitest";
  * bağımlılık listesi; `ci-workflows.test.ts` ile aynı tutum): satır/regex
  * kontrolleri yalnız "sözleşme değerleri yerinde mi" sorusunu commit
  * zamanında yakalar. Gerçek Caddy/systemd doğrulamasının yerini TUTMAZ;
- * o, gerçek sunucu denemesidir (ISSUE-29).
+ * o, elle kurulum sırasındaki gerçek sunucu denemesidir
+ * (docs/SERVER-SETUP.md §5).
  */
 
 const projectRoot = path.resolve(
@@ -141,11 +142,106 @@ describe("deploy/env örnekleri", () => {
 describe("docs/SERVER-SETUP.md", () => {
   const guide = read("docs/SERVER-SETUP.md");
 
-  test("hedef, doğrulama durağı ve ISSUE-29 sınırı yazılı", () => {
+  test("hedef ve doğrulama durağı yazılı; ISSUE-29 göndermesi yok, denenmedi/pilot değil beyanı var", () => {
     expect(guide).toContain("Frankfurt");
     expect(guide).toContain("2 vCPU, 2 GB RAM, 60 GB SSD");
     expect(guide).toContain("DURAK");
-    expect(guide).toContain("ISSUE-29");
+    expect(guide).not.toContain("ISSUE-29");
+    expect(guide).toContain("PİLOT İÇİN HAZIR DEĞİL");
+    for (const file of [
+      "README.md",
+      "docs/RELEASE.md",
+      "deploy/caddy/Caddyfile",
+      "deploy/systemd/dolmus-takip.service",
+      "deploy/systemd/caddy.service.d/override.conf",
+    ]) {
+      expect(read(file), file).not.toContain("ISSUE-29");
+    }
+  });
+
+  test("rehber değişkenler bölümüyle açılır; sonraki komutlarda sabit alan adı/hesap no yok", () => {
+    const firstHeading = guide.split("\n").filter((l) => l.startsWith("## "))[0];
+    expect(firstHeading).toBe("## Değişkenler");
+    for (const v of [
+      "DOLMUS_DOMAIN",
+      "AWS_PROFILE",
+      "AWS_REGION",
+      "DOLMUS_INSTANCE",
+      "DOLMUS_STATIC_IP_NAME",
+      "DOLMUS_SSH_KEY",
+    ]) {
+      expect(guide, v).toContain(`export ${v}=`);
+    }
+    // Değişkenler bölümünden sonraki bash bloklarında 12 haneli hesap no yok
+    // ve her aws lightsail komutu profil + bölge taşır.
+    const afterVars = guide.slice(guide.indexOf("## 1. Hedef"));
+    expect(afterVars).not.toMatch(/\b\d{12}\b/);
+    const awsCommands = afterVars
+      .replace(/\\\n\s*/g, " ")
+      .split("\n")
+      .filter((l) => /^\s*aws lightsail /.test(l));
+    expect(awsCommands.length).toBeGreaterThan(5);
+    for (const cmd of awsCommands) {
+      expect(cmd).toContain('--profile "$AWS_PROFILE"');
+      expect(cmd).toContain('--region "$AWS_REGION"');
+    }
+  });
+
+  test("adımlar sırayla: instance, statik IP, portlar, DNS, kopyalama, Node/Caddy, şema, ilk yönetici, servis başlatma", () => {
+    const order = [
+      "aws lightsail create-instances",
+      "aws lightsail allocate-static-ip",
+      "aws lightsail put-instance-public-ports",
+      'dig +short A "$DOLMUS_DOMAIN"',
+      "scp -i",
+      "setup_24.x",
+      "apt-get install -y caddy",
+      "scripts/db-init.ts\n",
+      "scripts/platform-admin.ts create-first-admin",
+      "sudo systemctl start dolmus-takip.service caddy.service",
+    ];
+    let last = -1;
+    for (const marker of order) {
+      const at = guide.indexOf(marker);
+      expect(at, marker).toBeGreaterThan(last);
+      last = at;
+    }
+    // Yalnız 22/80/443; 3000 açılmaz.
+    expect(guide).toContain("fromPort=22,toPort=22");
+    expect(guide).toContain("fromPort=80,toPort=80");
+    expect(guide).toContain("fromPort=443,toPort=443");
+    expect(guide).not.toMatch(/fromPort=3000/);
+  });
+
+  test("ilk yönetici servis kullanıcısıyla, parola stdin'den; argv'de parola yok", () => {
+    expect(guide).toContain(
+      "sudo -u dolmus-takip node --env-file=/etc/dolmus-takip/app.env \\\n  scripts/platform-admin.ts create-first-admin --username \"$ADMIN_USER\" --password-stdin",
+    );
+    expect(guide).not.toMatch(/--password(?!-stdin)/);
+    expect(guide).not.toMatch(/^sudo node .*platform-admin/m);
+  });
+
+  test("manuel doğrulama bölümü: 9 kontrol, hepsi doğrulanacak işaretli", () => {
+    const start = guide.indexOf("## 5. Manuel doğrulama tablosu");
+    expect(start).toBeGreaterThan(-1);
+    const section = guide.slice(start, guide.indexOf("## 6."));
+    const rows = section.split("\n").filter((l) => /^\| \d+ \|/.test(l));
+    expect(rows).toHaveLength(9);
+    for (const row of rows) {
+      expect(row).toContain("elle kurulumda doğrulanacak");
+    }
+    for (const topic of [
+      "Sertifika alındı",
+      "Sertifika yenileme",
+      "HTTP → HTTPS",
+      "https://$DOLMUS_DOMAIN",
+      "3000",
+      "reboot",
+      "deneme kaydı",
+      "Sürüm değişiminde veri kalır",
+    ]) {
+      expect(section, topic).toContain(topic);
+    }
   });
 
   test("dizin sözleşmesi ARCHITECTURE §8.1 ile aynı yollar", () => {

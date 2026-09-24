@@ -20,7 +20,8 @@
     "platform-admin": "node scripts/platform-admin.ts",
     "release:build": "node scripts/release-build.ts",
     "release:verify": "node scripts/release-verify.ts",
-    "ci:local": "node scripts/ci-local.ts"
+    "ci:local": "node scripts/ci-local.ts",
+    "perf:reports": "node --import ./scripts/lib/ts-resolver.mjs scripts/report-query-plan.ts"
   },
   "dependencies": {
     "next": "16.3.5",

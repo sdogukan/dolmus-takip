@@ -26,13 +26,9 @@ export interface VehiclePeriodReport {
   confirmedReceivedCents: string;
 }
 
-export function readVehiclePeriodReportForScope(
-  db: AppDatabase,
-  scope: Scope,
-  period: ReportPeriod,
-): VehiclePeriodReport {
-  requireEntryVehicleScope(scope);
-  const row = db
+/** Toplam sorgusu (çalıştırılmaz): use case onu `.get()` eder, sorgu planı testi/ölçümü aynı SQL'i `.toSQL()` ile alır. */
+export function selectVehiclePeriodTotals(db: AppDatabase, scope: Scope, period: ReportPeriod) {
+  return db
     .select({
       entryCount: sql<number>`COUNT(*)`,
       workDays: sql<number>`COUNT(DISTINCT ${workEntries.workDate})`,
@@ -60,8 +56,16 @@ export function readVehiclePeriodReportForScope(
         gte(workEntries.workDate, period.startDate),
         lt(workEntries.workDate, period.nextStartDate),
       ),
-    )
-    .get();
+    );
+}
+
+export function readVehiclePeriodReportForScope(
+  db: AppDatabase,
+  scope: Scope,
+  period: ReportPeriod,
+): VehiclePeriodReport {
+  requireEntryVehicleScope(scope);
+  const row = selectVehiclePeriodTotals(db, scope, period).get();
   if (!row) throw new Error("reports: toplam satırı dönmedi (programlama hatası).");
   return { period, ...row };
 }

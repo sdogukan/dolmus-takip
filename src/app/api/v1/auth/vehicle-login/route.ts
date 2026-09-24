@@ -36,6 +36,7 @@ import {
 import { requireAnonymousWrite } from "../../../../../server/auth/guard";
 import { permissionsForActor } from "../../../../../server/auth/permissions";
 import { resolveClientIp } from "../../../../../server/auth/rate-limit";
+import { logThrottled } from "../../../../../server/auth/throttle-log";
 import { computeScopeKey } from "../../../../../server/auth/scope";
 import { hashSessionToken } from "../../../../../server/auth/session";
 import {
@@ -179,6 +180,7 @@ export async function POST(request: Request): Promise<Response> {
           { requestId },
         );
       case "rate_limited": {
+        logThrottled("auth/vehicle-login", "RATE_LIMITED", requestId);
         const response = jsonErrorResponse(
           429,
           "RATE_LIMITED",
@@ -192,6 +194,7 @@ export async function POST(request: Request): Promise<Response> {
         return response;
       }
       case "hash_queue_full":
+        logThrottled("auth/vehicle-login", "HASH_QUEUE_FULL", requestId);
         return jsonErrorResponse(
           429,
           "HASH_QUEUE_FULL",

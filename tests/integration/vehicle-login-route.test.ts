@@ -378,6 +378,41 @@ describe("POST /api/v1/auth/vehicle-login (T1.2 ADIM 1/2)", () => {
     expect(Number(retryAfter)).toBeGreaterThan(0);
   }, 20_000);
 
+  it("429 RATE_LIMITED tam BİR log satırı yazar: request_id var; plaka, IP ve parola YOK", async () => {
+    vi.stubEnv("TRUSTED_PROXY", "1");
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const clientIp = "203.0.113.7";
+      for (let i = 0; i < 20; i++) {
+        await vehicleLoginRoute(
+          loginRequest(
+            { plate: "34RLM002", password: `yanlis-${i}` },
+            { headers: { "x-forwarded-for": clientIp } },
+          ),
+        );
+      }
+      expect(warnSpy).not.toHaveBeenCalled();
+      const blocked = await vehicleLoginRoute(
+        loginRequest(
+          { plate: "34RLM002", password: "log-parola-sizmamali" },
+          { headers: { "x-forwarded-for": clientIp } },
+        ),
+      );
+      expect(blocked.status).toBe(429);
+      const { request_id: requestId } = await blocked.json();
+      expect(warnSpy).toHaveBeenCalledTimes(1);
+      const line = String(warnSpy.mock.calls[0]?.[0]);
+      expect(line).toContain("RATE_LIMITED");
+      expect(line).toContain(`request_id=${requestId}`);
+      for (const secret of ["34RLM002", "34rlm002", clientIp, "log-parola-sizmamali"]) {
+        expect(line).not.toContain(secret);
+      }
+    } finally {
+      warnSpy.mockRestore();
+      vi.unstubAllEnvs();
+    }
+  }, 20_000);
+
   it("IP başına 120. başarısız denemeden sonra (farklı plakalarla dahi) 429 RATE_LIMITED döner", async () => {
     // Her deneme FARKLI bir plaka kullanır (plaka başına 20 sınırına HİÇ
     // takılmadan yalnız IP sınırının kendisini izole sınamak için); harf

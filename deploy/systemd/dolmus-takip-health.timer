@@ -1,0 +1,14 @@
+# /etc/systemd/system/dolmus-takip-health.timer
+# HAZIRLANDI, gerçek sunucuda DENENMEDİ (manuel kurulumda denenecek). docs/SERVER-SETUP.md.
+# ARCHITECTURE §8.2: her 30 saniyede bir sağlık kontrolü.
+[Unit]
+Description=Dolmus Takip saglik gorevi zamanlayicisi (30 sn)
+
+[Timer]
+OnBootSec=60s
+OnUnitActiveSec=30s
+AccuracySec=1s
+Unit=dolmus-takip-health.service
+
+[Install]
+WantedBy=timers.target

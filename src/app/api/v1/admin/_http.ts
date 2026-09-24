@@ -20,6 +20,7 @@ import { extractTransientSqliteLockError } from "../../../../server/data/db";
 import { jsonErrorResponse } from "../../../../server/http/errors";
 import { ScopeTargetInactiveError } from "../../../../server/data/scoped";
 import { HashQueueFullError } from "../../../../server/auth/hash-queue";
+import { logThrottled } from "../../../../server/auth/throttle-log";
 import { RequestIdReusedError } from "../../../../server/usecases/receipts/errors";
 import { SessionError } from "../../../../server/usecases/session/errors";
 
@@ -45,6 +46,7 @@ export function mapKnownAdminMutationErrorToResponse(
     return jsonErrorResponse(error.status, error.code, error.message, { requestId });
   }
   if (error instanceof HashQueueFullError) {
+    logThrottled("admin", "HASH_QUEUE_FULL", requestId);
     return jsonErrorResponse(429, "HASH_QUEUE_FULL", error.message, { requestId });
   }
   const lockError = extractTransientSqliteLockError(error);

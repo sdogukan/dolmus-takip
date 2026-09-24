@@ -146,4 +146,42 @@ describe("POST /api/v1/auth/vehicle-login — hash kuyruğu aşımı (T1.2 ADIM 
       }
     }
   }, 30_000);
+
+  it("429 HASH_QUEUE_FULL yanıtları BAŞINA tam BİR log satırı yazar: request_id ve kuyruk alanları var; plaka ve parola YOK", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const totalRequests =
+        HASH_QUEUE_MAX_CONCURRENT + HASH_QUEUE_MAX_PENDING + 10;
+      const responses = await Promise.all(
+        Array.from({ length: totalRequests }, () =>
+          vehicleLoginRoute(
+            loginRequest({
+              plate: SEED_RAW_PLATES.vehicleA1,
+              password: "log-parola-sizmamali",
+            }),
+          ),
+        ),
+      );
+      const queueFull = await Promise.all(
+        responses
+          .filter((r) => r.status === 429)
+          .map(async (r) => (await r.json()) as { request_id: string }),
+      );
+      expect(queueFull.length).toBeGreaterThan(0);
+      expect(warnSpy).toHaveBeenCalledTimes(queueFull.length);
+      const lines = warnSpy.mock.calls.map((call) => String(call[0]));
+      for (const { request_id: requestId } of queueFull) {
+        const matching = lines.filter((l) => l.includes(`request_id=${requestId}`));
+        expect(matching).toHaveLength(1);
+        expect(matching[0]).toContain("HASH_QUEUE_FULL");
+        expect(matching[0]).toMatch(/hash_active=\d+ hash_pending=\d+ hash_longest_wait_ms=\d+/);
+      }
+      for (const line of lines) {
+        expect(line).not.toContain(SEED_RAW_PLATES.vehicleA1);
+        expect(line).not.toContain("log-parola-sizmamali");
+      }
+    } finally {
+      warnSpy.mockRestore();
+    }
+  }, 30_000);
 });

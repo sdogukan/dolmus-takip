@@ -6,7 +6,68 @@
 # üzerinden ortam değişkeni olarak alır. Site adresi düz alan adı olduğu için
 # Caddy sertifikayı kendisi alır ve HTTP (80) → HTTPS (443) yönlendirmesini
 # kendiliğinden kurar.
+{
+	# Yalnız hata günlüğü: site bloğundaki log yalnız http.log.access'i süzer;
+	# işleyici hataları http.log.error'a gider ve X-Csrf-Token gibi başlıkları
+	# taşıyabilir. Aynı süzgeç burada da uygulanır. TLS/site davranışını
+	# değiştiren başka genel seçenek KONMAZ.
+	log error_filtered {
+		output stdout
+		format filter {
+			wrap json
+			fields {
+				request>headers delete
+				resp_headers delete
+				request>uri query {
+					delete q
+					delete cursor
+				}
+				request>remote_ip ip_mask {
+					ipv4 16
+					ipv6 32
+				}
+				request>client_ip ip_mask {
+					ipv4 16
+					ipv6 32
+				}
+				request>remote_port delete
+			}
+		}
+		include http.log.error
+	}
+}
+
 {$DOLMUS_DOMAIN} {
+	# Erişim günlüğü journald'a gider. İstek/yanıt başlıkları tümüyle silinir
+	# (Cookie, Authorization, Set-Cookie, CSRF değerleri günlüğe girmesin);
+	# q (personel araması: plaka/işletme/sahip adı) ve cursor (plaka türevi)
+	# sorgu değerleri silinir, diğer sorgu parametreleri (kimlik/sabit değer)
+	# kalır. İstemci IP'si /16 (IPv4) ve /32 (IPv6) maskelenir, remote_port
+	# silinir. Kalan satır: zaman, maskeli IP, yöntem, host, URI, durum, boyut, süre.
+	log {
+		output stdout
+		format filter {
+			wrap json
+			fields {
+				request>headers delete
+				resp_headers delete
+				request>uri query {
+					delete q
+					delete cursor
+				}
+				request>remote_ip ip_mask {
+					ipv4 16
+					ipv6 32
+				}
+				request>client_ip ip_mask {
+					ipv4 16
+					ipv6 32
+				}
+				request>remote_port delete
+			}
+		}
+	}
+
 	# İç sağlık uçları (ARCHITECTURE §4) yalnız localhost içindir; dışarı 404.
 	@health path /api/v1/health /api/v1/health/*
 	handle @health {

@@ -27,7 +27,12 @@ import { resetAdminPassword } from "../../scripts/platform-admin";
 import { resetAppDbForTests } from "../../src/server/data/app-db";
 import { createDb, openDatabaseConnection } from "../../src/server/data/db";
 import { resetTrustedAppOriginForTests } from "../../src/server/auth/app-origin";
-import { resetHashQueueForTests } from "../../src/server/auth/hash-queue";
+import {
+  HASH_QUEUE_MAX_CONCURRENT,
+  HASH_QUEUE_MAX_PENDING,
+  resetHashQueueForTests,
+  runInHashQueue,
+} from "../../src/server/auth/hash-queue";
 import { resetVehicleLoginRateLimitForTests } from "../../src/server/auth/rate-limit";
 import { DUMMY_ARGON2ID_HASH } from "../../src/server/usecases/auth/vehicle-login";
 import { POST as platformLoginRoute } from "../../src/app/api/v1/auth/platform-login/route";
@@ -321,6 +326,77 @@ describe("POST /api/v1/auth/platform-login (T1.3 ADIM 1/2)", () => {
     const retryAfter = blocked.headers.get("Retry-After");
     expect(retryAfter).not.toBeNull();
     expect(Number(retryAfter)).toBeGreaterThan(0);
+  }, 20_000);
+
+  it("429 RATE_LIMITED tam BİR log satırı yazar: request_id var; kullanıcı adı, IP ve parola YOK", async () => {
+    vi.stubEnv("TRUSTED_PROXY", "1");
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    try {
+      const clientIp = "203.0.113.8";
+      for (let i = 0; i < 20; i++) {
+        await platformLoginRoute(
+          loginRequest(
+            { username: "rl-log-kullanici", password: `yanlis-${i}` },
+            { headers: { "x-forwarded-for": clientIp } },
+          ),
+        );
+      }
+      expect(warnSpy).not.toHaveBeenCalled();
+      const blocked = await platformLoginRoute(
+        loginRequest(
+          { username: "rl-log-kullanici", password: "log-parola-sizmamali" },
+          { headers: { "x-forwarded-for": clientIp } },
+        ),
+      );
+      expect(blocked.status).toBe(429);
+      const { request_id: requestId } = await blocked.json();
+      expect(warnSpy).toHaveBeenCalledTimes(1);
+      const line = String(warnSpy.mock.calls[0]?.[0]);
+      expect(line).toContain("RATE_LIMITED");
+      expect(line).toContain(`request_id=${requestId}`);
+      for (const secret of ["rl-log-kullanici", clientIp, "log-parola-sizmamali"]) {
+        expect(line).not.toContain(secret);
+      }
+    } finally {
+      warnSpy.mockRestore();
+      vi.unstubAllEnvs();
+    }
+  }, 20_000);
+
+  it("429 HASH_QUEUE_FULL tam BİR log satırı yazar: request_id ve kuyruk alanları var; kullanıcı adı ve parola YOK", async () => {
+    const warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const holders: Array<() => void> = [];
+    try {
+      // 4 aktif + 100 bekleyen kotayı, elle bırakılana dek tutan işlerle doldur.
+      void Array.from(
+        { length: HASH_QUEUE_MAX_CONCURRENT + HASH_QUEUE_MAX_PENDING },
+        () =>
+          runInHashQueue(
+            () => new Promise<void>((resolve) => holders.push(resolve)),
+          ),
+      );
+      const response = await platformLoginRoute(
+        loginRequest({
+          username: SEED_USERNAMES.admin,
+          password: "log-parola-sizmamali",
+        }),
+      );
+      expect(response.status).toBe(429);
+      const body = await response.json();
+      expect(body.error.code).toBe("HASH_QUEUE_FULL");
+      expect(warnSpy).toHaveBeenCalledTimes(1);
+      const line = String(warnSpy.mock.calls[0]?.[0]);
+      expect(line).toContain("HASH_QUEUE_FULL");
+      expect(line).toContain(`request_id=${body.request_id}`);
+      expect(line).toContain(`hash_active=${HASH_QUEUE_MAX_CONCURRENT}`);
+      expect(line).toContain(`hash_pending=${HASH_QUEUE_MAX_PENDING}`);
+      expect(line).toMatch(/hash_longest_wait_ms=\d+/);
+      expect(line).not.toContain(SEED_USERNAMES.admin);
+      expect(line).not.toContain("log-parola-sizmamali");
+      resetHashQueueForTests();
+    } finally {
+      warnSpy.mockRestore();
+    }
   }, 20_000);
 
   it("BAŞARILI giriş hız sınırı sayacını ARTIRMAZ", async () => {

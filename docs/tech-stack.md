@@ -245,9 +245,9 @@ _TECH-STACK §7._
 
 **Repos:** dolmus-takip
 
-journald + structured app logs carrying request_id; Lightsail CPU/network metrics; local RAM/disk/WAL checks; /api/v1/health/live polled by a separate systemd timer every 30 s
+journald (persistent, capped at 200 MB) + structured app logs carrying request_id, incl. one line per 429 RATE_LIMITED / HASH_QUEUE_FULL; Caddy access and error logs as filtered JSON in journald; Lightsail CPU/network metrics; local health task run by a systemd timer every 30 s probing /api/v1/health/live and /api/v1/health/ready and logging RAM, disk and WAL size
 
-_Disk warn 80% / critical 90%, log cap ~200 MB; hash-queue and rate-limit counters to be added to OPS in T6.3 (F13). Secrets/hashes/tokens never logged._
+_Disk warn 80% / critical 90% (diskLevel in deploy/health/health-decision.mts; logged with warn/err journald priority); log cap SystemMaxUse=200M with Storage=persistent (deploy/journald/dolmus-takip.conf). Health task: deploy/health/health-check.mts, run by dolmus-takip-health.timer (OnBootSec=60s, OnUnitActiveSec=30s) as a oneshot root unit behind flock -n; probes both endpoints on 127.0.0.1:3000 with a 3 s timeout and writes logfmt lines 'dolmus-health event=metrics|probe|decision ...' (mem_available_pct, disk_used_pct, disk_level, wal_bytes, live_ms, ready_ms); it sends no alert. F13 counters: logThrottled (src/server/auth/throttle-log.ts) writes '[<scope>] RATE_LIMITED|HASH_QUEUE_FULL (request_id=...)', plus hash_active / hash_pending / hash_longest_wait_ms on HASH_QUEUE_FULL, from vehicle-login, platform-login and admin mutation errors; plate, IP, username and password are never written. Caddy: a site access log and a global named log including http.log.error, both 'format filter' JSON to stdout (journald), deleting request/response headers and the q/cursor query values, masking remote_ip/client_ip to /16 (IPv4) and /32 (IPv6), deleting remote_port. Secrets/hashes/tokens never logged. All deploy files prepared, not tried on a real server (docs/SERVER-SETUP.md §5 rows 10-16)._
 
 ### Rejected notes
 

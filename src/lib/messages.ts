@@ -126,6 +126,8 @@ export const ERROR_CODE_MESSAGES: Record<string, string> = {
   // T3.5 — günlük kayıt okuma/düzenleme uçları (`../server/usecases/work-entries/errors.ts`).
   WORK_ENTRY_NOT_FOUND: "Kayıt bulunamadı.",
   ENTRY_CONFIRMED: "Bu kayıt onaylanmış; buradan düzenlenemez.",
+  // T4.1 — teslim onayı (`../server/usecases/work-entries/confirm.ts`).
+  CONFIRMATION_NOT_REQUIRED: "Bu kayıt için teslim onayı gerekmiyor.",
 };
 
 /**

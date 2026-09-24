@@ -2,29 +2,39 @@ import { describe, expect, it } from "vitest";
 import {
   buildWorkEntriesUrl,
   buildWorkEntryBody,
+  buildWorkEntryConfirmBody,
   buildWorkEntryPatchBody,
   canEditEntry,
   canResolveUnknown,
+  classifyWorkEntryConfirmResponse,
   classifyWorkEntryResponse,
   classifyWorkEntryUpdateResponse,
+  confirmErrorNeedsReread,
   draftAfterCreated,
   draftAfterRelease,
   editDraftFromEntry,
   editPersonOptions,
+  emptyConfirmDraft,
   emptyWorkEntryDraft,
   formatWorkTimeRange,
+  frozenReceivedText,
   hasEarlierAttempt,
   isEditDraftDirty,
   isWorkEntryDraftDirty,
   parseWorkEntryDetail,
   parseWorkEntryList,
   rebaseEditDraft,
+  receivedDifference,
+  receivedPrefill,
+  releaseConfirmDraft,
   releaseEditDraft,
   savedEntryFromDetail,
   selectableFromDriversResponse,
+  shouldReleaseAfterConfirmError,
   shouldReleaseAfterError,
   shouldReleaseAfterUpdateError,
   updateErrorNeedsReread,
+  workEntryConfirmDraftName,
   workEntryDetailHref,
   workEntryDraftName,
   workEntryEditDraftName,
@@ -361,6 +371,7 @@ const serverEntry = (overrides: Partial<WorkEntryDetail> = {}): WorkEntryDetail 
   remainderCents: "649950",
   otherExpenseNote: null,
   person: { id: "p-1", fullName: "Mehmet Öz" },
+  confirmation: null,
   ...overrides,
 });
 
@@ -697,6 +708,7 @@ describe("savedEntryFromDetail", () => {
       remainderCents: "620000",
       otherExpenseNote: null,
       person: { id: "p-1", fullName: "Hüseyin Ak" },
+      confirmation: { receivedCents: "620000", confirmedAt: "2026-09-14T15:00:00.000Z", entryVersion: 2 },
     });
     expect(detail).not.toBeNull();
     expect(savedEntryFromDetail(detail!)).toEqual({
@@ -780,5 +792,206 @@ describe("workEntryLoginHref", () => {
     expect(workEntryLoginHref("driver")).toBe("/giris");
     expect(workEntryLoginHref("owner")).toBe("/giris");
     expect(workEntryLoginHref("staff")).toBe("/yonetim/giris");
+  });
+});
+
+const confirmation = { receivedCents: "620000", confirmedAt: "2026-09-14T15:00:00.000Z", entryVersion: 4 };
+
+describe("parseWorkEntryDetail (teslim onayı)", () => {
+  it("onay null ya da geçerli { receivedCents, confirmedAt, entryVersion } olabilir", () => {
+    expect(parseWorkEntryDetail(serverEntry())?.confirmation).toBeNull();
+    expect(parseWorkEntryDetail(serverEntry({ status: "confirmed", confirmation }))?.confirmation).toEqual(confirmation);
+  });
+
+  it("alanı olmayan, başka türde ya da bozuk onay kaydı bozuk sayar", () => {
+    const { confirmation: _omit, ...withoutField } = serverEntry();
+    expect(parseWorkEntryDetail(withoutField)).toBeNull();
+    for (const bad of [
+      "x",
+      [],
+      { ...confirmation, receivedCents: "-1" },
+      { ...confirmation, receivedCents: 620000 },
+      { ...confirmation, confirmedAt: 5 },
+      { ...confirmation, entryVersion: 1.5 },
+      { receivedCents: "1", confirmedAt: "x" },
+    ]) {
+      expect(parseWorkEntryDetail({ ...serverEntry(), confirmation: bad })).toBeNull();
+    }
+  });
+
+  it("gider hasılatı aşınca eksi kalan okunur (K5); diğer tutarlar eksi olamaz", () => {
+    expect(parseWorkEntryDetail(serverEntry({ remainderCents: "-40000" }))?.remainderCents).toBe("-40000");
+    expect(parseWorkEntryDetail(serverEntry({ remainderCents: "-0" }))).toBeNull();
+    expect(parseWorkEntryDetail(serverEntry({ remainderCents: "-x" }))).toBeNull();
+    expect(parseWorkEntryDetail(serverEntry({ shareCents: "-1" }))).toBeNull();
+  });
+});
+
+describe("receivedPrefill", () => {
+  it("bekleyen şoför kaydında beklenen teslimle dolar", () => {
+    expect(receivedPrefill(serverEntry({ remainderCents: "620000" }))).toBe("6.200,00");
+    expect(receivedPrefill(serverEntry({ remainderCents: "0" }))).toBe("0,00");
+  });
+
+  it("eksi beklenen, sahip kaydı ve onaylı/gerekmeyen kayıt için boş kalır", () => {
+    expect(receivedPrefill(serverEntry({ remainderCents: "-40000" }))).toBe("");
+    expect(receivedPrefill(serverEntry({ workKind: "owner", status: "not_required" }))).toBe("");
+    expect(receivedPrefill(serverEntry({ status: "confirmed", confirmation }))).toBe("");
+  });
+
+  it("ön dolum geri okunabilir metindir (parseTlAmount ile aynı kuruş)", () => {
+    expect(buildWorkEntryConfirmBody({ requestId: "r", version: 1, receivedText: receivedPrefill(serverEntry()) })).toEqual({
+      ok: true,
+      body: { requestId: "r", version: 1, receivedCents: "649950" },
+    });
+  });
+});
+
+describe("frozenReceivedText", () => {
+  it("dondurulmuş gövdedeki tutarı alan metnine çevirir", () => {
+    expect(frozenReceivedText('{"requestId":"r","version":1,"receivedCents":"600000"}')).toBe("6.000,00");
+    expect(frozenReceivedText('{"requestId":"r","version":1,"receivedCents":"0"}')).toBe("0,00");
+  });
+
+  it("gövde yok, bozuk ya da tutarı geçersizse null", () => {
+    expect(frozenReceivedText(null)).toBeNull();
+    expect(frozenReceivedText("not json")).toBeNull();
+    expect(frozenReceivedText("null")).toBeNull();
+    expect(frozenReceivedText('{"receivedCents":600000}')).toBeNull();
+    expect(frozenReceivedText('{"receivedCents":"-1"}')).toBeNull();
+  });
+});
+
+describe("receivedDifference", () => {
+  it("beklenenden az ya da fazla tutarı kuruş olarak verir", () => {
+    expect(receivedDifference("620000", "6.000,00")).toEqual({ kind: "shortfall", cents: 20000n });
+    expect(receivedDifference("620000", "6.250")).toEqual({ kind: "excess", cents: 5000n });
+  });
+
+  it("eşit, geçersiz ya da boş giriş fark göstermez; eksi beklenene göre de çalışır", () => {
+    expect(receivedDifference("620000", "6.200,00")).toBeNull();
+    expect(receivedDifference("620000", "")).toBeNull();
+    expect(receivedDifference("620000", "6.2")).toBeNull();
+    expect(receivedDifference("-40000", "0")).toEqual({ kind: "excess", cents: 40000n });
+  });
+});
+
+describe("buildWorkEntryConfirmBody", () => {
+  it("receivedCents her zaman açık ondalık tam sayı metnidir; anahtarlar sabit sırada", () => {
+    const built = buildWorkEntryConfirmBody({ requestId: "r-1", version: 3, receivedText: "6.200,00" });
+    expect(built).toEqual({ ok: true, body: { requestId: "r-1", version: 3, receivedCents: "620000" } });
+    expect(JSON.stringify(built.ok && built.body)).toBe('{"requestId":"r-1","version":3,"receivedCents":"620000"}');
+    expect(buildWorkEntryConfirmBody({ requestId: "r", version: 1, receivedText: "0" })).toMatchObject({
+      ok: true,
+      body: { receivedCents: "0" },
+    });
+  });
+
+  it("boş, eksi ve bozuk tutar istek kurmadan alan hatası verir", () => {
+    for (const receivedText of ["", "  ", "-5", "1.5", "abc", "1,234"]) {
+      const built = buildWorkEntryConfirmBody({ requestId: "r", version: 1, receivedText });
+      expect(built.ok).toBe(false);
+      expect(!built.ok && built.message.length).toBeGreaterThan(0);
+    }
+  });
+});
+
+describe("classifyWorkEntryConfirmResponse", () => {
+  const confirmedEntry = serverEntry({ status: "confirmed", version: 4, confirmation });
+
+  it("yalnız onaylı durum + dolu onay taşıyan 200 başarıdır", () => {
+    expect(classifyWorkEntryConfirmResponse({ status: 200, body: { workEntry: confirmedEntry } })).toEqual({
+      kind: "confirmed",
+      entry: confirmedEntry,
+    });
+  });
+
+  it("onaysız/bekleyen/bozuk 200, ağ hatası, okunamayan gövde ve 5xx belirsizdir", () => {
+    expect(classifyWorkEntryConfirmResponse({ status: 200, body: { workEntry: serverEntry() } })).toEqual({ kind: "ambiguous" });
+    expect(
+      classifyWorkEntryConfirmResponse({ status: 200, body: { workEntry: { ...confirmedEntry, confirmation: null } } }),
+    ).toEqual({ kind: "ambiguous" });
+    expect(classifyWorkEntryConfirmResponse({ status: 200, body: { workEntry: { id: "x" } } })).toEqual({ kind: "ambiguous" });
+    expect(classifyWorkEntryConfirmResponse(null)).toEqual({ kind: "ambiguous" });
+    expect(classifyWorkEntryConfirmResponse({ status: 200, body: undefined })).toEqual({ kind: "ambiguous" });
+    expect(classifyWorkEntryConfirmResponse({ status: 503, body: {} })).toEqual({ kind: "ambiguous" });
+  });
+
+  it("kesin hata durum, kod ve alan metinlerini taşır", () => {
+    expect(
+      classifyWorkEntryConfirmResponse({
+        status: 422,
+        body: { error: { code: "VALIDATION_ERROR", fields: { receivedCents: "Tutarı gir. Yoksa 0 yaz." } } },
+      }),
+    ).toEqual({
+      kind: "error",
+      status: 422,
+      code: "VALIDATION_ERROR",
+      fields: { receivedCents: "Tutarı gir. Yoksa 0 yaz." },
+    });
+    expect(classifyWorkEntryConfirmResponse({ status: 409, body: { error: { code: "VERSION_CONFLICT" } } })).toMatchObject({
+      kind: "error",
+      status: 409,
+      code: "VERSION_CONFLICT",
+    });
+  });
+});
+
+describe("shouldReleaseAfterConfirmError / confirmErrorNeedsReread", () => {
+  it("ilk denemede her kesin hata bırakır", () => {
+    for (const status of [401, 403, 404, 409, 422]) {
+      expect(shouldReleaseAfterConfirmError({ status }, false)).toBe(true);
+    }
+  });
+
+  it("daha önce ulaşmış olabilecek denemeden sonra yalnız yazılmadığı kanıtlanan hatalar bırakır", () => {
+    expect(shouldReleaseAfterConfirmError({ status: 422, code: "CONFIRMATION_NOT_REQUIRED" }, true)).toBe(true);
+    expect(shouldReleaseAfterConfirmError({ status: 409, code: "VERSION_CONFLICT" }, true)).toBe(true);
+    expect(shouldReleaseAfterConfirmError({ status: 409, code: "ENTRY_CONFIRMED" }, true)).toBe(true);
+    for (const status of [401, 403, 404]) {
+      expect(shouldReleaseAfterConfirmError({ status }, true)).toBe(false);
+    }
+  });
+
+  it("yalnız sürüm çakışması ve onaylı kayıt güncel kaydı yeniden okutur", () => {
+    expect(confirmErrorNeedsReread({ status: 409, code: "VERSION_CONFLICT" })).toBe(true);
+    expect(confirmErrorNeedsReread({ status: 409, code: "ENTRY_CONFIRMED" })).toBe(true);
+    expect(confirmErrorNeedsReread({ status: 422, code: "VALIDATION_ERROR" })).toBe(false);
+  });
+});
+
+describe("onay taslağı", () => {
+  it("adı düzenleme taslağı önekiyle başlar (kapsam/çıkış süpürmesi siler) ve düzenleme taslağından ayrıdır", () => {
+    const name = workEntryConfirmDraftName("v1", "e1");
+    expect(name.startsWith(workEntryEditDraftPrefix("v1"))).toBe(true);
+    expect(name).not.toBe(workEntryEditDraftName("v1", "e1"));
+    expect(name).not.toBe(workEntryConfirmDraftName("v2", "e1"));
+  });
+
+  it("boş taslak dokunulmamıştır; bırakma yeni requestId verir, yazılan tutarı korur, dondurulmuş gövdeyi siler", () => {
+    expect(emptyConfirmDraft(() => "r0")).toEqual({
+      requestId: "r0",
+      touched: false,
+      receivedText: "",
+      pending: false,
+      frozenBody: null,
+      attemptSent: false,
+    });
+    const pending = {
+      ...emptyConfirmDraft(() => "old"),
+      touched: true,
+      receivedText: "6.000,00",
+      pending: true,
+      frozenBody: '{"requestId":"old"}',
+      attemptSent: true,
+    };
+    expect(releaseConfirmDraft(pending, () => "new")).toEqual({
+      requestId: "new",
+      touched: true,
+      receivedText: "6.000,00",
+      pending: false,
+      frozenBody: null,
+      attemptSent: false,
+    });
   });
 });

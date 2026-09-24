@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 import { WORK_ENTRY_MESSAGES as TEXT } from "./messages";
-import { centsToApiString, formatTlAmount, MAX_CENTS, parseApiCents, parseTlAmount } from "./money";
+import {
+  centsToApiString,
+  formatTlAmount,
+  MAX_CENTS,
+  parseApiCents,
+  parseSignedApiCents,
+  parseTlAmount,
+} from "./money";
 
 const cents = (text: string): bigint | string => {
   const result = parseTlAmount(text);
@@ -92,6 +99,16 @@ describe("API kuruş metni", () => {
     expect(parseApiCents("9007199254740992")).toBeNull();
     for (const bad of ["", "01", "-1", "1.0", "1e3", " 1", "1 ", "abc", "0x10"]) {
       expect(parseApiCents(bad)).toBeNull();
+    }
+  });
+
+  it("parseSignedApiCents eksi değeri kabul eder; -0, bozuk metin ve sınır aşımı null", () => {
+    expect(parseSignedApiCents("-40000")).toBe(-40000n);
+    expect(parseSignedApiCents("620000")).toBe(620000n);
+    expect(parseSignedApiCents("0")).toBe(0n);
+    expect(parseSignedApiCents("-9007199254740991")).toBe(-MAX_CENTS);
+    for (const bad of ["-0", "-", "--1", "-01", "+1", "1.0", "", "-9007199254740992"]) {
+      expect(parseSignedApiCents(bad)).toBeNull();
     }
   });
 });

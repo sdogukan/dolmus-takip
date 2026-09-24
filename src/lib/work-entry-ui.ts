@@ -7,7 +7,7 @@
  * VERMEZ: asıl doğrulama sunucudadır.
  */
 import { COMMON_SCREEN_MESSAGES, getErrorMessage, WORK_ENTRY_MESSAGES as TEXT } from "./messages";
-import { centsToApiString, formatTlAmount, parseApiCents, parseTlAmount } from "./money";
+import { centsToApiString, formatTlAmount, parseApiCents, parseSignedApiCents, parseTlAmount } from "./money";
 import type { WorkKind } from "./work-calculation";
 import { istanbulWallClock } from "./work-time";
 
@@ -388,9 +388,38 @@ export interface WorkEntryDetail {
   remainderCents: string;
   otherExpenseNote: string | null;
   person: { id: string; fullName: string };
+  /** Kaydın GÜNCEL sürümüne ait teslim onayı; onaysız kayıtta `null`. */
+  confirmation: WorkEntryConfirmation | null;
 }
 
-const CENT_KEYS = ["grossCents", "fuelCents", "otherExpenseCents", "shareCents", "remainderCents"] as const;
+export interface WorkEntryConfirmation {
+  receivedCents: string;
+  confirmedAt: string;
+  entryVersion: number;
+}
+
+const CENT_KEYS = ["grossCents", "fuelCents", "otherExpenseCents", "shareCents"] as const;
+
+/** `null` = onaysız; biçimi bozuk değer `undefined` (kayıt bozuk sayılır). */
+function parseConfirmation(value: unknown): WorkEntryConfirmation | null | undefined {
+  if (value === null) return null;
+  const confirmation = value as Record<string, unknown> | undefined;
+  if (
+    typeof confirmation !== "object" ||
+    typeof confirmation.receivedCents !== "string" ||
+    parseApiCents(confirmation.receivedCents) === null ||
+    typeof confirmation.confirmedAt !== "string" ||
+    typeof confirmation.entryVersion !== "number" ||
+    !Number.isInteger(confirmation.entryVersion)
+  ) {
+    return undefined;
+  }
+  return {
+    receivedCents: confirmation.receivedCents,
+    confirmedAt: confirmation.confirmedAt,
+    entryVersion: confirmation.entryVersion,
+  };
+}
 
 /** Bozuk biçim `null` döner (sessizce 0 gösterilmez). */
 export function parseWorkEntryDetail(value: unknown): WorkEntryDetail | null {
@@ -417,6 +446,10 @@ export function parseWorkEntryDetail(value: unknown): WorkEntryDetail | null {
     const cents = entry[key];
     if (typeof cents !== "string" || parseApiCents(cents) === null) return null;
   }
+  // Giderler hasılatı aşarsa kalan eksi olabilir (K5); yalnız bu alan işaretli okunur.
+  if (typeof entry.remainderCents !== "string" || parseSignedApiCents(entry.remainderCents) === null) return null;
+  const confirmation = parseConfirmation(entry.confirmation);
+  if (confirmation === undefined) return null;
   return {
     id: entry.id,
     version: entry.version,
@@ -433,6 +466,7 @@ export function parseWorkEntryDetail(value: unknown): WorkEntryDetail | null {
     remainderCents: entry.remainderCents as string,
     otherExpenseNote: entry.otherExpenseNote,
     person: { id: person.id, fullName: person.fullName },
+    confirmation,
   };
 }
 
@@ -630,6 +664,133 @@ export function shouldReleaseAfterUpdateError(
 /** Sürüm çakışması veya onaylanmış kayıt: form serbest kalır ama güncel kayıt yeniden okunmalıdır. */
 export function updateErrorNeedsReread(outcome: { status: number; code?: string }): boolean {
   return outcome.status === 409 && (outcome.code === "VERSION_CONFLICT" || outcome.code === "ENTRY_CONFIRMED");
+}
+
+/**
+ * Teslim onayı (T4.2 istemcisi) — SAF yardımcılar. Onay taslağı düzenleme
+ * taslağından AYRI saklanır ama adı `workEntryEditDraftPrefix` ile başlar:
+ * kapsam değişince/çıkışta aynı süpürme onu da siler. Gövde İLK gönderimden
+ * ÖNCE `frozenBody` olarak taslağa dondurulur; belirsiz sonuçta aynı
+ * `requestId` + bu metin BAYTI BAYTINA yeniden yollanır, form durumundan
+ * ya da yeniden okunan kayıttan asla yeniden kurulmaz.
+ */
+export function workEntryConfirmDraftName(vehicleId: string, entryId: string): string {
+  return `${workEntryEditDraftPrefix(vehicleId)}${entryId}-onay`;
+}
+
+export interface WorkEntryConfirmDraft {
+  requestId: string;
+  /** Kullanıcı alana yazdı mı; yazmadıysa alan kaydın beklenen tutarıyla dolu gösterilir. */
+  touched: boolean;
+  receivedText: string;
+  pending: boolean;
+  frozenBody: string | null;
+  attemptSent: boolean;
+}
+
+export function emptyConfirmDraft(newId: () => string): WorkEntryConfirmDraft {
+  return { requestId: newId(), touched: false, receivedText: "", pending: false, frozenBody: null, attemptSent: false };
+}
+
+/** Kesin hata sonrası: yeni `requestId`, kullanıcının yazdığı tutar korunur. */
+export function releaseConfirmDraft(draft: WorkEntryConfirmDraft, newId: () => string): WorkEntryConfirmDraft {
+  return { ...draft, pending: false, frozenBody: null, attemptSent: false, requestId: newId() };
+}
+
+/**
+ * Alınan tutar alanının ön dolumu: yalnız bekleyen şoför kaydında ve beklenen
+ * tutar eksi değilken beklenen teslim ("6.200,00"). Ön dolum onay DEĞİLDİR;
+ * eksi beklenen için alan boş kalır (eksi tutar geçersiz olurdu).
+ */
+export function receivedPrefill(
+  entry: Pick<WorkEntryDetail, "workKind" | "status" | "remainderCents">,
+): string {
+  if (entry.workKind !== "driver" || entry.status !== "pending") return "";
+  if (parseApiCents(entry.remainderCents) === null) return "";
+  return centsToInputText(entry.remainderCents);
+}
+
+/**
+ * Gönderimi bekleyen (dondurulmuş) gövdedeki tutar, alan için "6.000,00" metni;
+ * gövde okunamazsa `null`. Bekleyen denemede alan, o an gönderilen tutarı gösterir.
+ */
+export function frozenReceivedText(frozenBody: string | null): string | null {
+  if (frozenBody === null) return null;
+  try {
+    const received = (JSON.parse(frozenBody) as { receivedCents?: unknown } | null)?.receivedCents;
+    return typeof received === "string" && parseApiCents(received) !== null ? centsToInputText(received) : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Beklenenden fark; eşit ya da geçersiz giriş `null`. */
+export function receivedDifference(
+  expectedCents: string,
+  receivedText: string,
+): { kind: "shortfall" | "excess"; cents: bigint } | null {
+  const expected = parseSignedApiCents(expectedCents);
+  const received = parseTlAmount(receivedText);
+  if (expected === null || !received.ok || received.cents === expected) return null;
+  return received.cents < expected
+    ? { kind: "shortfall", cents: expected - received.cents }
+    : { kind: "excess", cents: received.cents - expected };
+}
+
+export interface WorkEntryConfirmBody {
+  requestId: string;
+  version: number;
+  receivedCents: string;
+}
+
+/** `receivedCents` her zaman AÇIKÇA gider; eksi/bozuk/boş tutar istek atılmadan alan hatasıdır. */
+export function buildWorkEntryConfirmBody(input: {
+  requestId: string;
+  version: number;
+  receivedText: string;
+}): { ok: true; body: WorkEntryConfirmBody } | { ok: false; message: string } {
+  const received = parseTlAmount(input.receivedText);
+  if (!received.ok) return { ok: false, message: received.message };
+  return {
+    ok: true,
+    body: { requestId: input.requestId, version: input.version, receivedCents: centsToApiString(received.cents) },
+  };
+}
+
+export type WorkEntryConfirmOutcome =
+  | { kind: "confirmed"; entry: WorkEntryDetail }
+  | { kind: "ambiguous" }
+  | { kind: "error"; status: number; code?: string; fields: Record<string, string> };
+
+/**
+ * Onay yanıtını sınıflar. Başarı YALNIZ `confirmed` durumlu ve onayı dolu bir
+ * 200'den gelir; ağ hatası, okunamayan gövde, 5xx ve biçimi/durumu beklenmeyen
+ * 200 belirsizdir (onay yazılmış olabilir).
+ */
+export function classifyWorkEntryConfirmResponse(
+  response: { status: number; body: unknown } | null,
+): WorkEntryConfirmOutcome {
+  const outcome = classifyWorkEntryUpdateResponse(response);
+  if (outcome.kind !== "saved") return outcome;
+  if (outcome.entry.status !== "confirmed" || outcome.entry.confirmation === null) return { kind: "ambiguous" };
+  return { kind: "confirmed", entry: outcome.entry };
+}
+
+/**
+ * Sunucu makbuz aramasını kayıt/sürüm denetiminden ÖNCE yapar; bu yüzden
+ * 409 VERSION_CONFLICT/ENTRY_CONFIRMED ve 422 bu `requestId` altında hiçbir
+ * şey yazılmadığını kanıtlar — düzenlemeyle aynı kural.
+ */
+export function shouldReleaseAfterConfirmError(
+  outcome: { status: number; code?: string },
+  earlierAttempt: boolean,
+): boolean {
+  return shouldReleaseAfterUpdateError(outcome, earlierAttempt);
+}
+
+/** Sürüm çakışması veya başka yerde onaylanmış kayıt: güncel kayıt yeniden okunmalı. */
+export function confirmErrorNeedsReread(outcome: { status: number; code?: string }): boolean {
+  return updateErrorNeedsReread(outcome);
 }
 
 export interface EditPersonOption {

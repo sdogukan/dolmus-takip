@@ -39,6 +39,7 @@ const PLAIN_INTEGER = /^[0-9]+$/u;
 const GROUPED_INTEGER = /^[0-9]{1,3}(\.[0-9]{3})+$/u;
 const FRACTION = /^[0-9]*$/u;
 const API_CENTS = /^(0|[1-9][0-9]*)$/u;
+const SIGNED_API_CENTS = /^-?(0|[1-9][0-9]*)$/u;
 
 function fail(code: MoneyErrorCode): ParseTlResult {
   return { ok: false, code, message: MONEY_ERROR_TEXT[code] };
@@ -97,6 +98,18 @@ export function parseApiCents(text: string): bigint | null {
   if (!API_CENTS.test(text)) return null;
   const cents = BigInt(text);
   return cents <= MAX_CENTS ? cents : null;
+}
+
+/**
+ * Eksi olabilen API kuruş metni ("-40000"): yalnız `remainderCents` gibi
+ * gider hasılatı aşabilen alanlar için. "-0" ve büyüklüğü MAX_CENTS'i aşan
+ * değer `null`.
+ */
+export function parseSignedApiCents(text: string): bigint | null {
+  if (!SIGNED_API_CENTS.test(text) || text === "-0") return null;
+  const cents = BigInt(text);
+  const magnitude = cents < 0n ? -cents : cents;
+  return magnitude <= MAX_CENTS ? cents : null;
 }
 
 function toBigIntCents(cents: number | bigint): bigint {

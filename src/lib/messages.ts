@@ -587,4 +587,16 @@ export const WORK_ENTRY_MESSAGES = {
   listEmpty: "Bu kişi için görebileceğin kayıt yok.",
   listMore: "Daha fazla göster",
   listOpen: "Aç",
+  // T4.2 — sahibin teslim onayı.
+  expectedLabel: "Beklenen teslim",
+  receivedLabel: "Aldığım tutar (TL)",
+  receivedShortfall: (amount: string): string => `Beklenenden ${amount} az.`,
+  receivedExcess: (amount: string): string => `Beklenenden ${amount} fazla.`,
+  confirmButton: "Parayı aldım, tutar doğru",
+  confirmSending: "Onaylanıyor…",
+  confirmRetry: "Sonucu şimdi kontrol et",
+  deliveryConfirmed: "Teslim doğrulandı",
+  confirmedReceivedLabel: "Alınan tutar",
+  confirmedAtLabel: "Doğrulama zamanı",
+  confirmedAtValue: (date: string, time: string): string => `${date} · ${time}`,
 } as const;

@@ -60,6 +60,7 @@ export default async function SahipEntryPage({ params }: { params: Promise<{ id:
         vehicleId={context.vehicleId}
         scopeKey={computeScopeKey(context)}
         csrfToken={context.csrfToken}
+        plate={plate}
       />
     </main>
   );

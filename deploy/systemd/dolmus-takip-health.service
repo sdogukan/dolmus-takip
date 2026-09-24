@@ -1,0 +1,32 @@
+# Dolmuş Takip sağlık görevi — /etc/systemd/system/dolmus-takip-health.service
+# HAZIRLANDI, gerçek sunucuda DENENMEDİ (manuel kurulumda denenecek). docs/SERVER-SETUP.md.
+# ARCHITECTURE §8.2: dolmus-takip-health.timer tetikler (30 sn); kendi başına
+# etkinleştirilmez ([Install] yok).
+[Unit]
+Description=Dolmus Takip saglik gorevi (live/ready, sinirli kurtarma)
+# Bu görevin kendisi başlatma sınırına takılmasın; her koşu ayrı bir oneshot.
+StartLimitIntervalSec=0
+
+[Service]
+Type=oneshot
+User=root
+# Paralel koşu engeli: flock tutuluysa eylemsiz 0 ile çıkar (-E 0). Kilit dosyası
+# yazılabilir tek dizindedir.
+ExecStart=/usr/bin/flock -n -E 0 /var/lib/dolmus-takip/health/run.lock /usr/bin/node /opt/dolmus-takip/health/health-check.mts
+# Düzeltici restart, uygulama biriminin durdurma zaman aşımını (varsayılan 90 sn)
+# bekleyebilir; bu süre ondan büyük olmalı, yoksa restart yarıda kesilir.
+TimeoutStartSec=240s
+
+# Yazılabilir tek yol durum dizinidir.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/dolmus-takip/health
+PrivateDevices=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+RestrictNamespaces=true
+LockPersonality=true

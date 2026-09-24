@@ -6,6 +6,10 @@ After=network.target
 # ARCHITECTURE §8.2: sınıra ulaşınca ekip müdahalesi gerekir.
 StartLimitIntervalSec=900
 StartLimitBurst=3
+# ARCHITECTURE §8.2: kalıcı kurtarma kilidi varken uygulama BAŞLAMAZ (reboot
+# sonrası da). Assert (Condition değil): başlatma sessizce atlanmaz, journal'a
+# "Assertion failed" yazılır. Kilidi yalnız ekip kaldırır (docs/OPS.md §5-B).
+AssertPathExists=!/var/lib/dolmus-takip/health/recovery.lock
 
 [Service]
 Type=simple

@@ -65,6 +65,26 @@ describe("deploy/caddy/Caddyfile", () => {
   });
 });
 
+describe("deploy/caddy/Caddyfile erişim günlüğü", () => {
+  const caddyfile = read("deploy/caddy/Caddyfile");
+  const lines = activeLines(caddyfile);
+
+  test("site bloğunun İÇİNDE, journald'a (stdout), başlıklar silinerek", () => {
+    expect(lines).toContain("log {");
+    expect(lines).toContain("output stdout");
+    expect(lines).toContain("request>headers delete");
+    expect(lines).toContain("resp_headers delete");
+    // log bloğu site bloğundan sonra açılır (global seçenek bloğu değil).
+    expect(caddyfile.indexOf("{$DOLMUS_DOMAIN} {")).toBeLessThan(caddyfile.indexOf("\tlog {"));
+  });
+
+  test("başlıkları geri getiren alan yok (delete dışında request>headers/resp_headers eylemi)", () => {
+    for (const line of lines.filter((l) => /headers/.test(l))) {
+      expect(line).toMatch(/ delete$/);
+    }
+  });
+});
+
 describe("deploy/systemd/dolmus-takip.service", () => {
   const unit = read("deploy/systemd/dolmus-takip.service");
   const lines = activeLines(unit);
@@ -111,6 +131,87 @@ describe("deploy/systemd/dolmus-takip.service", () => {
   test("multi-user.target ile açılışta etkin", () => {
     expect(lines).toContain("WantedBy=multi-user.target");
   });
+
+  test("kurtarma kilidi varken başlamaz: AssertPathExists=! (Condition değil, görünür hata), [Unit] içinde", () => {
+    const lockPath = "/var/lib/dolmus-takip/health/recovery.lock";
+    expect(lines).toContain(`AssertPathExists=!${lockPath}`);
+    expect(lines.some((line) => line.startsWith("ConditionPathExists"))).toBe(false);
+    const unitSection = unit.slice(unit.indexOf("[Unit]"), unit.indexOf("[Service]"));
+    expect(unitSection).toContain(`AssertPathExists=!${lockPath}`);
+    expect(unit).not.toMatch(/ExecStartPre=.*recovery\.lock/);
+  });
+});
+
+describe("deploy/systemd/dolmus-takip-health.{timer,service}", () => {
+  const timer = activeLines(read("deploy/systemd/dolmus-takip-health.timer"));
+  const health = read("deploy/systemd/dolmus-takip-health.service");
+  const service = activeLines(health);
+
+  test("zamanlayıcı her 30 sn'de sağlık birimini tetikler; timers.target'ta etkin", () => {
+    expect(timer).toContain("OnUnitActiveSec=30s");
+    expect(timer).toContain("Unit=dolmus-takip-health.service");
+    expect(timer).toContain("WantedBy=timers.target");
+  });
+
+  test("birim oneshot; yazılabilir tek yol durum dizini", () => {
+    expect(service).toContain("Type=oneshot");
+    expect(service).toContain("ProtectSystem=strict");
+    expect(service).toContain("NoNewPrivileges=true");
+    expect(service.filter((line) => line.startsWith("ReadWritePaths="))).toEqual([
+      "ReadWritePaths=/var/lib/dolmus-takip/health",
+    ]);
+    expect(service.some((line) => line.startsWith("StateDirectory="))).toBe(false);
+  });
+
+  test("paralel koşu flock -n ile engellenir; betik /opt/dolmus-takip/health'ten, current'a bağlı değil", () => {
+    const exec = service.find((line) => line.startsWith("ExecStart="));
+    expect(exec).toContain("/usr/bin/flock -n -E 0 /var/lib/dolmus-takip/health/run.lock");
+    expect(exec).toContain("/usr/bin/node /opt/dolmus-takip/health/health-check.mts");
+    expect(health.replace(/^#.*$/gm, "")).not.toContain("/opt/dolmus-takip/current");
+  });
+
+  test("başlatma zaman aşımı uygulamanın durdurma zaman aşımından (varsayılan 90 sn) büyük", () => {
+    const value = service.find((line) => line.startsWith("TimeoutStartSec="));
+    expect(value).toBeDefined();
+    expect(Number.parseInt((value ?? "").split("=")[1] ?? "0", 10)).toBeGreaterThan(90);
+    // Uygulama birimi durdurma süresini kısaltmıyorsa varsayılan 90 sn geçerlidir.
+    const app = activeLines(read("deploy/systemd/dolmus-takip.service"));
+    expect(app.some((line) => line.startsWith("TimeoutStopSec="))).toBe(false);
+  });
+});
+
+describe("deploy/health betikleri", () => {
+  test("yalnız node: yerleşikleri ve kendi modülü; dış paket yok", () => {
+    for (const file of ["deploy/health/health-check.mts", "deploy/health/health-decision.mts"]) {
+      const source = read(file);
+      for (const spec of source.matchAll(/from\s+"([^"]+)"/g)) {
+        expect(spec[1], file).toMatch(/^(node:[a-z_/]+|\.\/health-decision\.mts)$/);
+      }
+      expect(source, file).toContain("HAZIRLANDI, gerçek sunucuda DENENMEDİ");
+    }
+  });
+
+  test("dış komutlar execFile ile; kabuk çağrısı yok", () => {
+    const source = read("deploy/health/health-check.mts");
+    expect(source).toContain("execFile");
+    expect(source).not.toMatch(/\bexec\(|execSync|spawnSync|shell:\s*true/);
+  });
+
+  test("durum ve kilit kalıcı /var/lib altında; /run ve /tmp yok", () => {
+    const source = read("deploy/health/health-check.mts");
+    expect(source).toContain('"/var/lib/dolmus-takip/health"');
+    expect(source).toContain('"/var/lib/dolmus-takip/maintenance"');
+    expect(source).not.toMatch(/"\/(run|tmp)\b/);
+  });
+});
+
+describe("deploy/journald/dolmus-takip.conf", () => {
+  test("toplam ~200 MB sınır, kalıcı depolama", () => {
+    const lines = activeLines(read("deploy/journald/dolmus-takip.conf"));
+    expect(lines).toContain("[Journal]");
+    expect(lines).toContain("SystemMaxUse=200M");
+    expect(lines).toContain("Storage=persistent");
+  });
 });
 
 describe("deploy/systemd/caddy.service.d/override.conf", () => {
@@ -121,6 +222,21 @@ describe("deploy/systemd/caddy.service.d/override.conf", () => {
     expect(lines).toContain("RestartSec=10s");
     expect(lines).toContain("StartLimitIntervalSec=900");
     expect(lines).toContain("StartLimitBurst=3");
+  });
+});
+
+describe("deploy/ dosya başlıkları", () => {
+  test("her yeni deploy dosyası 'HAZIRLANDI, gerçek sunucuda DENENMEDİ' başlığını taşır", () => {
+    for (const file of [
+      "deploy/systemd/dolmus-takip-health.service",
+      "deploy/systemd/dolmus-takip-health.timer",
+      "deploy/journald/dolmus-takip.conf",
+      "deploy/systemd/dolmus-takip.service",
+      "deploy/systemd/caddy.service.d/override.conf",
+      "deploy/caddy/Caddyfile",
+    ]) {
+      expect(read(file), file).toContain("HAZIRLANDI, gerçek sunucuda DENENMEDİ");
+    }
   });
 });
 
@@ -199,6 +315,7 @@ describe("docs/SERVER-SETUP.md", () => {
       "scripts/db-init.ts\n",
       "scripts/platform-admin.ts create-first-admin",
       "sudo systemctl start dolmus-takip.service caddy.service",
+      "sudo systemctl enable --now dolmus-takip-health.timer",
     ];
     let last = -1;
     for (const marker of order) {
@@ -221,12 +338,31 @@ describe("docs/SERVER-SETUP.md", () => {
     expect(guide).not.toMatch(/^sudo node .*platform-admin/m);
   });
 
-  test("manuel doğrulama bölümü: 9 kontrol, hepsi doğrulanacak işaretli", () => {
+  test("sağlık görevi kurulumu: betikler, birim, zamanlayıcı, journald sınırı; timer servislerden sonra", () => {
+    for (const marker of [
+      "deploy/health/health-check.mts deploy/health/health-decision.mts",
+      "/opt/dolmus-takip/health/",
+      "install -d -m 0700 -o root -g root /var/lib/dolmus-takip/health",
+      "deploy/systemd/dolmus-takip-health.service /etc/systemd/system/dolmus-takip-health.service",
+      "deploy/systemd/dolmus-takip-health.timer /etc/systemd/system/dolmus-takip-health.timer",
+      "deploy/journald/dolmus-takip.conf /etc/systemd/journald.conf.d/dolmus-takip.conf",
+      "systemctl restart systemd-journald",
+    ]) {
+      expect(guide, marker).toContain(marker);
+    }
+    // Zamanlayıcı yalnız §3.4'te, servisler başlatıldıktan sonra etkinleşir.
+    expect(guide.indexOf("enable --now dolmus-takip-health.timer")).toBeGreaterThan(
+      guide.indexOf("sudo systemctl start dolmus-takip.service caddy.service"),
+    );
+    expect(guide).not.toContain("enable dolmus-takip-health.timer\n");
+  });
+
+  test("manuel doğrulama bölümü: 16 kontrol (9 kurulum + 7 sağlık otomasyonu), hepsi doğrulanacak işaretli", () => {
     const start = guide.indexOf("## 5. Manuel doğrulama tablosu");
     expect(start).toBeGreaterThan(-1);
     const section = guide.slice(start, guide.indexOf("## 6."));
     const rows = section.split("\n").filter((l) => /^\| \d+ \|/.test(l));
-    expect(rows).toHaveLength(9);
+    expect(rows).toHaveLength(16);
     for (const row of rows) {
       expect(row).toContain("elle kurulumda doğrulanacak");
     }
@@ -239,6 +375,13 @@ describe("docs/SERVER-SETUP.md", () => {
       "reboot",
       "deneme kaydı",
       "Sürüm değişiminde veri kalır",
+      "Sağlık zamanlayıcısı 30 sn'de çalışır",
+      "Çökme: systemd yeniden başlatır",
+      "Donma: 3 ardışık hata sonrası tek düzeltici restart",
+      "Ready hatası tek başına restart üretmez",
+      "kalıcı kilit; reboot sonrası da başlatmaz",
+      "Bakım işareti restart'ı engeller",
+      "Caddy erişim günlüğü başlıksız; journald sınırı",
     ]) {
       expect(section, topic).toContain(topic);
     }
@@ -246,6 +389,9 @@ describe("docs/SERVER-SETUP.md", () => {
 
   test("dizin sözleşmesi ARCHITECTURE §8.1 ile aynı yollar", () => {
     for (const p of [
+      "/var/lib/dolmus-takip/health/",
+      "/var/lib/dolmus-takip/maintenance",
+      "/opt/dolmus-takip/health/",
       "/opt/dolmus-takip/releases/<release-id>",
       "/opt/dolmus-takip/current",
       "/var/lib/dolmus-takip/data/",
@@ -276,5 +422,28 @@ describe("docs/SERVER-SETUP.md", () => {
     for (const block of blocks) {
       expect(block.split("\n")[1] ?? "").toContain("denenmedi");
     }
+  });
+});
+
+describe("docs/OPS.md", () => {
+  const ops = read("docs/OPS.md");
+
+  test("F13 giriş sayacı ve hash kuyruğu izleme satırları", () => {
+    expect(ops).toContain("| Giriş sayacı (F13) |");
+    expect(ops).toContain("RATE_LIMITED");
+    expect(ops).toContain("| Argon2 hash kuyruğu (F13) |");
+    expect(ops).toContain("hash_active=<n> hash_pending=<n> hash_longest_wait_ms=<ms>");
+  });
+
+  test("kilit kaldırma yordamı, sağlık görevi kilit kaldırmaz ve tamamen durmuş makine riski", () => {
+    expect(ops).toContain("Kilit kaldırma yordamı");
+    expect(ops).toContain("sudo rm /var/lib/dolmus-takip/health/recovery.lock");
+    expect(ops).toContain("Görev kilidi veya systemd sayacını otomatik sıfırlamaz");
+    expect(ops).toContain("**Otomatik olarak algılanmaz**");
+  });
+
+  test("Caddy erişim satırının içeriği ve başlık yokluğu yazılı", () => {
+    expect(ops).toContain("istek ve yanıt başlıklarını hiç içermez");
+    expect(ops).toContain("istemci IP'si");
   });
 });

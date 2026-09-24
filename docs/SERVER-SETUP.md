@@ -152,6 +152,9 @@ Manifest, arşivin yanındaki `<arşiv-adı-uzantısız>.manifest.json` dosyası
 | `/var/lib/dolmus-takip/data/` | Kalıcı DB (`app.sqlite`, `-wal`, `-shm`) | `dolmus-takip:dolmus-takip` | `0750` |
 | `/var/lib/dolmus-takip/backup-ready/` | Doğrulanmış tarihli DB kopyaları (T6.4) | `dolmus-takip:dolmus-takip` | `0750` |
 | `/var/lib/dolmus-takip/pre-migration/` | Yayın öncesi DB kopyası (T6.5) | `dolmus-takip:dolmus-takip` | `0750` |
+| `/opt/dolmus-takip/health/` | Sağlık görevi betikleri (`deploy/health/`; `current`'a bağlı değildir) | `root:root` | `0755` |
+| `/var/lib/dolmus-takip/health/` | Sağlık görevi durumu: `state.json`, `run.lock`, **`recovery.lock`** (kalıcı kurtarma kilidi). Sağlık biriminin yazabildiği tek yol; servis kullanıcısı yazamaz | `root:root` | `0700` |
+| `/var/lib/dolmus-takip/maintenance` | Bakım işareti (dosya varsa sağlık görevi restart etmez). T6.5 bakım akışı oluşturur/kaldırır | `root:root` | `0644` |
 | `/etc/dolmus-takip/` | Servis ayarları | `root:dolmus-takip` | `0750` |
 | `/etc/dolmus-takip/app.env`, `domain.env` | Ayar dosyaları | `root:dolmus-takip` | `0640` |
 
@@ -193,6 +196,9 @@ sudo install -d -m 0755 -o root -g root /opt/dolmus-takip /opt/dolmus-takip/rele
 sudo install -d -m 0750 -o dolmus-takip -g dolmus-takip \
   /var/lib/dolmus-takip/data /var/lib/dolmus-takip/backup-ready /var/lib/dolmus-takip/pre-migration
 sudo install -d -m 0750 -o root -g dolmus-takip /etc/dolmus-takip
+# Sağlık görevi: betikler ve kök sahipli durum/kilit dizini (servis kullanıcısı yazamaz)
+sudo install -d -m 0755 -o root -g root /opt/dolmus-takip/health
+sudo install -d -m 0700 -o root -g root /var/lib/dolmus-takip/health
 ```
 
 `/var/lib/dolmus-takip` üst dizini `install -d` tarafından `root:root` `0755` oluşturulur; servis kullanıcısı yalnız alt dizinlere yazar. `data` dizini DB komutlarından **önce** ve servis kullanıcısı sahipli yaratılmalıdır (yukarıdaki sıra).
@@ -218,9 +224,19 @@ sudo install -m 0644 deploy/systemd/dolmus-takip.service /etc/systemd/system/dol
 sudo install -D -m 0644 deploy/systemd/caddy.service.d/override.conf \
   /etc/systemd/system/caddy.service.d/override.conf
 sudo install -m 0644 deploy/caddy/Caddyfile /etc/caddy/Caddyfile
+# Sağlık görevi (ARCHITECTURE §8.2): betikler, oneshot birim ve 30 sn zamanlayıcı
+sudo install -m 0644 -o root -g root deploy/health/health-check.mts deploy/health/health-decision.mts \
+  /opt/dolmus-takip/health/
+sudo install -m 0644 deploy/systemd/dolmus-takip-health.service /etc/systemd/system/dolmus-takip-health.service
+sudo install -m 0644 deploy/systemd/dolmus-takip-health.timer /etc/systemd/system/dolmus-takip-health.timer
+# journald: toplam ~200 MB, kalıcı depolama
+sudo install -D -m 0644 deploy/journald/dolmus-takip.conf /etc/systemd/journald.conf.d/dolmus-takip.conf
+sudo systemctl restart systemd-journald
 sudo systemctl daemon-reload
 sudo systemctl enable dolmus-takip.service caddy.service   # açılışta etkin
 ```
+
+Zamanlayıcı (`dolmus-takip-health.timer`) **§3.4'te servisler başlatıldıktan sonra** etkinleştirilir. Sağlık görevi `node:` yerleşikleriyle çalışır (`/usr/bin/node`), uygulamanın `node_modules`'una bağlı değildir ve `flock` (util-linux) gerektirir. Kurtarma kilidi `AssertPathExists=!` ile uygulama birimini koşullandırır: kilit varken `systemctl start` bilinçli olarak **başarısız olur** ve journal'a "Assertion failed" yazılır (sessiz atlanmaz).
 
 ### 3.4 İlk sürümü alma, ilk şema ve ilk yönetici
 
@@ -265,6 +281,10 @@ sudo ln -sfn "$REL" /opt/dolmus-takip/current.tmp && sudo mv -T /opt/dolmus-taki
 # 5) servisleri başlat (Caddy yalnız DNS A kaydı statik IP'yi gösteriyorsa)
 sudo systemctl start dolmus-takip.service caddy.service
 sudo systemctl status dolmus-takip.service caddy.service --no-pager
+# 6) sağlık zamanlayıcısı: servisler ayaktayken etkinleştirilir
+sudo systemctl enable --now dolmus-takip-health.timer
+systemctl list-timers dolmus-takip-health.timer --no-pager
+sudo journalctl -u dolmus-takip-health.service -n 5 --no-pager
 ```
 
 ## 4. Sürüm değiştirme (tekrarlanabilir)
@@ -310,11 +330,18 @@ Bu tablodaki **hiçbir satır henüz doğrulanmadı**; hepsi manuel kurulum sır
 | 7 | DB, yedek ve gizli dosyalar dışarıdan erişilemez | `curl -sI "https://$DOLMUS_DOMAIN/app.sqlite"`; aynısı `/var/lib/dolmus-takip/data/app.sqlite`, `/etc/dolmus-takip/app.env` yolları için; sunucuda `ls -l /var/lib/dolmus-takip/data` | Hiçbiri dosya sunmaz (404); dosyalar `dolmus-takip` sahipli, `0750`/`0640` | elle kurulumda doğrulanacak |
 | 8 | Yeniden başlatmada otomatik açılış, deneme kaydı korunur | Yönetim ekranından bir deneme kaydı (ör. deneme işletmesi) oluştur; `sudo systemctl is-enabled dolmus-takip caddy`; `sudo reboot`; dönünce `systemctl is-active dolmus-takip caddy` | `enabled`, sonra `active`; `https://$DOLMUS_DOMAIN/` yanıt verir; deneme kaydı hâlâ listelenir | elle kurulumda doğrulanacak |
 | 9 | Sürüm değişiminde veri kalır | Deneme kaydı varken §4'ü yeni bir `<yeni-id>` ile uygula | `current` yeni sürüme bakar; deneme kaydı ve giriş hâlâ çalışır; `/var/lib/dolmus-takip/data` aynı dosyalar | elle kurulumda doğrulanacak |
+| 10 | Sağlık zamanlayıcısı 30 sn'de çalışır | `systemctl list-timers dolmus-takip-health.timer --no-pager`; `sudo journalctl -u dolmus-takip-health.service --since "-3min" --no-pager` | Koşular ~30 sn arayla; her koşuda `event=metrics`, `event=probe`, `event=decision action=none` satırları (RAM, disk, WAL, live/ready gecikmesi) | elle kurulumda doğrulanacak |
+| 11 | Çökme: systemd yeniden başlatır | `sudo kill -9 "$(systemctl show -p MainPID --value dolmus-takip)"`; ~15 sn sonra `systemctl is-active dolmus-takip` | 10 sn sonra otomatik `active`; sağlık görevi restart **yapmaz**; 900 sn'de 3 başlatma sınırı geçilmezse kilit yazılmaz | elle kurulumda doğrulanacak |
+| 12 | Donma: 3 ardışık hata sonrası tek düzeltici restart | `sudo kill -STOP "$(systemctl show -p MainPID --value dolmus-takip)"`; journal izlenir (`journalctl -fu dolmus-takip-health.service`) | Başlangıç toleransından sonra üç başarısız koşu (`live-failing`), sonra `event=corrective_restart`; donmuş süreç SIGTERM'i işlemez, durdurma zaman aşımı (90 sn) sonrası SIGKILL ile yeniden başlar ve health birimi bunu yarıda kesmez; uygulama tekrar `active` | elle kurulumda doğrulanacak |
+| 13 | Ready hatası tek başına restart üretmez | Yalnız deneme kaydıyla: `sudo systemctl stop dolmus-takip`; `sudo mv /var/lib/dolmus-takip/data/app.sqlite /var/lib/dolmus-takip/data/app.sqlite.deneme`; `sudo systemctl start dolmus-takip`; 90 sn toleransı aşıp birkaç koşu bekle; sonra durdur, dosyayı **geri koy** (`sudo mv` ile), yeniden başlat | Uygulama boş DB oluşturmaz; süreç ayakta kalıyorsa canlılık DB'ye dokunmadığı için `live` 200, `ready` 503 (süreç açılışta çıkıyorsa bu satır uygulanamaz, sonuç kayda yazılır): `reason=ready-failing-live-ok`, restart yok; dosya geri konunca `ready` 200 ve `healthy` | elle kurulumda doğrulanacak |
+| 14 | Restart bütçesi aşımı → kalıcı kilit; reboot sonrası da başlatmaz; kaldırma | Donmayı (12) art arda üç kez tetikle (15 dk içinde); sonra `ls /var/lib/dolmus-takip/health/recovery.lock`, `sudo reboot`, dönünce `systemctl is-active dolmus-takip`; `sudo systemctl start dolmus-takip` | 2 restart sonrası `event=recovery_lock_written reason=restart-budget-exceeded`; reboot sonrası kilit durur, uygulama açılmaz, `start` "Assertion failed" verir; kilit yalnız OPS §5-B'deki elle yordamla kalkar; kendiliğinden hiçbir şey kaldırmaz/sıfırlamaz | elle kurulumda doğrulanacak |
+| 15 | Bakım işareti restart'ı engeller | `sudo touch /var/lib/dolmus-takip/maintenance`; (12)'deki gibi donma tetikle; birkaç koşu bekle; işareti `sudo rm` ile kaldır | `reason=maintenance`, restart yok; işaret kalkınca kontrol sürer | elle kurulumda doğrulanacak |
+| 16 | Caddy erişim günlüğü başlıksız; journald sınırı | `curl -s -H 'Cookie: gizli=1' -o /dev/null "https://$DOLMUS_DOMAIN/"`; `sudo journalctl -u caddy -n 3 --no-pager \| grep -ci 'cookie\|authorization'`; `journalctl --disk-usage` | Erişim satırı var, başlık alanı yok (grep 0); `journalctl --disk-usage` ~200 MB'ı aşmaz | elle kurulumda doğrulanacak |
 
-**PİLOT İÇİN HAZIR DEĞİL.** Bu tablo tamamlanıp kaydedilene ve M6'nın kalan işleri (sağlık zamanlayıcısı, yedek, restore, yük ve veri bütünlüğü kabulü) yapılana dek bu makine gerçek müşteri verisi taşımaz.
+**PİLOT İÇİN HAZIR DEĞİL.** Bu tablo tamamlanıp kaydedilene ve M6'nın kalan işleri (sağlık otomasyonunun 10–16. satırlarla gerçek denemesi, yedek, restore, yük ve veri bütünlüğü kabulü) yapılana dek bu makine gerçek müşteri verisi taşımaz.
 
 ## 6. Kapsam dışı ve durum
 
-Bu belge kaynak oluşturmaz ve AWS'ye komut çalıştırmaz; kurulum, sertifika alma ve yeniden başlatma denemeleri elle kurulum sırasında yapılır (§5). Önceki gerçek makine denemeleri (ISSUE-24/25/26/28) elle kurulum tamamlanana dek ertelenmiştir ([PROGRESS](PROGRESS.md)). 30 saniyelik sağlık zamanlayıcısı, kurtarma kilidi, bakım modu, günlük yedek ve otomatik yayın T6.3–T6.5'tedir. Servis dosyası yalnız `Restart=on-failure`, `RestartSec=10s`, `StartLimitIntervalSec=900`, `StartLimitBurst=3` değerlerini taşır.
+Bu belge kaynak oluşturmaz ve AWS'ye komut çalıştırmaz; kurulum, sertifika alma ve yeniden başlatma denemeleri elle kurulum sırasında yapılır (§5). Önceki gerçek makine denemeleri (ISSUE-24/25/26/28) elle kurulum tamamlanana dek ertelenmiştir ([PROGRESS](PROGRESS.md)). 30 saniyelik sağlık zamanlayıcısı, kalıcı kurtarma kilidi, journald sınırı ve Caddy erişim günlüğü **hazırlandı, denenmedi** (`deploy/health/`, §3.3, §5 satır 10–16; işleyiş ve kilit kaldırma yordamı [OPS](OPS.md) §2, §5-B). Bakım akışının kendisi (bakım işaretini oluşturma/kaldırma), günlük yedek ve otomatik yayın T6.4–T6.5'tedir; o zamana dek §4'te servis durdurulduğu için uygulama etkin değildir ve sağlık görevi restart yapmaz, başlatmadan sonra 90 saniyelik tolerans işler. Uygulama servis dosyası `Restart=on-failure`, `RestartSec=10s`, `StartLimitIntervalSec=900`, `StartLimitBurst=3` değerlerini taşır; sağlık görevi systemd'nin start sınırını hiçbir zaman sıfırlamaz.
 
 Sürüm dizini `ProtectSystem=strict` ile salt okunurdur ve `ReadWritePaths` yalnız `/var/lib/dolmus-takip/data`'dır. Uygulama `next/image` veya ISR kullanmadığı için çalışma anında sürüm dizinine yazması beklenmez; bu **gerçek makinede doğrulanmamıştır** (manuel kurulumda servis kullanıcısıyla ilk istekler sonrası `journalctl` ile izlenir).

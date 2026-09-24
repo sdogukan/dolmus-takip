@@ -7,6 +7,20 @@
 # Caddy sertifikayı kendisi alır ve HTTP (80) → HTTPS (443) yönlendirmesini
 # kendiliğinden kurar.
 {$DOLMUS_DOMAIN} {
+	# Erişim günlüğü journald'a gider. İstek/yanıt başlıkları tümüyle silinir
+	# (Cookie, Authorization, Set-Cookie, CSRF değerleri günlüğe girmesin);
+	# kalan satır: zaman, istemci IP'si, yöntem, host, URI, durum, boyut, süre.
+	log {
+		output stdout
+		format filter {
+			wrap json
+			fields {
+				request>headers delete
+				resp_headers delete
+			}
+		}
+	}
+
 	# İç sağlık uçları (ARCHITECTURE §4) yalnız localhost içindir; dışarı 404.
 	@health path /api/v1/health /api/v1/health/*
 	handle @health {

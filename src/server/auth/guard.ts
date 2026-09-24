@@ -59,6 +59,7 @@ import {
   extractTransientSqliteLockError,
   MissingDatabaseFileError,
   PendingMigrationsError,
+  UninitializedDatabaseError,
   UnsupportedSqliteVersionError,
   type AppDatabase,
 } from "../data/db";
@@ -175,6 +176,7 @@ export async function requireSession(
     if (
       error instanceof PendingMigrationsError ||
       error instanceof MissingDatabaseFileError ||
+      error instanceof UninitializedDatabaseError ||
       error instanceof UnsupportedSqliteVersionError
     ) {
       return dbUnavailableFailure(requestId, error);
@@ -588,6 +590,7 @@ export async function requireAnonymousWrite(
     if (
       error instanceof PendingMigrationsError ||
       error instanceof MissingDatabaseFileError ||
+      error instanceof UninitializedDatabaseError ||
       error instanceof UnsupportedSqliteVersionError
     ) {
       return dbUnavailableFailure(requestId, error);

@@ -34,9 +34,9 @@ M6'nın çıkışı kontrollü pilot yayını ve yayın sonrası doğrulamadır.
 |---|---|
 | GitHub repo, ana dal ve yayın adayı commit | T1.1/T6.1; kaynak deposu oluşturulduğunda |
 | Kilitlenmiş paketler, Ubuntu/CPU/Node/SQLite sürümleri | T1.1/T6.1; uyumluluk denemesiyle |
-| AWS hesap/bölge/instance ve paket bütçesi | T6.2; mevcut Frankfurt başlangıç seçimi doğrulanarak |
+| AWS hesap/bölge/instance ve paket bütçesi | T6.2; mevcut Frankfurt başlangıç seçimi doğrulanarak; doğrulama durağı [SERVER-SETUP](SERVER-SETUP.md) §1 |
 | Alan adı, DNS, IP ve SSH yetkili erişim yolu | T6.2; gerçek kaynaklar sağlanınca |
-| Servis kullanıcıları, servis/görev adları ve çalıştırılabilir komutlar | T6.2–T6.5; uygulanıp denenen kurulumla |
+| Servis kullanıcıları, servis/görev adları ve çalıştırılabilir komutlar | T6.2–T6.5; uygulanıp denenen kurulumla; hazırlanan komutlar [SERVER-SETUP](SERVER-SETUP.md) (denenmedi, ISSUE-29) |
 | Dış erişim kontrolü, uyarı kanalı ve sorumlu | T6.3 ve OPS.md; uyarı gerçekten ulaştırılarak |
 | Snapshot penceresi, hazırlık son saati ve son doğrulanmış kopya | T6.4–T6.5; Türkiye/UTC dönüşümü ve restore ile |
 | Pilot araçları, başlangıç zamanı ve desteğe ulaşma yolu | T6.6; pilot kullanıma geçerken |
@@ -65,7 +65,7 @@ Bu işlem sırası T6.1–T6.5'te uygulanacak otomasyona bağlanacaktır. Henüz
 3. **Bakımı başlat:** Yeni yazmaları durdur, devam eden kısa işlemleri bitir. Sağlık otomasyonunun bakım modunda yeniden başlatma yapmadığını doğrula; uygulamayı kontrollü durdur.
 4. **Geri dönüş tabanını hazırla:** Mevcut kurulum için migration öncesi tutarlı DB kopyası, hash/şema/son işlem ve mevcut release bilgisi oluştur. Doğrulama başarısızsa yayın ilerlemez. İlk boş kurulum ayrı açık ilk migration yolunu kullanır.
 5. **Migration uygula:** Gerekli migration'ı kontrollü bir kez çalıştır; hata/şema sonucunu kaydet. Başarısızlığı gizleyerek uygulamayı açma.
-6. **Sürümü değiştir:** current yeni doğrulanmış release'e alınır; servis başlatılır. Kalıcı DB ve yedeklerin konumu değişmez.
+6. **Sürümü değiştir:** current yeni doğrulanmış release'e alınır; servis başlatılır. Kalıcı DB ve yedeklerin konumu değişmez. Hazırlanan komutlar: [SERVER-SETUP](SERVER-SETUP.md) §3–4 (denenmedi, ISSUE-29).
 7. **İç kontrol yap:** Localhost live/ready, şema ve salt okuma mali tutarlılık kontrollerini uygula. Kayıt/revizyon/güncel onay ilişkisi ve örnek veri toplamı doğru olmadan müşteri yazmasına izin verme.
 8. **Trafiği aç:** Kontroller geçtiyse bakımı kaldır; normal servis/sağlık denetiminin aktifliğini doğrula. Müşteri yazmasına açıldığı zamanı özellikle kaydet; geri dönüş seçeneği bu andan sonra değişir.
 9. **Yayın sonrası doğrula:** Aşağıdaki smoke listesini uygula, izlemeyi kontrol et. Hata varsa durumun veri/yetki/yayın etkisine göre bakıma dön ve §7 yolunu uygula.

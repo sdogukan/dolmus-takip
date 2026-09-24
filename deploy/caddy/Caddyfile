@@ -1,0 +1,26 @@
+# Dolmuş Takip — Caddy yapılandırması (docs/SERVER-SETUP.md).
+# HAZIRLANDI, gerçek sunucuda DENENMEDİ (ISSUE-29).
+#
+# Alan adı tek yerde tutulur: /etc/dolmus-takip/domain.env içindeki
+# DOLMUS_DOMAIN. Caddy onu systemd drop-in'i (caddy.service.d/override.conf)
+# üzerinden ortam değişkeni olarak alır. Site adresi düz alan adı olduğu için
+# Caddy sertifikayı kendisi alır ve HTTP (80) → HTTPS (443) yönlendirmesini
+# kendiliğinden kurar.
+{$DOLMUS_DOMAIN} {
+	# İç sağlık uçları (ARCHITECTURE §4) yalnız localhost içindir; dışarı 404.
+	@health path /api/v1/health /api/v1/health/*
+	handle @health {
+		respond "Not Found" 404
+	}
+
+	handle {
+		request_body {
+			max_size 1MB
+		}
+		# Yalnız yerel Next süreci. file_server/root YOK: DB ve ayar
+		# dosyaları hiçbir yoldan dosya olarak sunulmaz.
+		# trusted_proxies KASITLI YOK: Caddy istemcinin gönderdiği
+		# X-Forwarded-For'u ezer; uygulama (TRUSTED_PROXY) yalnız bu değere güvenir.
+		reverse_proxy 127.0.0.1:3000
+	}
+}

@@ -66,8 +66,10 @@ export class MissingDatabaseFileError extends Error {
   constructor(dbPath: string) {
     super(
       `Veritabanı dosyası bulunamadı: "${dbPath}". Uygulama eksik bir ` +
-        'veritabanını sessizce oluşturmaz. Önce açık kurulum komutunu ' +
-        '(`npm run db:init`) çalıştırın.',
+        "veritabanını sessizce oluşturmaz. Mevcut bir kurulumsa " +
+        "DOLMUS_DB_PATH'in mevcut veritabanı dosyasını gösterdiğini denetleyin " +
+        "(yeni bir boş veritabanı OLUŞTURMAYIN). Yalnız ilk kurulumsa açık " +
+        "kurulum komutunu (`node scripts/db-init.ts`) çalıştırın.",
     );
     this.name = "MissingDatabaseFileError";
   }
@@ -233,10 +235,31 @@ export class PendingMigrationsError extends Error {
   constructor(pendingCount: number) {
     super(
       `${pendingCount} migration henüz uygulanmamış. Uygulama açılışta ` +
-        "migration'ı otomatik ÇALIŞTIRMAZ (ARCHITECTURE.md §8.1). Önce " +
-        "`npm run db:init` çalıştırın.",
+        "migration'ı otomatik ÇALIŞTIRMAZ (ARCHITECTURE.md §8.1). Mevcut " +
+        "veritabanı için sunucuda `node scripts/db-init.ts --existing` " +
+        "çalıştırın.",
     );
     this.name = "PendingMigrationsError";
+  }
+}
+
+/**
+ * Var olan dosyada HİÇ uygulanmış migration yoksa (boş/yabancı dosya, ya da
+ * `__drizzle_migrations` tablosu var ama satırsız) fırlatılır. Bu, "bekleyen
+ * migration" (`PendingMigrationsError`) durumundan ayrıdır: burada ilk şema
+ * kurulumu önerilmemelidir — dosya yanlış yola işaret ediyor olabilir ve
+ * mevcut bir kurulumun verisi üzerine ilk şema kurulumu çalıştırılmamalıdır.
+ */
+export class UninitializedDatabaseError extends Error {
+  constructor(dbPath: string) {
+    super(
+      `Veritabanı dosyası "${dbPath}" var ama hiç migration uygulanmamış ` +
+        "(boş veya başlatılmamış). Mevcut bir kurulumda DOLMUS_DB_PATH'in " +
+        "doğru dosyayı gösterdiğini denetleyin ve ilk şema kurulumunu " +
+        "(`node scripts/db-init.ts`) mevcut bir kurulumun üzerinde " +
+        "ÇALIŞTIRMAYIN. Yalnız gerçekten yeni bir kurulumsa çalıştırın.",
+    );
+    this.name = "UninitializedDatabaseError";
   }
 }
 
@@ -277,6 +300,10 @@ export function assertMigrationsApplied(
         ).map((row) => row.hash)
       : [],
   );
+
+  if (appliedHashes.size === 0) {
+    throw new UninitializedDatabaseError(sqlite.name);
+  }
 
   const pendingCount = migrations.filter(
     (migration) => !appliedHashes.has(migration.hash),

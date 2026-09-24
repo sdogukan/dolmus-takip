@@ -48,7 +48,12 @@ let cached: CachedAppDb | null = null;
 function openAppDb(): CachedAppDb {
   const dbPath = resolveDbPathFromEnv();
   const sqlite = openDatabaseConnection(dbPath);
-  assertMigrationsApplied(sqlite, defaultMigrationsFolder());
+  try {
+    assertMigrationsApplied(sqlite, defaultMigrationsFolder());
+  } catch (error) {
+    sqlite.close();
+    throw error;
+  }
   return { sqlite, db: createDb(sqlite) };
 }
 

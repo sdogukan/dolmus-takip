@@ -44,6 +44,7 @@ import {
   createDb,
   openDatabaseConnection,
   resolveDbPathFromEnv,
+  UninitializedDatabaseError,
   type SqliteConnection,
 } from "../src/server/data/db.ts";
 
@@ -72,13 +73,35 @@ function countAppliedMigrations(sqlite: SqliteConnection): number {
   return row.count;
 }
 
+/**
+ * `--existing`: mevcut bir kurulumun bekleyen migration'larını uygular.
+ * Dosya yoksa oluşturmaz (`createIfMissing` YOK) ve hiç migration uygulanmamış
+ * (boş/yanlış) bir dosyayı reddeder — ilk şema kurulumu yalnız düz `db:init`
+ * ile yapılır.
+ */
+function parseMode(argv: string[]): { existing: boolean } {
+  let existing = false;
+  for (const arg of argv) {
+    if (arg === "--existing") {
+      existing = true;
+    } else {
+      throw new Error(`Bilinmeyen argüman: "${arg}". Kullanım: db-init [--existing]`);
+    }
+  }
+  return { existing };
+}
+
 function main(): void {
+  const { existing } = parseMode(process.argv.slice(2));
   const dbPath = resolveDbPathFromEnv();
   console.log(`[db:init] Veritabanı: "${dbPath}"`);
   console.log(`[db:init] Migration klasörü: "${migrationsFolder}"`);
 
-  const sqlite = openDatabaseConnection(dbPath, { createIfMissing: true });
+  const sqlite = openDatabaseConnection(dbPath, { createIfMissing: !existing });
   try {
+    if (existing && countAppliedMigrations(sqlite) === 0) {
+      throw new UninitializedDatabaseError(dbPath);
+    }
     const before = countAppliedMigrations(sqlite);
     const db = createDb(sqlite);
     migrate(db, { migrationsFolder });

@@ -800,6 +800,53 @@ test.describe("Sahip kayıt düzenleme (/sahip/kayitlar/:id)", () => {
     await expect(staff.getByRole("button", { name: CORRECT })).toHaveCount(0);
   });
 
+  test("kayıt geçmişi: onaylanıp düzeltilen kayıtta 'Geçmişi gör' — oluşturma, iki ayrı onay satırı (yalnız sonuncu güncel), düzenleme/silme kontrolü ve toplam yok; şoför yönlenir ve bağlantı görmez; kapsam dışı kimlik 404", async ({
+    page,
+    browser,
+  }, testInfo) => {
+    await login(page, SEED_RAW_PLATES.vehicleA1, SEED_TEST_PASSWORDS.owner, "/sahip");
+    await createOwnerEntry(page, { date: "2026-06-25", kind: "driver" });
+    await confirmEntry(page, "6.000");
+    const entryId = page.url().split("/").pop()!;
+    await openCorrectForm(page);
+    await page.getByLabel("Aldığım tutar (TL)").fill("6.100");
+    await page.getByRole("button", { name: CORRECT }).click();
+    await expect(page.getByText(CORRECTED_TEXT)).toBeVisible();
+
+    await page.getByRole("link", { name: "Geçmişi gör" }).click();
+    await page.waitForURL(`**/sahip/kayitlar/${entryId}/gecmis`);
+    await expect(page.getByRole("heading", { name: "Kayıt geçmişi" })).toBeVisible();
+
+    const list = page.locator("#history-list > li");
+    await expect(list.first()).toContainText("Kayıt oluşturuldu");
+    await expect(list.first()).toContainText("Sürüm 1");
+    const confirmations = list.filter({ hasText: "Teslim doğrulandı" });
+    await expect(confirmations).toHaveCount(2);
+    await expect(confirmations.nth(0)).toContainText("6.000,00 TL");
+    await expect(confirmations.nth(0)).toContainText("Sahip oturumu");
+    await expect(confirmations.nth(0)).not.toContainText("Güncel");
+    await expect(confirmations.nth(1)).toContainText("6.100,00 TL");
+    await expect(confirmations.nth(1)).toContainText("Güncel");
+    await expect(page.locator("#history-current")).toContainText("6.100,00 TL");
+
+    await expect(page.getByRole("button", { name: /düzenle|sil|kaydet|düzelt/iu })).toHaveCount(0);
+    await expect(page.getByText(/toplam/iu)).toHaveCount(0);
+    await expectNoHorizontalScroll(page);
+
+    const driver = await (await browser.newContext({ baseURL: testInfo.project.use.baseURL })).newPage();
+    await login(driver, SEED_RAW_PLATES.vehicleA1, SEED_TEST_PASSWORDS.driver, "/sofor");
+    await driver.goto(`/sahip/kayitlar/${entryId}/gecmis`);
+    await driver.waitForURL("**/sofor");
+    await driver.goto(`/yonetim/araclar/${SEED_IDS.vehicleA1}/kayitlar/${entryId}/gecmis`);
+    await driver.waitForURL("**/sofor");
+    await driver.goto(`/sofor/kayitlar/${entryId}`);
+    await driver.waitForLoadState("networkidle");
+    await expect(driver.getByRole("link", { name: "Geçmişi gör" })).toHaveCount(0);
+
+    const unknown = await page.goto("/sahip/kayitlar/00000000-0000-4000-8000-000000000000/gecmis");
+    expect(unknown?.status()).toBe(404);
+  });
+
   test("bilinmeyen kayıt 404; şoför oturumu /sofor'a, ekip /yonetim'e, oturumsuz /giris'e yönlenir", async ({
     page,
     browser,

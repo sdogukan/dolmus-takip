@@ -73,6 +73,7 @@ import {
   type ScheduledOp,
 } from "./lib/load-metrics.ts";
 import {
+  REACHABILITY_PROBE_PATH,
   SCENARIO_NAMES,
   renderLoadReportMarkdown,
   type LoadReport,
@@ -108,7 +109,7 @@ export interface LoadRunConfig {
   probeFraction: number;
   doubleSubmitFraction: number;
   conflictFraction: number;
-  healthIntervalSeconds: number;
+  probeIntervalSeconds: number;
   windowMonth: string | null;
   randomSeed: number;
 }
@@ -125,7 +126,7 @@ const USAGE = `Kullanım: npm run load:run -- --scenario <${SCENARIO_NAMES.join(
   [--origin <APP_ORIGIN>] [--warmup 300] [--ramp 300] [--sustain 1800] [--users 100] [--timeout-ms 20000]
   [--think-seconds 30] [--wave-interval <sn>] [--wave-spread <sn>] [--warmup-fraction 0.1] [--max-in-flight 2000]
   [--max-retries 5] [--retry-backoff-ms 1000] [--probe-fraction 0.1] [--double-submit-fraction 0.05]
-  [--conflict-fraction 0.05] [--health-interval 10] [--window-month YYYY-MM] [--seed 1]`;
+  [--conflict-fraction 0.05] [--probe-interval 10] [--window-month YYYY-MM] [--seed 1]`;
 
 const WAVE_DEFAULTS: Record<ScenarioName, { interval: number; spread: number }> = {
   "login-burst": { interval: 60, spread: 10 },
@@ -147,7 +148,7 @@ export function parseLoadRunArgs(argv: string[]): LoadRunConfig {
     "scenario", "target", "origin", "credentials", "dataset", "release-manifest", "out", "warmup", "ramp", "sustain",
     "users", "timeout-ms", "think-seconds", "wave-interval", "wave-spread", "warmup-fraction", "max-in-flight",
     "max-retries", "retry-backoff-ms", "probe-fraction", "double-submit-fraction", "conflict-fraction",
-    "health-interval", "window-month", "seed",
+    "probe-interval", "window-month", "seed",
   ]);
   for (const key of values.keys()) if (!known.has(key)) throw new LoadRunUsageError(`Bilinmeyen argüman: --${key}\n${USAGE}`);
 
@@ -210,7 +211,7 @@ export function parseLoadRunArgs(argv: string[]): LoadRunConfig {
     probeFraction: number("probe-fraction", 0.1, fraction, "0..1"),
     doubleSubmitFraction: number("double-submit-fraction", 0.05, fraction, "0..1"),
     conflictFraction: number("conflict-fraction", 0.05, fraction, "0..1"),
-    healthIntervalSeconds: number("health-interval", 10, (n) => n > 0, "> 0"),
+    probeIntervalSeconds: number("probe-interval", 10, (n) => n > 0, "> 0"),
     windowMonth,
     randomSeed: number("seed", 1, Number.isSafeInteger, "tam sayı"),
   };
@@ -218,6 +219,30 @@ export function parseLoadRunArgs(argv: string[]): LoadRunConfig {
     throw new LoadRunUsageError("--wave-spread, --wave-interval değerinden küçük olmalı.");
   }
   return config;
+}
+
+// ---------------------------------------------------------------------------
+// Erişilebilirlik sondası
+// ---------------------------------------------------------------------------
+
+/**
+ * `GET /giris` — her çağrıda YENİ, boş bir oturumla (çerez ve CSRF başlığı
+ * yok), `probe` sınıfında: kullanıcı gecikme ve yanıt istatistiklerine
+ * karışmaz. Sayfa HTML döndüğünden yalnız durum koduna bakılır.
+ */
+export function probeReachability(client: ClientOptions): Promise<RequestResult> {
+  return sendRequest(client, new LoadSession(), {
+    method: "GET", path: REACHABILITY_PROBE_PATH, route: `GET ${REACHABILITY_PROBE_PATH}`, cls: "probe", kind: "read",
+  });
+}
+
+/** Hazırlık: 200 değilse yük başlatılmaz; 503 Caddy'nin bakım yanıtıdır. */
+export async function assertTargetReachable(client: ClientOptions): Promise<void> {
+  const res = await probeReachability(client);
+  if (res.status === 200) return;
+  const probe = `GET ${REACHABILITY_PROBE_PATH} → ${res.status ?? res.classification.code}`;
+  if (res.status === 503) throw new Error(`Hedef bakımda: ${probe} (bakım işareti açık); yük başlatılmadı.`);
+  throw new Error(`Hedefe erişilemiyor: ${probe}; yük başlatılmadı.`);
 }
 
 // ---------------------------------------------------------------------------
@@ -860,10 +885,7 @@ export async function runLoad(config: LoadRunConfig): Promise<{ report: LoadRepo
   // --- Hazırlık ---------------------------------------------------------------
 
   const setupStartedAt = new Date().toISOString();
-  const ready = await sendRequest(clientFor("setup"), new LoadSession(), {
-    method: "GET", path: "/api/v1/health/ready", route: "GET /api/v1/health/ready", cls: "probe", kind: "read",
-  });
-  if (ready.status !== 200) throw new Error(`Hedef hazır değil: /api/v1/health/ready → ${ready.status ?? ready.classification.code}`);
+  await assertTargetReachable(clientFor("setup"));
 
   if (writes) {
     for (let i = 0; i < users.length; i += LOGIN_CONCURRENCY) {
@@ -915,17 +937,15 @@ export async function runLoad(config: LoadRunConfig): Promise<{ report: LoadRepo
   const waveTimes = new Map<number, { phase: LoadPhase; size: number; first: number; last: number }>();
   const inFlight = new Set<Promise<void>>();
 
-  const healthLatencies: number[] = [];
-  let healthFailures = 0;
+  const reachabilityLatencies: number[] = [];
+  let reachabilityFailures = 0;
   let monitoring = true;
   const monitor = (async () => {
     while (monitoring) {
-      const res = await sendRequest(clientFor("monitor"), new LoadSession(), {
-        method: "GET", path: "/api/v1/health/ready", route: "GET /api/v1/health/ready", cls: "probe", kind: "read",
-      });
-      healthLatencies.push(res.latencyMs);
-      if (res.status !== 200) healthFailures++;
-      const until = performance.now() + config.healthIntervalSeconds * 1000;
+      const res = await probeReachability(clientFor("monitor"));
+      reachabilityLatencies.push(res.latencyMs);
+      if (res.status !== 200) reachabilityFailures++;
+      const until = performance.now() + config.probeIntervalSeconds * 1000;
       while (monitoring && performance.now() < until) await sleep(Math.min(250, until - performance.now()));
     }
   })();
@@ -1115,7 +1135,7 @@ export async function runLoad(config: LoadRunConfig): Promise<{ report: LoadRepo
     probes: {
       readAfterWrite: probeCount,
       mismatches: probeMismatches,
-      health: { requests: healthLatencies.length, failures: healthFailures, latency: summarizeLatencies(healthLatencies) },
+      reachability: { requests: reachabilityLatencies.length, failures: reachabilityFailures, latency: summarizeLatencies(reachabilityLatencies) },
       findings: probeFindings,
     },
     reconciliation,

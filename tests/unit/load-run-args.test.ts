@@ -33,7 +33,14 @@ describe("parseLoadRunArgs", () => {
       users: 100,
       timeoutMs: 20_000,
       windowMonth: null,
+      probeIntervalSeconds: 10,
     });
+  });
+
+  test("erişilebilirlik sondası aralığı --probe-interval ile ayarlanır; eski --health-interval bilinmeyen bayraktır", () => {
+    expect(parseLoadRunArgs([...required, "--probe-interval", "2.5"]).probeIntervalSeconds).toBe(2.5);
+    expect(() => parseLoadRunArgs([...required, "--probe-interval", "0"])).toThrow(/--probe-interval/u);
+    expect(() => parseLoadRunArgs([...required, "--health-interval", "10"])).toThrow(/Bilinmeyen argüman: --health-interval/u);
   });
 
   test("aşama süreleri ve Origin ayarlanabilir", () => {

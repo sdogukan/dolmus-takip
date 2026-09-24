@@ -13,6 +13,14 @@ import type {
 } from "./load-metrics.ts";
 import { REQUEST_CLASSES } from "./load-metrics.ts";
 
+/**
+ * Koşu öncesi ve koşu boyunca dışarıdan erişilebilirlik sondası: herkese açık
+ * giriş sayfası. Health uçları dışarıya 404 döndüğünden (Caddy) üretici onları
+ * çağırmaz. Bu sonda yalnız Caddy + uygulamanın sayfa sunduğunu gösterir;
+ * veritabanının hazır olduğunu GÖSTERMEZ.
+ */
+export const REACHABILITY_PROBE_PATH = "/giris";
+
 export type ScenarioName = "login-burst" | "active-mix" | "write-peak";
 export const SCENARIO_NAMES: readonly ScenarioName[] = ["login-burst", "active-mix", "write-peak"];
 
@@ -101,7 +109,8 @@ export interface LoadReport {
   probes: {
     readAfterWrite: number;
     mismatches: number;
-    health: { requests: number; failures: number; latency: LatencySummary };
+    /** `GET REACHABILITY_PROBE_PATH` oturumsuz; 200 dışı her yanıt başarısız sayılır. */
+    reachability: { requests: number; failures: number; latency: LatencySummary };
     findings: string[];
   };
   reconciliation: (Omit<ReconciliationResult, "findings"> & { findings: ReconciliationResult["findings"] }) | { status: "not_applicable" | "failed"; detail: string };
@@ -230,7 +239,8 @@ export function renderLoadReportMarkdown(r: LoadReport): string {
   p();
   p(
     `Yazma sonrası okuma sondası ${r.probes.readAfterWrite}, uyuşmazlık ${r.probes.mismatches}. ` +
-      `Health (ready) ${r.probes.health.requests} istek, ${r.probes.health.failures} başarısız, p95 ${ms(r.probes.health.latency.p95Ms)} ms.`,
+      `Erişilebilirlik sondası (GET ${REACHABILITY_PROBE_PATH}, oturumsuz; veritabanı hazırlığını göstermez) ` +
+      `${r.probes.reachability.requests} istek, ${r.probes.reachability.failures} başarısız, p95 ${ms(r.probes.reachability.latency.p95Ms)} ms.`,
   );
   for (const finding of r.probes.findings) p(`- ${finding}`);
   p();

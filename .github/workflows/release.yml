@@ -70,6 +70,9 @@ jobs:
       - name: Entegrasyon testleri (gerçek geçici SQLite + migration)
         run: npm run test:integration
 
+      - name: Yayın boru hattı testleri (release:build/verify meta-testi)
+        run: npm run test:release
+
       - name: Playwright tarayıcısını kur (chromium)
         run: npx playwright install --with-deps chromium
 

@@ -41,13 +41,14 @@ sessizce bir varsayılana düşmez.
 | `npm run lint` | ESLint (flat config, `eslint.config.mjs`). |
 | `npm run test:unit` | Vitest birim testleri (`src/**/*.test.ts`) — dış kaynağa (DB/ağ) dokunmaz. |
 | `npm run test:integration` | Vitest entegrasyon testleri (`tests/integration/**`) — gerçek geçici SQLite dosyaları ve gerçek migration ile çalışır; dosyalar arası sıralı yürütülür. |
+| `npm run test:release` | Yayın boru hattı meta-testi (`tests/release/**`) — geçici bir klonda `release:build`/`release:verify`'ı uçtan uca dener. Uzun sürer (her tam `release:build` kalite kapısını da koşar), bu yüzden `test:integration`'a dahil değildir; CI ayrı adım olarak koşar. |
 | `npm run test:e2e` | Playwright uçtan uca testleri. **Not:** Tarayıcı ikilileri bu pakette indirilmedi; `npx playwright install` T1.6'da ele alınacaktır. |
 | `npm run db:init` | Açık ilk şema kurulumu / bekleyen migration'ları uygular (idempotent). |
 | `npm run db:seed-dev` | Yerel test verisini kurar (idempotent); yalnız `NODE_ENV=production` DEĞİLKEN çalışır. |
 | `npm run db:generate` | `drizzle-kit generate` — şema (`src/server/data/schema.ts`) değiştiğinde yeni migration SQL dosyası üretir (yalnız geliştirici aracı; uygulamayı çalıştırmaz). |
 | `npm run release:build` | Yayın arşivi + manifest üretir (bkz. aşağıdaki "Yayın çıktısı" bölümü). Çalışma ağacı kirliyse (`git status --porcelain` boş değilse) `exit 1` ile durur; `--allow-dirty` yoktur. Derlemeden ÖNCE **kendi içinde** `typecheck`/`lint`/`test:unit`/`test:integration`'ı da çalıştırır (S6.1 AC3) — bu komut doğrudan, CI dışında çağrıldığında da testleri atlamaz. |
 | `npm run release:verify -- <tar.gz yolu>` | Üretilen arşivi temiz bir ortamda (geçici dizin/DB/port) açar, `db:init` ile şema kurar, standalone sunucuyu başlatıp `/api/v1/health/live`'dan 200 alır. |
-| `npm run ci:local` | GitHub Actions `verify` job'ının adımlarını AYNI sırada yerelde çalıştırır (`scripts/ci-steps.json` — tek kaynak): typecheck → lint → unit → integration → e2e → release:build → release:verify. İlk hatada durur, her adımın çıkış kodunu raporlar. (Ayrı bir "build" adımı yoktur — `e2e` kendi `next build`'ini zaten çalıştırır.) |
+| `npm run ci:local` | GitHub Actions `verify` job'ının adımlarını AYNI sırada yerelde çalıştırır (`scripts/ci-steps.json` — tek kaynak): typecheck → lint → unit → integration → release (meta-test) → e2e → release:build → release:verify. İlk hatada durur, her adımın çıkış kodunu raporlar. (Ayrı bir "build" adımı yoktur — `e2e` kendi `next build`'ini zaten çalıştırır.) |
 
 ## Veritabanı: konum ve kalıcılık
 
@@ -109,16 +110,14 @@ kısmi/sessiz geçiş yoktur):
 1. **Temiz ağaç kapısı** (S6.1 AC4): `git status --porcelain` boş
    değilse `exit 1`; devre dışı bırakma bayrağı yoktur.
 2. **Kalite kapısı** (S6.1 AC3, düzeltme turu 3): `npm run typecheck` →
-   `npm run lint` → `npm run test:unit` → (`tests/integration/
-   release-build.test.ts` hariç) `test:integration`'ı **script'in
-   KENDİSİ** çalıştırır; herhangi biri başarısız olursa derlemeye HİÇ
-   girmeden `exit 1` ile durur. Bu adım yalnız CI'nın adım SIRASINA
-   güvenmez — `release:build` doğrudan/elle çağrıldığında da (CI
-   dışında) testleri atlamadan uygulanır. (`release-build.test.ts`'in
-   kendisi hariç tutulur; aksi halde bu script kendini sonsuz derinlikte
-   çağırırdı — bkz. `scripts/release-build.ts` üst notu. O dosya yine de
-   üst seviye `npm run test:integration`/`ci:local`/`ci.yml` ile TAM
-   çalışır.)
+   `npm run lint` → `npm run test:unit` → `npm run test:integration`'ı
+   **script'in KENDİSİ** çalıştırır; herhangi biri başarısız olursa
+   derlemeye HİÇ girmeden `exit 1` ile durur. Bu adım yalnız CI'nın adım
+   SIRASINA güvenmez — `release:build` doğrudan/elle çağrıldığında da (CI
+   dışında) testleri atlamadan uygulanır. (Bu script'in kendi meta-testi
+   `tests/release/release-build.test.ts` ayrı `test:release` komutundadır;
+   kapı onu çalıştırmaz, aksi halde script kendini sonsuz derinlikte
+   çağırırdı — bkz. `scripts/release-build.ts` üst notu.)
 3. Önce `.next` klasörünü siler, ardından temiz bir `npm run build`
    (`next build` + `scripts/prepare-standalone.ts`) çalıştırır.
 4. Standalone çıktısına `scripts/db-init.ts` ve onun `src/server/data/
@@ -145,11 +144,12 @@ arşivin kendi `db-init`'ini çalıştırır ve arşivin kendi `server.js`'ini
 geçici `PORT`/`HOSTNAME=127.0.0.1`/`APP_ORIGIN` ile başlatıp
 `/api/v1/health/live`'dan 200 aldıktan sonra süreci kapatır.
 
-`tests/integration/release-build.test.ts` bu iki komutu gerçek (geçici)
-bir `git clone` içinde uçtan uca dener; kirli ağaçta reddi, **temiz
-ağaçta ama başarısız bir birim testiyle reddi** (S6.1 AC3, düzeltme
-turu 3) ve manifest alanlarının doluluğunu da kapsar. Bu test uzun
-sürebileceğinden dosyaya özel bir Vitest zaman aşımı tanımlıdır.
+`tests/release/release-build.test.ts` (`npm run test:release`) bu iki
+komutu gerçek (geçici) bir `git clone` içinde uçtan uca dener; kirli
+ağaçta reddi, **temiz ağaçta ama başarısız bir birim testiyle reddi**
+(S6.1 AC3, düzeltme turu 3) ve manifest alanlarının doluluğunu da
+kapsar. Bu test uzun sürebileceğinden dosyaya özel bir Vitest zaman
+aşımı tanımlıdır ve rutin `test:integration`'a dahil değildir.
 
 ## GitHub Actions (`.github/workflows/`)
 
@@ -159,7 +159,7 @@ artifact kotaları sınırlıdır" gereği iki ayrı iş akışı vardır:
 
 - **`ci.yml`** — her push'ta (tüm dallar) ve her pull request'te tetiklenir;
   `ubuntu-24.04` üzerinde yukarıdaki tüm komutları (`typecheck` →
-  `lint` → `test:unit` → `test:integration` → Playwright tarayıcı
+  `lint` → `test:unit` → `test:integration` → `test:release` → Playwright tarayıcı
   kurulumu → `test:e2e` → `release:build` → `release:verify`) sırayla
   çalıştırır — ayrı bir `build` adımı BİLEREK yoktur, çünkü `test:e2e`
   kendi `next build`'ini zaten çalıştırır (bkz. `scripts/ci-steps.json`).

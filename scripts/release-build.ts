@@ -65,27 +65,15 @@
  * girmeden `exit 1` ile durur — script'i çağıran şeyin (CI, ci:local,
  * elle) TÜRÜNE bakılmaksızın.
  *
- * `test:integration` adımı NEDEN `npm run test:integration` yerine
- * DOĞRUDAN `vitest run --project integration --exclude
- * "tests/integration/release-build.test.ts"` çalıştırır (sonsuz özyineleme
- * KANITI): `npm run test:integration` (proje kökünün KENDİSİ) tam da BU
- * dosyayı (`tests/integration/release-build.test.ts`) da kapsar; o test
- * KENDİ İÇİNDE geçici bir klon üretip O KLONDA `npm run release:build`
- * ÇAĞIRIR (uçtan uca boru hattı kanıtı). Kalite kapısı `test:integration`'ı
- * OLDUĞU GİBİ çağırsaydı, o klondaki iç içe `release:build` de KENDİ
- * kalite kapısında YİNE `test:integration`'ı (yine bu dosyayı, yine yeni
- * bir klon + yeni bir iç içe `release:build` üreterek) çalıştırır ve bu
- * hiç durmadan derinleşen bir özyinelemeye dönüşürdü (her seviye tam bir
- * `node_modules` kopyası + `next build` + test paketi demektir — pratikte
- * disk/süre tükenene kadar sürer). Bu, "testleri atlama" DEĞİLDİR: dışlanan
- * TEK dosya bu script'in KENDİ uçtan uca boru hattı testidir (iş kuralı/
- * yetki/veri testi değil, `release:build`/`release:verify`'ın kendi
- * davranışının meta-testi); o dosya HÂLÂ üst seviye `npm run
- * test:integration` (ci:local/ci.yml/geliştirici komutu) ile TAM olarak
- * çalışır — yalnız kalite kapısının KENDİ iç çağrısı özyinelemeyi
- * önlemek için onu dışlar. Diğer TÜM iş kuralı/yetki/veri entegrasyon
- * testleri bu kapıda AYNI şekilde çalışır ve tıpkı önceki gibi başarısız
- * olabilirler.
+ * Kalite kapısı `npm run test:integration`'ı OLDUĞU GİBİ çağırır. Bu
+ * script'in kendi uçtan uca meta-testi (`tests/release/release-build.test.ts`,
+ * geçici bir klonda `npm run release:build` çağırır) ayrı `release` Vitest
+ * projesindedir (`npm run test:release`) ve `test:integration`'a dahil
+ * DEĞİLDİR. Dahil olsaydı kapı, klondaki iç içe `release:build` üzerinden
+ * kendini sonsuz derinlikte çağırırdı. Önceden bu, dosyayı `--exclude` ile
+ * dışlayarak önleniyordu; dosya ayrı projeye taşınınca dışlamaya gerek
+ * kalmadı. Meta-test CI'da (`scripts/ci-steps.json`) ayrı adım olarak
+ * koşar.
  */
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
@@ -165,24 +153,9 @@ function runQualityGate(): void {
     { id: "typecheck", cmd: "npm", args: ["run", "typecheck"] },
     { id: "lint", cmd: "npm", args: ["run", "lint"] },
     { id: "test:unit", cmd: "npm", args: ["run", "test:unit"] },
-    {
-      id: "test:integration",
-      // Doğrudan `npx vitest` (NOT `npm run test:integration`) — bkz.
-      // dosya üstü not "sonsuz özyineleme KANITI": bu tek dosya (bu
-      // script'in KENDİ uçtan uca boru hattı meta-testi) DIŞARIDA
-      // bırakılmazsa `release:build` kendi kendini sonsuz derinlikte
-      // çağırır. Vitest projesi/dosya deseni AYNI (`vitest.config.mts`);
-      // yalnız bu TEK dosya `--exclude` ile hariç tutulur.
-      cmd: "npx",
-      args: [
-        "vitest",
-        "run",
-        "--project",
-        "integration",
-        "--exclude",
-        "tests/integration/release-build.test.ts",
-      ],
-    },
+    // Meta-test `release` projesinde olduğu için özyineleme yok — bkz.
+    // dosya üstü not.
+    { id: "test:integration", cmd: "npm", args: ["run", "test:integration"] },
   ];
 
   for (const step of steps) {

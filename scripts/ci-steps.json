@@ -5,6 +5,7 @@
     { "id": "lint", "label": "Lint", "run": "npm run lint" },
     { "id": "test:unit", "label": "Birim testleri", "run": "npm run test:unit" },
     { "id": "test:integration", "label": "Entegrasyon testleri", "run": "npm run test:integration" },
+    { "id": "test:release", "label": "Yayın boru hattı testleri", "run": "npm run test:release" },
     { "id": "test:e2e", "label": "Uçtan uca testler", "run": "npm run test:e2e" },
     { "id": "release:build", "label": "Yayın çıktısı + manifest", "run": "npm run release:build" },
     { "id": "release:verify", "label": "Yayın çıktısı doğrulama", "run": "npm run release:verify -- dist/*.tar.gz" }

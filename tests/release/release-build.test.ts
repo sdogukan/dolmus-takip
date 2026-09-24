@@ -17,6 +17,15 @@ import { compareVersions, MINIMUM_SQLITE_VERSION } from "../../src/server/data/d
  * manifest alanları dolu ve sqlite_version ≥ 3.51.3. Bu test uzun
  * sürebilir; vitest testTimeout'u bu dosya için açıkça artır (skip YOK)."
  *
+ * ## Bu dosya NEDEN `tests/integration/` altında değil (2026-09-24)
+ *
+ * İlk iki test birer tam `release:build` koşar; o da kalite kapısında
+ * typecheck/lint/unit/integration'ı yeniden çalıştırır. Rutin
+ * `test:integration` içindeyken bu dosya tek başına ~20 dk sürüyor ve
+ * entegrasyon paketini fiilen üç kez koşturuyordu. Artık ayrı `release`
+ * Vitest projesindedir: `npm run test:release`. CI onu ayrı adım olarak
+ * koşar (`scripts/ci-steps.json`); hiçbir test atlanmaz.
+ *
  * ## Bu test NEDEN gerçek proje deposunu (`.git`) DEĞİL, kendi ürettiği
  * bir "kaynak depo"yu klonluyor (varsayım DEĞİL, kanıtlı zorunluluk)
  *

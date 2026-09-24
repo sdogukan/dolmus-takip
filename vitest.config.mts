@@ -16,8 +16,16 @@ import { defineConfig } from "vitest/config";
  *   (`fileParallelism: false`) çalıştırılır. QA-PLAN.md §1/§3 —
  *   "Finansal DB testleri yalnız mock veya :memory: üzerinde kabul
  *   edilmez"; bu proje gerçek `better-sqlite3` dosya bağlantısı kullanır.
+ * - `release`: `tests/release/**\/*.test.ts` — `release:build`/
+ *   `release:verify` boru hattının uçtan uca meta-testi (`npm run
+ *   test:release`). Her testi geçici bir klonda tam `release:build` koşar;
+ *   o da kendi kalite kapısında typecheck/lint/unit/integration'ı yeniden
+ *   çalıştırır. Rutin `test:integration`'a dahil olsaydı entegrasyon
+ *   paketi fiilen üç kez koşardı (ölçülen: dosya tek başına ~20 dk,
+ *   paketin %72'si). Bu yüzden `perf:reports` gibi ayrı bir komuttur;
+ *   CI (`scripts/ci-steps.json`) onu ayrı adım olarak koşar.
  *
- * `passWithNoTests` kullanılmaz: her iki proje de gerçek test içerir.
+ * `passWithNoTests` kullanılmaz: her proje gerçek test içerir.
  */
 export default defineConfig({
   test: {
@@ -36,6 +44,15 @@ export default defineConfig({
           name: "integration",
           environment: "node",
           include: ["tests/integration/**/*.test.ts"],
+          fileParallelism: false,
+        },
+      },
+      {
+        extends: true,
+        test: {
+          name: "release",
+          environment: "node",
+          include: ["tests/release/**/*.test.ts"],
           fileParallelism: false,
         },
       },

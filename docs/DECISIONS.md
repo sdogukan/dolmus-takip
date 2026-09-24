@@ -162,3 +162,8 @@ Faz 0: 14 doküman, 7 mercek, 38 aday bulgu, 3'lü çürütme; 20 birleşik bulg
 - Bu depo AWS'ye komut çalıştırmaz ve kaynak oluşturmaz; rehberdeki komutlar hazırlandı ama DENENMEDİ işaretlidir (RELEASE §5). Manuel doğrulama tablosu (SERVER-SETUP §5) elle kurulumda doldurulur; o zamana dek sistem **pilot için hazır değildir**.
 - `scripts/platform-admin.ts` (ve import ağacı) yayın arşivine girer ve `release:verify` arşivden `create-first-admin`'i geçici DB'de çalıştırır: eksik bir dosya yalnız sunucuda değil, yayın doğrulamasında patlar. İlk yönetici parolası stdin'den verilir.
 - Önceki gerçek makine denemeleri (ISSUE-24/25/26/28) elle kurulum tamamlanana dek ertelendi; ISSUE-29 göndermeleri "manuel kurulumda denenecek" durumuyla değiştirildi.
+
+## Yayın boru hattı testi ayrı komutta (2026-09-24)
+- `tests/integration/release-build.test.ts` → `tests/release/release-build.test.ts`, yeni `release` Vitest projesi ve `npm run test:release`. Sebep: ilk iki testi birer tam `release:build` koşar, o da kalite kapısında `test:integration`'ı yeniden çalıştırır; dosya tek başına ~20 dk sürüyor, rutin entegrasyon paketinin %72'sini oluşturuyordu.
+- CI (`scripts/ci-steps.json`, `ci.yml`, `release.yml`) `test:release`'i `test:integration`'dan hemen sonra ayrı adım olarak koşar; kapsam değişmedi, hiçbir test atlanmadı.
+- `release:build` kalite kapısı artık `npm run test:integration`'ı olduğu gibi çağırır; meta-test ayrı projede olduğu için önceki `--exclude` gereksizleşti (T6.1 kaydındaki "[release-build meta-testi hariç]" notu bununla geçersiz).

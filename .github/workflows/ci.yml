@@ -88,6 +88,12 @@ jobs:
       - name: Entegrasyon testleri (gerçek geçici SQLite + migration)
         run: npm run test:integration
 
+      # release:build/release:verify boru hattının uçtan uca meta-testi —
+      # rutin test:integration'dan ayrı (bkz. vitest.config.mts `release`
+      # projesi); burada ayrı adım olarak koşar.
+      - name: Yayın boru hattı testleri (release:build/verify meta-testi)
+        run: npm run test:release
+
       - name: Playwright tarayıcısını kur (chromium)
         run: npx playwright install --with-deps chromium
 

@@ -1,5 +1,5 @@
 # Dolmuş Takip uygulama servisi — /etc/systemd/system/dolmus-takip.service
-# HAZIRLANDI, gerçek sunucuda DENENMEDİ (ISSUE-29). docs/SERVER-SETUP.md.
+# HAZIRLANDI, gerçek sunucuda DENENMEDİ (manuel kurulumda denenecek). docs/SERVER-SETUP.md.
 [Unit]
 Description=Dolmus Takip (Next.js standalone)
 After=network.target

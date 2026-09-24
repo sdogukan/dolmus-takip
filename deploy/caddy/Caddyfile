@@ -1,5 +1,5 @@
 # Dolmuş Takip — Caddy yapılandırması (docs/SERVER-SETUP.md).
-# HAZIRLANDI, gerçek sunucuda DENENMEDİ (ISSUE-29).
+# HAZIRLANDI, gerçek sunucuda DENENMEDİ (manuel kurulumda denenecek).
 #
 # Alan adı tek yerde tutulur: /etc/dolmus-takip/domain.env içindeki
 # DOLMUS_DOMAIN. Caddy onu systemd drop-in'i (caddy.service.d/override.conf)

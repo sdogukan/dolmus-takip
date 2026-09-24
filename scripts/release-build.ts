@@ -243,6 +243,15 @@ function bundleDbInitIntoStandalone(): void {
   copyIntoStandalone("src/server/data/db.ts");
   copyIntoStandalone("src/server/data/schema.ts");
   copyIntoStandalone("src/server/data/package.json");
+  // İlk yönetici (`scripts/platform-admin.ts`) sunucuda arşivden çalışır;
+  // göreli `.ts` import ağacı AYNI yollarla eksiksiz kopyalanır.
+  copyIntoStandalone("scripts/platform-admin.ts");
+  copyIntoStandalone("src/server/auth/session.ts");
+  copyIntoStandalone("src/server/auth/package.json");
+  copyIntoStandalone("src/server/usecases/session/revoke-session.ts");
+  copyIntoStandalone("src/server/usecases/access/bump-platform-user-version.ts");
+  copyIntoStandalone("src/server/usecases/access/run-access-change-transaction.ts");
+  copyIntoStandalone("src/server/usecases/package.json");
 }
 
 /** `node -e "..."` standalone'un KENDİ `node_modules` kökünden çalıştırılır

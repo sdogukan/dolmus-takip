@@ -17,6 +17,9 @@
  *    sürecinin kendisi bir şey EKLEMEDİĞİNİ kanıtlar).
  * 4. Arşivin KENDİ `scripts/db-init.ts`'iyle geçici bir DB kurar (hedef
  *    makinedeki GERÇEK ilk kurulum adımı).
+ *    Ardından arşivin KENDİ `scripts/platform-admin.ts create-first-admin`
+ *    komutu AYNI geçici DB'de çalıştırılır (sunucudaki ilk yönetici adımı;
+ *    import ağacında eksik dosya yalnız sunucuda patlamasın).
  * 5. Arşivin KENDİ `server.js`'ini geçici `PORT`/`HOSTNAME=127.0.0.1`/
  *    `APP_ORIGIN`/`DOLMUS_DB_PATH` ile başlatır, `/api/v1/health/live`'dan
  *    200 alır, süreci kapatır.
@@ -129,6 +132,35 @@ function runDbInit(extractDir: string, dbPath: string): void {
     );
   }
   console.log("[release:verify] Geçici DB db-init ile kuruldu.");
+}
+
+/** Arşivin `scripts/platform-admin.ts create-first-admin`ini yalnız geçici
+ * DB'de çalıştırır (parola stdin'den; bu değer gerçek bir sırrı DEĞİL, geçici
+ * DB ile birlikte silinen bir test değeridir). */
+function runCreateFirstAdmin(extractDir: string, dbPath: string): void {
+  const result = spawnSync(
+    process.execPath,
+    [
+      "scripts/platform-admin.ts",
+      "create-first-admin",
+      "--username",
+      "release-verify-admin",
+      "--password-stdin",
+    ],
+    {
+      cwd: extractDir,
+      encoding: "utf8",
+      input: "release-verify-temp-password",
+      env: { ...process.env, DOLMUS_DB_PATH: dbPath },
+    },
+  );
+  if (result.status !== 0) {
+    fail(
+      `Arşivin "scripts/platform-admin.ts create-first-admin" komutu geçici ` +
+        `DB'de başarısız oldu (exit ${result.status}):\n${result.stdout}\n${result.stderr}`,
+    );
+  }
+  console.log("[release:verify] Geçici DB'de create-first-admin çalıştı.");
 }
 
 /** Boş bir TCP port bulur (0 numaralı porta bağlanıp OS'in verdiği gerçek
@@ -290,6 +322,7 @@ async function main(): Promise<void> {
     console.log("[release:verify] Açılmış arşivde gizli/veri dosyası yok.");
 
     runDbInit(extractDir, dbPath);
+    runCreateFirstAdmin(extractDir, dbPath);
     await startServerAndCheckHealth(extractDir, dbPath);
 
     console.log(

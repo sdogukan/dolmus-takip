@@ -145,7 +145,7 @@ S6.6 AC1 ve AC7 için tek kayıt yeridir. Bütün satırlar **tek bir yayın ada
 | S6.3 | `tests/unit/health-decision.test.ts`; `tests/integration/{health-ready-route,admin-hash-queue-log}.test.ts` | SERVER-SETUP §5 satır 10–16; makine dışı kontrol ve ekip uyarısının ulaştığı kayıt | açık — hedef makine yok; dış kontrol ve uyarı kanalı seçilmedi (AC6) | `________` |
 | S6.4 | `tests/unit/backup-schedule.test.ts`; `tests/integration/db-backup.test.ts` | SERVER-SETUP §5 satır 17–21; OPS §4 üç ayrı günlük kayıt | açık — hedef makine yok | `________` |
 | S6.5 | `tests/integration/{db-restore,release-apply}.test.ts` | OPS §4 "Kontrollü restore" ayrı makine denemesi; SERVER-SETUP §5 satır 22–27 | açık — hedef makine yok | `________` |
-| S6.6 | `tests/integration/{work-entry-crash-integrity,integrity-check,load-seed,instrumentation-runtime-metrics}.test.ts`; `tests/unit/{load-metrics,load-client,load-run-args}.test.ts`; `src/server/observability/runtime-metrics.test.ts` | §3 yük prosedürü: üç senaryo raporu, süreç öldürme denemesi, her koşu sonrası `integrity:check`; SERVER-SETUP §5 satır 28–33; bu tablonun tamamı; OPS §8 | açık — hedef makine yok; `load:run` dış hazırlık engeli (§3) | `________` |
+| S6.6 | `tests/integration/{work-entry-crash-integrity,integrity-check,load-seed,instrumentation-runtime-metrics}.test.ts`; `tests/unit/{load-metrics,load-client,load-run-args,load-run-probe}.test.ts`; `src/server/observability/runtime-metrics.test.ts` | §3 yük prosedürü: üç senaryo raporu, süreç öldürme denemesi, her koşu sonrası `integrity:check`; SERVER-SETUP §5 satır 28–33; bu tablonun tamamı; OPS §8 | açık — hedef makine yok | `________` |
 
 | PRD §9 | Ana QA | Otomatik kanıt | Manuel / hedef sunucu kanıtı | Durum | Sonuç (aday commit) |
 |---|---|---|---|---|---|
@@ -216,7 +216,7 @@ Normal karışık yük başlangıç hedefi **kayıt p95 ≤2 sn, rapor p95 ≤3 
 
 Komutlar **hazırlandı, denenmedi (elle kurulumda denenecek)**. Hedef makinedeki adımlar [SERVER-SETUP](SERVER-SETUP.md) §5.1'dedir; bu bölüm sırayı, eşikleri ve kanıtın nereden okunacağını verir.
 
-**Açık engel (2026-09-24):** `load:run` hazırlıkta ve koşu boyunca hedefin `GET /api/v1/health/ready` ucunu çağırır (`scripts/load-run.ts`); Caddy bu yolu dışarıya 404 ile kapatır (`deploy/caddy/Caddyfile` `@health`, ARCHITECTURE §4 "yalnız localhost"). Bu yüzden hedefin dışından başlatılan her koşu hazırlıkta `Hedef hazır değil` hatasıyla durur. Engel kodda giderilmeden hiçbir senaryo koşulamaz. Sağlık uçlarını dışarı açmak veya üreticiyi hedef makineye taşımak çözüm değildir: ilki mimariyle çelişir, ikincisi AC2'yi bozar ve rapor `acceptance_eligible=false` olur.
+**Erişilebilirlik sondası:** `load:run` hazırlıkta ve koşu boyunca (`--probe-interval`, varsayılan 10 sn) hedefe Caddy üzerinden oturumsuz `GET /giris` gönderir (`scripts/load-run.ts` `assertTargetReachable`, `probeReachability`). Hazırlıkta yanıt 200 değilse yük başlatılmaz; 503, Caddy'nin bakım kapısıdır (bakım işareti açık) ve araç `Hedef bakımda` hatasıyla durur. Koşu boyunca 200 dışı her sonda yanıtı raporda `probes.reachability.failures` altında sayılır; sonda istekleri kullanıcı gecikme istatistiklerine girmez. Bu sonda yalnız Caddy ile uygulamanın sayfa sunduğunu gösterir, **veritabanının hazır olduğunu göstermez**. Sağlık uçları (`/api/v1/health/*`) yalnız localhost içindir ve dışarıya 404 döner (`deploy/caddy/Caddyfile` `@health`, ARCHITECTURE §4); üretici onları çağırmaz. Koşu sırasında DB hazırlığı hedefteki sağlık görevinin satırlarından okunur: `dolmus-health event=probe` `ready` (durum kodu) ve `event=metrics` `ready_ms` (aşağıdaki tablo; toplama SERVER-SETUP §5.1 adım 6).
 
 **Ön koşullar**
 
@@ -250,6 +250,7 @@ Komutlar **hazırlandı, denenmedi (elle kurulumda denenecek)**. Hedef makinedek
 | RAM | Süreç: `dolmus-runtime event=runtime_metrics` satırında `rss_bytes`, `heap_used_bytes`, `heap_total_bytes`. Makine: `dolmus-health event=metrics` satırında `mem_available_pct` |
 | CPU / burst | Süreç: `runtime_metrics` `cpu_user_ms` + `cpu_system_ms` (aynı satırdaki `interval_ms`'e bölünür). Makine: `aws lightsail get-instance-metric-data` ile `CPUUtilization`, `BurstCapacityPercentage`, `BurstCapacityTime` |
 | Event-loop | `runtime_metrics` `el_p50_ms`, `el_p99_ms`, `el_max_ms`; dış gözlem olarak `dolmus-health event=metrics` `live_ms` |
+| DB hazırlığı | Hedefte 30 sn'de bir: `dolmus-health event=probe` `ready` (yerel `/api/v1/health/ready` durum kodu; uygulama servisi yük DB'sine bağlı olduğundan yük DB'sini sınar) ve `event=metrics` `ready_ms`. `load:run` raporundaki `probes.reachability` (`GET /giris`) yalnız dış erişilebilirliktir, DB hazırlığı değildir |
 | Disk | `dolmus-health event=metrics` `disk_used_pct`, `disk_level` (veri dosya sistemi; yük DB'si aynı dosya sistemindedir) |
 | WAL | Yük DB'sinin `-wal` boyutu SERVER-SETUP §5.1 adım 6'daki örnekleme döngüsüyle. `dolmus-health` `wal_bytes` yalnız üretim DB'sinin (`app.sqlite-wal`) boyutudur, yük DB'sini göstermez |
 | SQLite beklemesi | `runtime_metrics` `tx_count`, `tx_p99_ms`, `tx_max_ms` (süreye `BEGIN IMMEDIATE` beklemesi dahil), `tx_lock_failures` (SQLITE_BUSY/LOCKED) |
@@ -280,6 +281,7 @@ Süreç öldürme (yalnız write-peak): zaman (UTC), toparlanma süresi, yeniden
 integrity:check satırı ve çıkış kodu:
 RAM (rss max, mem_available_pct min) / CPU (süreç %, CPUUtilization max) / BurstCapacityPercentage min:
 Event-loop el_p99_ms max / live_ms max:
+DB hazırlığı (event=probe ready 200 dışı sayısı, ready_ms max) / erişilebilirlik sondası (GET /giris) başarısız sayısı:
 Disk disk_used_pct max / yük DB -wal max bayt:
 SQLite tx_p99_ms max / tx_max_ms max / tx_lock_failures toplam:
 Argon2 hash_max_pending max / hash_longest_wait_ms max:

@@ -122,6 +122,41 @@ describe("QA-PLAN §3 yük ve veri bütünlüğü kabul prosedürü", () => {
       expect(procedure, source).toContain(source);
     }
   });
+
+  test("dış sonda Caddy üzerinden GET /giris; sağlık uçları localhost'ta kalır, DB hazırlığı dolmus-health'ten okunur", () => {
+    expect(procedure).toContain("Caddy üzerinden oturumsuz `GET /giris`");
+    expect(procedure).toContain("503, Caddy'nin bakım kapısıdır");
+    expect(procedure).toContain("yalnız localhost içindir ve dışarıya 404 döner");
+    const readinessRow = procedure.split("\n").find((line) => line.startsWith("| DB hazırlığı |"));
+    expect(readinessRow).toBeDefined();
+    expect(readinessRow).toContain("`dolmus-health event=probe` `ready`");
+    expect(readinessRow).toContain("`ready_ms`");
+    expect(procedure).toContain("üretici onları çağırmaz");
+  });
+});
+
+describe("S6.6 rehberlerinde giderilmiş load:run engeli", () => {
+  const guides = ["docs/QA-PLAN.md", "docs/SERVER-SETUP.md", "docs/DECISIONS.md", "docs/PROGRESS.md"];
+
+  test("hiçbir rehber 'Açık engel' veya koşunun başlayamadığını söylemez", () => {
+    for (const guide of guides) {
+      const text = read(guide);
+      expect(text, guide).not.toContain("Açık engel");
+      expect(text, guide).not.toMatch(/dış hazırlık (engeli|kontrolü)/u);
+      expect(text, guide).not.toContain("koşu şu an başlayamaz");
+    }
+  });
+
+  test("S6.6 satırı açık kalır ve tek neden hedef makinenin yokluğudur", () => {
+    const row = storyRows.find((line) => cells(line)[0] === "S6.6")!;
+    expect(cells(row).at(-2)).toBe("açık — hedef makine yok");
+    expect(cells(row).at(-1)).toBe("`________`");
+  });
+
+  test("SERVER-SETUP §5.1 kaynak toplama sağlık görevinin probe satırlarını da alır", () => {
+    const loadSection = section(read("docs/SERVER-SETUP.md"), "### 5.1 Yük kabulü", "## 6. Kapsam dışı ve durum");
+    expect(loadSection).toContain("grep -E 'event=(metrics|probe|decision|corrective_restart|recovery_lock_written)' > ~/health.log");
+  });
 });
 
 describe("SERVER-SETUP §5.1 yük DB'si", () => {

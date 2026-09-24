@@ -36,10 +36,19 @@ const TEXT = REPORT_TEXT.people;
 export type FetchResult<T> = { kind: "ok"; value: T } | { kind: "unauthorized" } | { kind: "error" };
 
 /** İstek + durum/gövde sınıflaması; kesilen istek `throw` eder (çağıran yok sayar). */
-export async function fetchParsed<T>(url: string, parse: (body: unknown) => T | null, signal: AbortSignal): Promise<FetchResult<T>> {
+export async function fetchParsed<T>(
+  url: string,
+  parse: (body: unknown) => T | null,
+  signal: AbortSignal,
+  targetVehicleId?: string,
+): Promise<FetchResult<T>> {
   let response: Response;
   try {
-    response = await fetch(url, { signal, credentials: "same-origin" });
+    response = await fetch(url, {
+      signal,
+      credentials: "same-origin",
+      headers: targetVehicleId ? { "X-Target-Vehicle": targetVehicleId } : undefined,
+    });
   } catch (error) {
     if (signal.aborted) throw error;
     return { kind: "error" };
@@ -60,14 +69,27 @@ export async function fetchParsed<T>(url: string, parse: (body: unknown) => T | 
 export const cardClass =
   "flex flex-col gap-2 rounded-[var(--radius-card)] border border-[var(--color-divider)] bg-[var(--color-surface)] p-4 text-[var(--color-text)]";
 
-export function Problem({ unauthorized, onRetry }: { unauthorized: boolean; onRetry: () => void }) {
+/** Oturum bitince gidilecek giriş sayfası: destek (ekip) modunda yönetim girişi, aksi halde araç girişi. */
+export function reportLoginHref(targetVehicleId: string | undefined): string {
+  return targetVehicleId ? "/yonetim/giris" : "/giris";
+}
+
+export function Problem({
+  unauthorized,
+  onRetry,
+  targetVehicleId,
+}: {
+  unauthorized: boolean;
+  onRetry: () => void;
+  targetVehicleId?: string;
+}) {
   if (unauthorized) {
     return (
       <div className="flex flex-col gap-3">
         <p role="alert" className="text-base text-[var(--color-error)]">
           {COMMON_SCREEN_MESSAGES.sessionEnded}
         </p>
-        <Link href="/giris" className={`${secondaryButtonClass} inline-flex items-center`}>
+        <Link href={reportLoginHref(targetVehicleId)} className={`${secondaryButtonClass} inline-flex items-center`}>
           {REPORT_TEXT.loginAgain}
         </Link>
       </div>
@@ -96,10 +118,12 @@ interface PersonDetailProps {
   fullName: string;
   period: ReportPeriodKind;
   date: string;
+  /** Destek (ekip) modu: istekler `X-Target-Vehicle` taşır, kayıt bağlantıları yönetim sayfalarına gider. */
+  targetVehicleId?: string;
   onBack: () => void;
 }
 
-function PersonDetail({ personId, fullName, period, date, onBack }: PersonDetailProps) {
+function PersonDetail({ personId, fullName, period, date, targetVehicleId, onBack }: PersonDetailProps) {
   const [attempt, setAttempt] = useState(0);
   const [state, setState] = useState<DetailState>({ status: "loading" });
   const [loadingMore, setLoadingMore] = useState(false);
@@ -111,13 +135,13 @@ function PersonDetail({ personId, fullName, period, date, onBack }: PersonDetail
     void (async () => {
       let result: FetchResult<PersonPeriodReportData>;
       try {
-        result = await fetchParsed(buildPersonPeriodReportUrl(personId, period, date), parsePersonPeriodReport, controller.signal);
+        result = await fetchParsed(buildPersonPeriodReportUrl(personId, period, date), parsePersonPeriodReport, controller.signal, targetVehicleId);
       } catch {
         return; // kesildi: sonraki istek durumu belirler
       }
       if (controller.signal.aborted) return;
       if (result.kind === "ok") {
-        const view = personDetailView(result.value);
+        const view = personDetailView(result.value, targetVehicleId);
         setState({ status: "loaded", view, entries: view.entries, nextCursor: view.nextCursor });
       } else {
         setState({ status: result.kind === "unauthorized" ? "unauthorized" : "error" });
@@ -127,7 +151,7 @@ function PersonDetail({ personId, fullName, period, date, onBack }: PersonDetail
       controller.abort();
       moreControllerRef.current?.abort();
     };
-  }, [personId, period, date, attempt]);
+  }, [personId, period, date, targetVehicleId, attempt]);
 
   function retry(): void {
     setState({ status: "loading" });
@@ -144,7 +168,12 @@ function PersonDetail({ personId, fullName, period, date, onBack }: PersonDetail
     setMoreFailed(false);
     let result;
     try {
-      result = await fetchParsed(buildPersonPeriodReportUrl(personId, period, date, cursor), parsePersonPeriodReport, controller.signal);
+      result = await fetchParsed(
+        buildPersonPeriodReportUrl(personId, period, date, cursor),
+        parsePersonPeriodReport,
+        controller.signal,
+        targetVehicleId,
+      );
     } catch {
       return;
     }
@@ -154,7 +183,7 @@ function PersonDetail({ personId, fullName, period, date, onBack }: PersonDetail
       const page = result.value;
       setState((prev) =>
         prev.status === "loaded"
-          ? { ...prev, entries: [...prev.entries, ...page.entries.map(personEntryView)], nextCursor: page.nextCursor }
+          ? { ...prev, entries: [...prev.entries, ...page.entries.map((entry) => personEntryView(entry, targetVehicleId))], nextCursor: page.nextCursor }
           : prev,
       );
     } else if (result.kind === "unauthorized") {
@@ -177,7 +206,7 @@ function PersonDetail({ personId, fullName, period, date, onBack }: PersonDetail
         </p>
       )}
       {(state.status === "error" || state.status === "unauthorized") && (
-        <Problem unauthorized={state.status === "unauthorized"} onRetry={retry} />
+        <Problem unauthorized={state.status === "unauthorized"} onRetry={retry} targetVehicleId={targetVehicleId} />
       )}
 
       {state.status === "loaded" && (
@@ -237,7 +266,15 @@ type PeopleState =
   | { status: "error" }
   | { status: "unauthorized" };
 
-export function PeoplePeriodReport({ period, date }: { period: ReportPeriodKind; date: string }) {
+export function PeoplePeriodReport({
+  period,
+  date,
+  targetVehicleId,
+}: {
+  period: ReportPeriodKind;
+  date: string;
+  targetVehicleId?: string;
+}) {
   const [attempt, setAttempt] = useState(0);
   const [state, setState] = useState<PeopleState>({ status: "loading" });
   const [selected, setSelected] = useState<{ personId: string; fullName: string } | null>(null);
@@ -247,7 +284,7 @@ export function PeoplePeriodReport({ period, date }: { period: ReportPeriodKind;
     void (async () => {
       let result;
       try {
-        result = await fetchParsed(buildPeoplePeriodReportUrl(period, date), parsePeoplePeriodReport, controller.signal);
+        result = await fetchParsed(buildPeoplePeriodReportUrl(period, date), parsePeoplePeriodReport, controller.signal, targetVehicleId);
       } catch {
         return; // kesildi: sonraki istek durumu belirler
       }
@@ -259,7 +296,7 @@ export function PeoplePeriodReport({ period, date }: { period: ReportPeriodKind;
       );
     })();
     return () => controller.abort();
-  }, [period, date, attempt]);
+  }, [period, date, targetVehicleId, attempt]);
 
   function retry(): void {
     setState({ status: "loading" });
@@ -275,6 +312,7 @@ export function PeoplePeriodReport({ period, date }: { period: ReportPeriodKind;
           fullName={selected.fullName}
           period={period}
           date={date}
+          targetVehicleId={targetVehicleId}
           onBack={() => setSelected(null)}
         />
       ) : (
@@ -285,7 +323,7 @@ export function PeoplePeriodReport({ period, date }: { period: ReportPeriodKind;
             </p>
           )}
           {(state.status === "error" || state.status === "unauthorized") && (
-            <Problem unauthorized={state.status === "unauthorized"} onRetry={retry} />
+            <Problem unauthorized={state.status === "unauthorized"} onRetry={retry} targetVehicleId={targetVehicleId} />
           )}
           {state.status === "loaded" && state.view.isEmpty && (
             <p role="status" className="text-base text-[var(--color-text-secondary)]">

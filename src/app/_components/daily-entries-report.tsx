@@ -49,9 +49,11 @@ interface PersonOption {
 interface DailyEntriesReportProps {
   period: ReportPeriodKind;
   date: string;
+  /** Destek (ekip) modu: istekler `X-Target-Vehicle` taşır, kayıt bağlantıları yönetim sayfalarına gider. */
+  targetVehicleId?: string;
 }
 
-export function DailyEntriesReport({ period, date }: DailyEntriesReportProps) {
+export function DailyEntriesReport({ period, date, targetVehicleId }: DailyEntriesReportProps) {
   const [personId, setPersonId] = useState("");
   const [status, setStatus] = useState<DailyEntriesStatusFilter | "">("");
   const [attempt, setAttempt] = useState(0);
@@ -68,7 +70,12 @@ export function DailyEntriesReport({ period, date }: DailyEntriesReportProps) {
     const controller = new AbortController();
     void (async () => {
       try {
-        const result = await fetchParsed(buildPeoplePeriodReportUrl(period, date), parsePeoplePeriodReport, controller.signal);
+        const result = await fetchParsed(
+          buildPeoplePeriodReportUrl(period, date),
+          parsePeoplePeriodReport,
+          controller.signal,
+          targetVehicleId,
+        );
         if (controller.signal.aborted || result.kind !== "ok") return;
         setPeople(result.value.people.map((person) => ({ personId: person.personId, fullName: person.fullName })));
       } catch {
@@ -76,7 +83,7 @@ export function DailyEntriesReport({ period, date }: DailyEntriesReportProps) {
       }
     })();
     return () => controller.abort();
-  }, [period, date]);
+  }, [period, date, targetVehicleId]);
 
   // İlk sayfa: dönem/süzgeç/yeniden deneme değişince önceki istek ve bekleyen sonraki sayfa kesilir.
   useEffect(() => {
@@ -88,13 +95,18 @@ export function DailyEntriesReport({ period, date }: DailyEntriesReportProps) {
           buildDailyEntriesUrl(period, date, { personId: personId || undefined, status: status || undefined }),
           parseDailyEntriesPage,
           controller.signal,
+          targetVehicleId,
         );
       } catch {
         return; // kesildi: sonraki istek durumu belirler
       }
       if (controller.signal.aborted) return;
       if (result.kind === "ok") {
-        setList({ status: "loaded", cards: result.value.entries.map(dailyEntryCardView), nextCursor: result.value.nextCursor });
+        setList({
+          status: "loaded",
+          cards: result.value.entries.map((entry) => dailyEntryCardView(entry, targetVehicleId)),
+          nextCursor: result.value.nextCursor,
+        });
       } else {
         setList({ status: result.kind === "unauthorized" ? "unauthorized" : "error" });
       }
@@ -103,7 +115,7 @@ export function DailyEntriesReport({ period, date }: DailyEntriesReportProps) {
       controller.abort();
       moreControllerRef.current?.abort();
     };
-  }, [period, date, personId, status, attempt]);
+  }, [period, date, personId, status, targetVehicleId, attempt]);
 
   function changeFilter(apply: () => void): void {
     apply();
@@ -127,7 +139,12 @@ export function DailyEntriesReport({ period, date }: DailyEntriesReportProps) {
     setMoreFailed(false);
     let result;
     try {
-      result = await fetchParsed(buildDailyEntriesUrl(period, date, filters, cursor), parseDailyEntriesPage, controller.signal);
+      result = await fetchParsed(
+        buildDailyEntriesUrl(period, date, filters, cursor),
+        parseDailyEntriesPage,
+        controller.signal,
+        targetVehicleId,
+      );
     } catch {
       return;
     }
@@ -137,7 +154,7 @@ export function DailyEntriesReport({ period, date }: DailyEntriesReportProps) {
       const page: { entries: WorkEntryDetail[]; nextCursor: string | null } = result.value;
       setList((prev) =>
         prev.status === "loaded"
-          ? { status: "loaded", cards: [...prev.cards, ...page.entries.map(dailyEntryCardView)], nextCursor: page.nextCursor }
+          ? { status: "loaded", cards: [...prev.cards, ...page.entries.map((entry) => dailyEntryCardView(entry, targetVehicleId))], nextCursor: page.nextCursor }
           : prev,
       );
     } else if (result.kind === "unauthorized") {
@@ -195,7 +212,7 @@ export function DailyEntriesReport({ period, date }: DailyEntriesReportProps) {
         </p>
       )}
       {(list.status === "error" || list.status === "unauthorized") && (
-        <Problem unauthorized={list.status === "unauthorized"} onRetry={retry} />
+        <Problem unauthorized={list.status === "unauthorized"} onRetry={retry} targetVehicleId={targetVehicleId} />
       )}
       {list.status === "loaded" && list.cards.length === 0 && (
         <p role="status" className="text-base text-[var(--color-text-secondary)]">

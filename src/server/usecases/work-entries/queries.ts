@@ -205,6 +205,26 @@ export type ListWorkEntriesResult =
   | { ok: true; workEntries: WorkEntryView[]; nextCursor: string | null }
   | { ok: false; fields: Record<string, string> };
 
+/** Liste sorgusu (çalıştırılmaz): `listWorkEntriesForScope` onu `.all()` eder, sorgu planı testi/ölçümü aynı SQL'i `.toSQL()` ile alır. */
+export function buildWorkEntryListQuery(db: AppDatabase, scope: Scope, options: ListWorkEntriesOptions) {
+  const conditions: (SQL | undefined)[] = [entryScopeWhere(scope), driverVisibilityWhere(scope)];
+  if (options.workerPersonId) conditions.push(eq(workEntries.personId, options.workerPersonId));
+  if (options.period) {
+    conditions.push(gte(workEntries.workDate, options.period.startDate), lt(workEntries.workDate, options.period.nextStartDate));
+  }
+  if (options.status) conditions.push(eq(workEntries.status, options.status));
+  if (options.cursor !== undefined) {
+    const [workDate, id] = requireCursor(options.cursor, 2) as [string, string];
+    conditions.push(
+      or(lt(workEntries.workDate, workDate), and(eq(workEntries.workDate, workDate), lt(workEntries.id, id))),
+    );
+  }
+
+  return selectEntryRows(db, and(...conditions))
+    .orderBy(desc(workEntries.workDate), desc(workEntries.id))
+    .limit(options.limit + 1);
+}
+
 /**
  * `GET /work-entries` — en yeni gün önce (`work_date`, `id` azalan), keyset
  * sayfalama (`idx_work_entries_vehicle_period`). Şoför oturumu seçilebilir bir
@@ -224,23 +244,7 @@ export function listWorkEntriesForScope(
     }
   }
 
-  const conditions: (SQL | undefined)[] = [entryScopeWhere(scope), driverVisibilityWhere(scope)];
-  if (options.workerPersonId) conditions.push(eq(workEntries.personId, options.workerPersonId));
-  if (options.period) {
-    conditions.push(gte(workEntries.workDate, options.period.startDate), lt(workEntries.workDate, options.period.nextStartDate));
-  }
-  if (options.status) conditions.push(eq(workEntries.status, options.status));
-  if (options.cursor !== undefined) {
-    const [workDate, id] = requireCursor(options.cursor, 2) as [string, string];
-    conditions.push(
-      or(lt(workEntries.workDate, workDate), and(eq(workEntries.workDate, workDate), lt(workEntries.id, id))),
-    );
-  }
-
-  const rows = selectEntryRows(db, and(...conditions))
-    .orderBy(desc(workEntries.workDate), desc(workEntries.id))
-    .limit(options.limit + 1)
-    .all();
+  const rows = buildWorkEntryListQuery(db, scope, options).all();
   const page = rows.slice(0, options.limit);
   const last = page[page.length - 1];
   return {

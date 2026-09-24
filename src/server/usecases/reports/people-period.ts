@@ -53,14 +53,14 @@ export interface PersonPeriodReport {
   nextCursor: string | null;
 }
 
-const periodWhere = (scope: Scope, period: ReportPeriod): SQL | undefined =>
+export const periodWhere = (scope: Scope, period: ReportPeriod): SQL | undefined =>
   and(
     entryScopeWhere(scope),
     gte(workEntries.workDate, period.startDate),
     lt(workEntries.workDate, period.nextStartDate),
   );
 
-function selectPersonTotals(db: AppDatabase, where: SQL | undefined) {
+export function selectPersonTotals(db: AppDatabase, where: SQL | undefined) {
   return db
     .select({
       personId: workEntries.personId,
@@ -88,16 +88,53 @@ type TotalsRow = ReturnType<typeof selectPersonTotals> extends { all(): (infer R
 
 const toTotals = (row: TotalsRow): PersonPeriodTotals => ({ ...row, isOwner: row.isOwner === 1 });
 
+/** Kişi listesi sorgusu (çalıştırılmaz): sıralı kişi başına toplamlar. */
+export function selectPeoplePeriodTotals(db: AppDatabase, scope: Scope, period: ReportPeriod) {
+  return selectPersonTotals(db, periodWhere(scope, period)).orderBy(people.fullName, workEntries.personId);
+}
+
 export function readPeoplePeriodReportForScope(
   db: AppDatabase,
   scope: Scope,
   period: ReportPeriod,
 ): PeoplePeriodReport {
   requireEntryVehicleScope(scope);
-  const rows = selectPersonTotals(db, periodWhere(scope, period))
-    .orderBy(people.fullName, workEntries.personId)
-    .all();
+  const rows = selectPeoplePeriodTotals(db, scope, period).all();
   return { period, people: rows.map(toTotals) };
+}
+
+/** Kişi detayının kayıt sayfası sorgusu (çalıştırılmaz); en yeni gün önce, `limit + 1` satır. */
+export function selectPersonEntryPage(db: AppDatabase, where: SQL | undefined, limit: number) {
+  return db
+    .select({
+      id: workEntries.id,
+      workDate: workEntries.workDate,
+      startsAt: workEntries.startsAt,
+      endsAt: workEntries.endsAt,
+      durationMinutes: workEntries.durationMinutes,
+      grossCents: workEntries.grossCents,
+      shareCents: workEntries.shareCents,
+      remainderCents: workEntries.remainderCents,
+      status: workEntries.status,
+    })
+    .from(workEntries)
+    .where(where)
+    .orderBy(desc(workEntries.workDate), desc(workEntries.id))
+    .limit(limit + 1);
+}
+
+export const personPeriodWhere = (scope: Scope, period: ReportPeriod, personId: string): SQL | undefined =>
+  and(periodWhere(scope, period), eq(workEntries.personId, personId));
+
+export function personPageConditions(scope: Scope, period: ReportPeriod, personId: string, cursor?: string): (SQL | undefined)[] {
+  const conditions: (SQL | undefined)[] = [personPeriodWhere(scope, period, personId)];
+  if (cursor !== undefined) {
+    const [workDate, id] = requireCursor(cursor, 2) as [string, string];
+    conditions.push(
+      or(lt(workEntries.workDate, workDate), and(eq(workEntries.workDate, workDate), lt(workEntries.id, id))),
+    );
+  }
+  return conditions;
 }
 
 export interface PersonPeriodOptions {
@@ -118,35 +155,13 @@ export function readPersonPeriodReportForScope(
   options: PersonPeriodOptions,
 ): PersonPeriodReport | undefined {
   requireEntryVehicleScope(scope);
-  const personWhere = and(periodWhere(scope, period), eq(workEntries.personId, personId));
-  const pageConditions: (SQL | undefined)[] = [personWhere];
-  if (options.cursor !== undefined) {
-    const [workDate, id] = requireCursor(options.cursor, 2) as [string, string];
-    pageConditions.push(
-      or(lt(workEntries.workDate, workDate), and(eq(workEntries.workDate, workDate), lt(workEntries.id, id))),
-    );
-  }
+  const personWhere = personPeriodWhere(scope, period, personId);
+  const pageConditions = personPageConditions(scope, period, personId, options.cursor);
 
   return db.$client.transaction((): PersonPeriodReport | undefined => {
     const totals = selectPersonTotals(db, personWhere).get();
     if (!totals) return undefined;
-    const rows = db
-      .select({
-        id: workEntries.id,
-        workDate: workEntries.workDate,
-        startsAt: workEntries.startsAt,
-        endsAt: workEntries.endsAt,
-        durationMinutes: workEntries.durationMinutes,
-        grossCents: workEntries.grossCents,
-        shareCents: workEntries.shareCents,
-        remainderCents: workEntries.remainderCents,
-        status: workEntries.status,
-      })
-      .from(workEntries)
-      .where(and(...pageConditions))
-      .orderBy(desc(workEntries.workDate), desc(workEntries.id))
-      .limit(options.limit + 1)
-      .all();
+    const rows = selectPersonEntryPage(db, and(...pageConditions), options.limit).all();
     const page = rows.slice(0, options.limit);
     const last = page[page.length - 1];
     return {

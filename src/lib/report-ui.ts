@@ -387,7 +387,8 @@ export interface PersonDetailView {
   nextCursor: string | null;
 }
 
-export function personEntryView(entry: PersonPeriodEntryData): PersonEntryView {
+/** `targetVehicleId` verilirse (destek modu) kayıt bağlantısı yönetim sayfasına gider. */
+export function personEntryView(entry: PersonPeriodEntryData, targetVehicleId?: string): PersonEntryView {
   return {
     id: entry.id,
     dateText: formatWorkDate(entry.workDate),
@@ -396,11 +397,11 @@ export function personEntryView(entry: PersonPeriodEntryData): PersonEntryView {
     amounts: PEOPLE_TEXT.grossAndShare(formatTlAmount(entry.grossCents), formatTlAmount(entry.shareCents)),
     remainder: formatTlAmount(entry.remainderCents),
     statusText: deliveryStatusLabel(entry.status),
-    href: workEntryDetailHref("owner", entry.id, ""),
+    href: targetVehicleId ? workEntryDetailHref("staff", entry.id, targetVehicleId) : workEntryDetailHref("owner", entry.id, ""),
   };
 }
 
-export function personDetailView(report: PersonPeriodReportData): PersonDetailView {
+export function personDetailView(report: PersonPeriodReportData, targetVehicleId?: string): PersonDetailView {
   const { person } = report;
   return {
     summary: personSummary(person),
@@ -411,7 +412,7 @@ export function personDetailView(report: PersonPeriodReportData): PersonDetailVi
       { label: PEOPLE_TEXT.totals.share, value: formatTlAmount(person.shareCents) },
       { label: PEOPLE_TEXT.totals.remainder, value: formatTlAmount(person.remainderCents) },
     ],
-    entries: report.entries.map(personEntryView),
+    entries: report.entries.map((entry) => personEntryView(entry, targetVehicleId)),
     nextCursor: report.nextCursor,
   };
 }
@@ -460,7 +461,8 @@ export interface DailyEntryCardView {
   href: string;
 }
 
-export function dailyEntryCardView(entry: WorkEntryDetail): DailyEntryCardView {
+/** `targetVehicleId` verilirse (destek modu) kayıt bağlantısı yönetim sayfasına gider. */
+export function dailyEntryCardView(entry: WorkEntryDetail, targetVehicleId?: string): DailyEntryCardView {
   const delivery = deliveryStatusView(entry, "owner");
   const gross = parseApiCents(entry.grossCents);
   return {
@@ -473,7 +475,7 @@ export function dailyEntryCardView(entry: WorkEntryDetail): DailyEntryCardView {
     expectedText: delivery.expectedText,
     receivedText: delivery.confirmed?.receivedText ?? null,
     statusText: delivery.statusText,
-    href: workEntryDetailHref("owner", entry.id, ""),
+    href: targetVehicleId ? workEntryDetailHref("staff", entry.id, targetVehicleId) : workEntryDetailHref("owner", entry.id, ""),
   };
 }
 

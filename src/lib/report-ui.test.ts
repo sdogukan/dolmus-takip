@@ -345,6 +345,21 @@ describe("personDetailView", () => {
     expect(view.nextCursor).toBe("c1");
   });
 
+  it("destek modunda kayıt bağlantısı yönetim sayfasına gider; her satır aynı araç kimliğini taşır", () => {
+    const view = personDetailView(
+      parsePerson({ entries: [personEntry({ id: "e1" }), personEntry({ id: "e2" }), personEntry({ id: "e3" })] })!,
+      "v-1",
+    );
+    expect(view.entries.map((entry) => entry.href)).toEqual([
+      "/yonetim/araclar/v-1/kayitlar/e1",
+      "/yonetim/araclar/v-1/kayitlar/e2",
+      "/yonetim/araclar/v-1/kayitlar/e3",
+    ]);
+    // Araç kimliği verilmezse sahip bağlantıları (sıra numarası kimlik sayılmaz).
+    const owner = personDetailView(parsePerson({ entries: [personEntry({ id: "e1" }), personEntry({ id: "e2" })] })!);
+    expect(owner.entries.map((entry) => entry.href)).toEqual(["/sahip/kayitlar/e1", "/sahip/kayitlar/e2"]);
+  });
+
   it("eksi kalan eksi işaretiyle, 2^53 üstü hasılat kesin biçimlenir; yasak sözcük yok", () => {
     const view = personDetailView(
       parsePerson({
@@ -431,6 +446,11 @@ describe("dailyEntryCardView", () => {
       statusText: "Henüz doğrulanmadı",
       href: "/sahip/kayitlar/e1",
     });
+  });
+
+  it("destek modunda kayıt bağlantısı yönetim sayfasına gider", () => {
+    const page = parseDailyEntriesPage({ workEntries: [entryBody({})], nextCursor: null });
+    expect(dailyEntryCardView(page!.entries[0]!, "v-1").href).toBe("/yonetim/araclar/v-1/kayitlar/e1");
   });
 
   it("onaylı kayıt: alınan tutar onaydan gelir, beklenenin yerine geçmez", () => {

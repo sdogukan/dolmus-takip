@@ -50,7 +50,7 @@ interface SummaryQuery {
   date: string | undefined;
 }
 
-function PendingEntries({ period, date }: { period: ReportPeriodKind; date: string }) {
+function PendingEntries({ period, date, targetVehicleId }: { period: ReportPeriodKind; date: string; targetVehicleId?: string }) {
   const [attempt, setAttempt] = useState(0);
   const [list, setList] = useState<PendingState>({ status: "loading" });
   const [loadingMore, setLoadingMore] = useState(false);
@@ -62,13 +62,22 @@ function PendingEntries({ period, date }: { period: ReportPeriodKind; date: stri
     void (async () => {
       let result;
       try {
-        result = await fetchParsed(buildDailyEntriesUrl(period, date, { status: "pending" }), parseDailyEntriesPage, controller.signal);
+        result = await fetchParsed(
+          buildDailyEntriesUrl(period, date, { status: "pending" }),
+          parseDailyEntriesPage,
+          controller.signal,
+          targetVehicleId,
+        );
       } catch {
         return; // kesildi: sonraki istek durumu belirler
       }
       if (controller.signal.aborted) return;
       if (result.kind === "ok") {
-        setList({ status: "loaded", cards: result.value.entries.map(dailyEntryCardView), nextCursor: result.value.nextCursor });
+        setList({
+          status: "loaded",
+          cards: result.value.entries.map((entry) => dailyEntryCardView(entry, targetVehicleId)),
+          nextCursor: result.value.nextCursor,
+        });
       } else {
         setList({ status: result.kind === "unauthorized" ? "unauthorized" : "error" });
       }
@@ -77,7 +86,7 @@ function PendingEntries({ period, date }: { period: ReportPeriodKind; date: stri
       controller.abort();
       moreControllerRef.current?.abort();
     };
-  }, [period, date, attempt]);
+  }, [period, date, targetVehicleId, attempt]);
 
   function retry(): void {
     setList({ status: "loading" });
@@ -94,7 +103,12 @@ function PendingEntries({ period, date }: { period: ReportPeriodKind; date: stri
     setMoreFailed(false);
     let result;
     try {
-      result = await fetchParsed(buildDailyEntriesUrl(period, date, { status: "pending" }, cursor), parseDailyEntriesPage, controller.signal);
+      result = await fetchParsed(
+        buildDailyEntriesUrl(period, date, { status: "pending" }, cursor),
+        parseDailyEntriesPage,
+        controller.signal,
+        targetVehicleId,
+      );
     } catch {
       return;
     }
@@ -104,7 +118,7 @@ function PendingEntries({ period, date }: { period: ReportPeriodKind; date: stri
       const page = result.value;
       setList((prev) =>
         prev.status === "loaded"
-          ? { status: "loaded", cards: [...prev.cards, ...page.entries.map(dailyEntryCardView)], nextCursor: page.nextCursor }
+          ? { status: "loaded", cards: [...prev.cards, ...page.entries.map((entry) => dailyEntryCardView(entry, targetVehicleId))], nextCursor: page.nextCursor }
           : prev,
       );
     } else if (result.kind === "unauthorized") {
@@ -122,7 +136,7 @@ function PendingEntries({ period, date }: { period: ReportPeriodKind; date: stri
         </p>
       )}
       {(list.status === "error" || list.status === "unauthorized") && (
-        <Problem unauthorized={list.status === "unauthorized"} onRetry={retry} />
+        <Problem unauthorized={list.status === "unauthorized"} onRetry={retry} targetVehicleId={targetVehicleId} />
       )}
       {list.status === "loaded" && list.cards.length === 0 && (
         <p role="status" className="text-base text-[var(--color-text-secondary)]">
@@ -169,7 +183,8 @@ function PendingEntries({ period, date }: { period: ReportPeriodKind; date: stri
   );
 }
 
-export function OwnerSummary() {
+/** `targetVehicleId` verilirse destek (ekip) modu: istekler `X-Target-Vehicle` taşır, bağlantılar yönetim sayfalarına gider. */
+export function OwnerSummary({ targetVehicleId }: { targetVehicleId?: string } = {}) {
   const [query, setQuery] = useState<SummaryQuery>({ period: "month", date: undefined });
   const [attempt, setAttempt] = useState(0);
   const [state, setState] = useState<SummaryState>({ status: "loading" });
@@ -179,7 +194,7 @@ export function OwnerSummary() {
     void (async () => {
       let result;
       try {
-        result = await fetchParsed(buildOwnerSummaryUrl(query.period, query.date), parseOwnerSummary, controller.signal);
+        result = await fetchParsed(buildOwnerSummaryUrl(query.period, query.date), parseOwnerSummary, controller.signal, targetVehicleId);
       } catch {
         return; // kesildi: sonraki istek durumu belirler
       }
@@ -191,7 +206,7 @@ export function OwnerSummary() {
       );
     })();
     return () => controller.abort();
-  }, [query, attempt]);
+  }, [query, targetVehicleId, attempt]);
 
   // Geri-ileri önbelleğinden dönüş: sayfa bileşen durumuyla geri gelir; tutarlar yeniden okunur.
   useEffect(() => {
@@ -263,7 +278,7 @@ export function OwnerSummary() {
         </p>
       )}
       {(state.status === "error" || state.status === "unauthorized") && (
-        <Problem unauthorized={state.status === "unauthorized"} onRetry={retry} />
+        <Problem unauthorized={state.status === "unauthorized"} onRetry={retry} targetVehicleId={targetVehicleId} />
       )}
 
       {view && (
@@ -292,7 +307,12 @@ export function OwnerSummary() {
               </div>
               <div className="flex flex-col gap-3">
                 <h3 className="text-lg font-semibold text-[var(--color-text)]">{TEXT.pendingTitle(view.rangeText)}</h3>
-                <PendingEntries key={`${query.period}|${view.startDate}`} period={query.period} date={view.startDate} />
+                <PendingEntries
+                  key={`${query.period}|${view.startDate}`}
+                  period={query.period}
+                  date={view.startDate}
+                  targetVehicleId={targetVehicleId}
+                />
               </div>
             </>
           )}

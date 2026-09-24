@@ -311,7 +311,7 @@ describe("onaylı kaydı düzelt ve onayla (T4.3)", () => {
       ]);
     });
 
-    it("ekip düzeltmesi: GÜNCEL sürümün aktörü ekip kullanıcısıdır (önceki sahip onayı değil); sahip GET'i aynı, şoför GET'i actor null, kimlik sızmaz", async () => {
+    it("ekip düzeltmesi: GÜNCEL sürümün aktörü ekip kullanıcısıdır (önceki sahip onayı değil); sahip GET'i aynı, şoför GET'i yalnız tür, kimlik sızmaz", async () => {
       const id = await seedConfirmedEntry();
       const response = await correct(support, id, correctBody("x-actor", 2, "610000"), SEED_IDS.vehicleA1);
       expect(response.status).toBe(200);
@@ -324,7 +324,8 @@ describe("onaylı kaydı düzelt ve onayla (T4.3)", () => {
         confirmation: { receivedCents: "610000", entryVersion: 3, actor: { kind: "platform_user", username: SEED_USERNAMES.support } },
       });
       expect((await (await getOne(owner, id)).json()).workEntry.confirmation).toEqual(workEntry.confirmation);
-      expect((await (await getOne(driver, id)).json()).workEntry.confirmation).toMatchObject({ entryVersion: 3, actor: null });
+      expect((await (await getOne(driver, id)).json()).workEntry.confirmation).toMatchObject({ entryVersion: 3, actor: { kind: "platform_user" } });
+      expect((await (await getOne(driver, id)).json()).workEntry.confirmation.actor).toEqual({ kind: "platform_user" });
       const [confirmation] = rows("SELECT actor_session_id, actor_platform_user_id FROM cash_confirmations WHERE entry_version = 3");
       for (const value of Object.values(confirmation!)) expect(JSON.stringify(workEntry)).not.toContain(String(value));
 

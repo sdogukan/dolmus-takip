@@ -576,7 +576,7 @@ describe("work-entries okuma ve düzenleme (T3.5)", () => {
       expect((await getOne(owner, driverEntry)).status).toBe(200);
     });
 
-    it("onaylayan özeti: ekip onayı platform_user + kullanıcı adı, sahip onayı vehicle_credential; şoför görünümü actor null; listede de aynı", async () => {
+    it("onaylayan özeti: ekip onayı platform_user + kullanıcı adı, sahip onayı vehicle_credential; şoför görünümü yalnız tür (kullanıcı adı yok); listede de aynı", async () => {
       const staffId = await seedDriverEntry("c-actor-s");
       const confirmAs = (session: Session, id: string, requestId: string, targetVehicle?: string) =>
         confirmWorkEntryRoute(
@@ -606,15 +606,15 @@ describe("work-entries okuma ve düzenleme (T3.5)", () => {
       expect(ownerList.find((e) => e.id === ownerConfirmedId)!.confirmation!.actor).toEqual(ownerActor);
       expect(ownerList.find((e) => e.id === pendingId)!.confirmation).toBeNull();
 
-      // Şoför: ekip kullanıcı adı sızmaz (K1 listesi dahil).
-      expect((await (await getOne(driver, staffId)).json()).workEntry.confirmation.actor).toBeNull();
+      // Şoför: yalnız tür, ekip kullanıcı adı sızmaz (K1 listesi dahil).
+      expect((await (await getOne(driver, staffId)).json()).workEntry.confirmation.actor).toEqual({ kind: "platform_user" });
       const driverList = await getList(driver, `?workerPersonId=${SEED_IDS.driverA1a}`);
       expect(driverList.status).toBe(200);
       const driverBody = await driverList.json();
       expect(JSON.stringify(driverBody)).not.toContain(SEED_USERNAMES.admin);
-      for (const e of driverBody.workEntries as { confirmation: { actor: unknown } | null }[]) {
-        if (e.confirmation) expect(e.confirmation.actor).toBeNull();
-      }
+      const driverListed = driverBody.workEntries as { id: string; confirmation: { actor: unknown } | null }[];
+      expect(driverListed.find((e) => e.id === staffId)!.confirmation!.actor).toEqual({ kind: "platform_user" });
+      expect(driverListed.find((e) => e.id === ownerConfirmedId)!.confirmation!.actor).toEqual({ kind: "vehicle_credential" });
     });
 
     it("oturum yok: 401", async () => {

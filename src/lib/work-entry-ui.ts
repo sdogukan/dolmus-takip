@@ -392,8 +392,9 @@ export interface WorkEntryDetail {
   confirmation: WorkEntryConfirmation | null;
 }
 
-/** Onaylayan özeti; bilinmeyen/eksik biçim `null` (iz satırı gösterilmez, kayıt reddedilmez). */
-export type WorkEntryConfirmationActor = { kind: "vehicle_credential" } | { kind: "platform_user"; username: string };
+/** Onaylayan özeti; bilinmeyen/eksik biçim `null` (iz satırı gösterilmez, kayıt reddedilmez).
+ * Şoför oturumunda sunucu `username` göndermez; ayrıştırıcı bu biçimi `null` yapar (iz satırı yok). */
+export type WorkEntryConfirmationActor = { kind: "vehicle_credential" } | { kind: "platform_user"; username?: string };
 
 export interface WorkEntryConfirmation {
   receivedCents: string;

@@ -74,3 +74,72 @@ veya kullanıcı adı — `scripts/db-seed-dev.ts` test verisi, gerçek üretim
       biçiminde ayrı bir bulgu kaydına dönüştürüldü.
 - [ ] Bu listenin tamamlanma tarihi ve sonucu ilgili yayın/pilot kararının
       kanıt zincirine eklendi.
+
+# Günlük kayıt ve kayıt sonucu — manuel telefon kontrol listesi (S3.6)
+
+`docs/QA-PLAN.md` §5 "Manuel telefon kontrolü"nün günlük kayıt bölümüdür
+(şoför `/sofor`, sahip `/sahip/kayit/yeni`; ekip `/yonetim/araclar/<id>/kayit/yeni`
+yalnız 3. bölümde). Otomatik testler (`driver-daily-form.spec.ts`,
+`owner-staff-work-entry.spec.ts`) kopmayı ve uçak modunu SİMÜLE eder; burada
+gerçek cihaz, gerçek ağ ve gerçek ekran okuyucu denenir. Bu dosya bir kabul
+kanıtı DEĞİLDİR; yukarıdaki §1 ile aynı biçimde bulgu kaydına dönüştürülür
+ve süreler önceden başarı ilan edilmeden, ölçüldüğü gibi yazılır.
+
+**Ortam:** sürüm/commit: `______`  ·  tarih: `______`  ·  test cihazı:
+`______`  ·  tarayıcı/OS sürümü: `______`  ·  test kullanıcısı (plaka/rol —
+`scripts/db-seed-dev.ts` test verisi): `______`
+
+## 1. Süre ve yardım (Android Chrome ve iPhone Safari, her cihazda ayrı)
+
+Şoför olarak, ilk kez görmeyen biri değil, pilot kullanıcı profilinde biriyle:
+giriş yapıldıktan sonra günlük kayıt formu doldurulup "Kaydedildi" görülene
+kadar.
+
+- [ ] Süre (hedef 30–60 sn): `______` sn  ·  yardım alındı mı: `evet / hayır`
+- [ ] Yapılan hata sayısı ve türü (yanlış kişi, yanlış saat, virgül/nokta,
+      yanlış düğme...): `______`
+- [ ] Takıldığı adım ve neden: `______`  (ör. kişi seçimi, saat girişi,
+      tutar biçimi, "Kaydet"i bulma)
+- [ ] Kayıt sonucu ekranı okundu: kişi, plaka, gün, saat aralığı ve teslim
+      edilecek tutar kullanıcının sözüyle doğrulandı: `evet / hayır`
+- [ ] Ekranda "teslim ettim" veya "onaya gönder" gibi bir eylem
+      ARANDI mı / yanlışlıkla beklendi mi: `______`
+
+## 2. Bağlantı durumları (gerçek ağ)
+
+- [ ] Uçak modu açıkken "Kaydet": "Bağlantı yok. Henüz kaydedilmedi." görünür,
+      HİÇBİR alan silinmez; uçak modu kapanınca "Kaydet" tek kayıt yazar.
+- [ ] Kayıt sırasında bağlantıyı kes (gönderim başladıktan hemen sonra uçak
+      modu): "Kaydın sonucu kontrol ediliyor." görünür, alanlar kilitli,
+      "Başka bir çalışma kaydı gir" YOK. Bağlantı gelince kendiliğinden
+      "Kaydedildi" görünür veya "Sonucu şimdi kontrol et" ile görünür; sunucuda
+      (sahip ekranı / kayıt listesi) YALNIZ bir kayıt vardır.
+- [ ] Belirsiz sonuçta sayfayı kapatıp yeniden aç: sonuç kendiliğinden
+      kontrol edilir; ikinci kayıt oluşmaz.
+- [ ] Oturum bitince (ör. başka cihazdan çıkış) "Oturumun sona erdi. Yeniden
+      giriş yap." ve "Yeniden giriş yap" bağlantısı görünür; aynı plaka/şifreyle
+      girince bekleyen kayıt çözülür; başka araçla giriş yapılırsa önceki
+      aracın taslağı GÖRÜNMEZ.
+- [ ] "Yenile" ve "Kaydı aç" çalışır; bağlantı yokken "Yenile" anlaşılır
+      bir hata verir ve kayıt ekranı kaybolmaz.
+
+## 3. Dokunma, ekran ve erişilebilirlik
+
+- [ ] 320 px genişlikte (küçük telefon veya yakınlaştırma) form ve kayıt
+      sonucu yatay kaydırma OLMADAN okunur; çok uzun bir kişi adı ve büyük
+      bir tutarla da taşma yoktur.
+- [ ] Tüm düğme/bağlantı/alanlar parmakla rahat dokunulur (en az 48 px);
+      "Kaydet" belirgin biçimde daha büyüktür (en az 56 px).
+- [ ] "Kaydet"e gerçek çift dokunuşta YALNIZ bir kayıt oluşur.
+- [ ] Ekip hesabıyla (`/yonetim/araclar/<id>/kayit/yeni`) aynı kayıt
+      sonucu ve bağlantı durumları çalışır.
+- [ ] TalkBack (Android) ve VoiceOver (iPhone): "Kaydediliyor…" ve "Kaydın
+      sonucu kontrol ediliyor." OTOMATİK duyurulur; kayıt sonrası odak
+      "Kaydedildi"ye gider ve ardından kişi/plaka/saat/tutar sırayla okunur;
+      hata metinleri kendiliğinden duyurulur.
+
+## Sonuç ve kayıt
+
+- [ ] Bulunan her sapma `docs/QA-PLAN.md` §4 biçiminde ayrı bir bulgu kaydına
+      dönüştürüldü (süre hedefi aşıldıysa ve takılma adımı yazıldıysa dahil).
+- [ ] Tamamlanma tarihi ve sonucu ilgili pilot kararının kanıt zincirine eklendi.

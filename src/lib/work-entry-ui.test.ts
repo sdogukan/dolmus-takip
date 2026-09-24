@@ -4,11 +4,15 @@ import {
   buildWorkEntryBody,
   buildWorkEntryPatchBody,
   canEditEntry,
+  canResolveUnknown,
   classifyWorkEntryResponse,
   classifyWorkEntryUpdateResponse,
+  draftAfterCreated,
+  draftAfterRelease,
   editDraftFromEntry,
   editPersonOptions,
   emptyWorkEntryDraft,
+  formatWorkTimeRange,
   hasEarlierAttempt,
   isEditDraftDirty,
   isWorkEntryDraftDirty,
@@ -16,6 +20,7 @@ import {
   parseWorkEntryList,
   rebaseEditDraft,
   releaseEditDraft,
+  savedEntryFromDetail,
   selectableFromDriversResponse,
   shouldReleaseAfterError,
   shouldReleaseAfterUpdateError,
@@ -25,6 +30,7 @@ import {
   workEntryEditDraftName,
   workEntryEditDraftPrefix,
   workEntryErrorMessage,
+  workEntryLoginHref,
   type WorkEntryDetail,
   type WorkEntryDraft,
 } from "./work-entry-ui";
@@ -195,6 +201,8 @@ const createdBody = (overrides: Record<string, unknown> = {}) => ({
     status: "pending",
     workKind: "driver",
     workDate: "2026-09-14",
+    startsAt: "2026-09-14T05:00:00.000Z",
+    endsAt: "2026-09-14T14:30:00.000Z",
     durationMinutes: 570,
     shareCents: "200000",
     remainderCents: "620000",
@@ -212,6 +220,8 @@ describe("classifyWorkEntryResponse", () => {
         status: "pending",
         workKind: "driver",
         workDate: "2026-09-14",
+        startsAt: "2026-09-14T05:00:00.000Z",
+        endsAt: "2026-09-14T14:30:00.000Z",
         durationMinutes: 570,
         remainderCents: "620000",
         shareCents: "200000",
@@ -242,6 +252,13 @@ describe("classifyWorkEntryResponse", () => {
       kind: "ambiguous",
     });
     expect(classifyWorkEntryResponse({ status: 201, body: null })).toEqual({ kind: "ambiguous" });
+    // Sonuç ekranı saat aralığını gösterir: saatsiz 201 kaydedildi SAYILMAZ.
+    expect(classifyWorkEntryResponse({ status: 201, body: createdBody({ startsAt: undefined }) })).toEqual({
+      kind: "ambiguous",
+    });
+    expect(classifyWorkEntryResponse({ status: 201, body: createdBody({ endsAt: 5 }) })).toEqual({
+      kind: "ambiguous",
+    });
   });
 
   it("4xx kesindir: kod ve yalnız metin alan hataları taşınır", () => {
@@ -645,5 +662,123 @@ describe("parseWorkEntryList / buildWorkEntriesUrl", () => {
   it("adres kişiyi ve imleci kodlar", () => {
     expect(buildWorkEntriesUrl("p 1")).toBe("/api/v1/work-entries?workerPersonId=p+1");
     expect(buildWorkEntriesUrl("p1", "a/b")).toBe("/api/v1/work-entries?workerPersonId=p1&cursor=a%2Fb");
+  });
+});
+
+describe("formatWorkTimeRange", () => {
+  it("İstanbul duvar saatiyle HH:MM–HH:MM verir", () => {
+    expect(formatWorkTimeRange("2026-09-14T05:00:00.000Z", "2026-09-14T14:30:00.000Z")).toBe("08:00–17:30");
+  });
+
+  it("bitiş ertesi güne düşüyorsa '(ertesi gün)' ekler; gece yarısı sınırı İstanbul saatine göre", () => {
+    expect(formatWorkTimeRange("2026-09-14T19:00:00.000Z", "2026-09-15T03:00:00.000Z")).toBe(
+      "22:00–06:00 (ertesi gün)",
+    );
+    // UTC'de aynı gün (20:30Z–21:30Z), İstanbul'da ertesi güne taşar (23:30–00:30).
+    expect(formatWorkTimeRange("2026-09-14T20:30:00.000Z", "2026-09-14T21:30:00.000Z")).toBe("23:30–00:30 (ertesi gün)");
+  });
+});
+
+describe("savedEntryFromDetail", () => {
+  it("Yenile ile okunan kaydı sonuç ekranı verisine çevirir (onaylanmış durum dahil)", () => {
+    const detail = parseWorkEntryDetail({
+      id: "e-9",
+      version: 3,
+      status: "confirmed",
+      workKind: "driver",
+      workDate: "2026-09-14",
+      startsAt: "2026-09-14T05:00:00.000Z",
+      endsAt: "2026-09-14T14:30:00.000Z",
+      durationMinutes: 570,
+      grossCents: "1000000",
+      fuelCents: "150000",
+      otherExpenseCents: "0",
+      shareCents: "200000",
+      remainderCents: "620000",
+      otherExpenseNote: null,
+      person: { id: "p-1", fullName: "Hüseyin Ak" },
+    });
+    expect(detail).not.toBeNull();
+    expect(savedEntryFromDetail(detail!)).toEqual({
+      id: "e-9",
+      status: "confirmed",
+      workKind: "driver",
+      workDate: "2026-09-14",
+      startsAt: "2026-09-14T05:00:00.000Z",
+      endsAt: "2026-09-14T14:30:00.000Z",
+      durationMinutes: 570,
+      remainderCents: "620000",
+      shareCents: "200000",
+      personName: "Hüseyin Ak",
+    });
+  });
+});
+
+describe("canResolveUnknown", () => {
+  const unknown = { pending: true, frozenBody: '{"requestId":"r"}', attemptSent: true };
+  const ready = { online: true, disabled: false };
+
+  it("dondurulmuş gövdesi olan, daha önce ulaşmış olabilecek bekleyen taslak çevrimiçiyken çözülür", () => {
+    expect(canResolveUnknown(unknown, ready)).toBe(true);
+  });
+
+  it("çevrimdışıyken hiçbir şey yollanmaz", () => {
+    expect(canResolveUnknown(unknown, { online: false, disabled: false })).toBe(false);
+  });
+
+  it("kilitli (pasif hedef) formda çözülmez", () => {
+    expect(canResolveUnknown(unknown, { online: true, disabled: true })).toBe(false);
+  });
+
+  it("bekleyen olmayan veya gövdesi olmayan taslak çözülmez", () => {
+    expect(canResolveUnknown({ ...unknown, pending: false }, ready)).toBe(false);
+    expect(canResolveUnknown({ ...unknown, frozenBody: null }, ready)).toBe(false);
+  });
+
+  it("denemesi işaretlenmemiş bekleyen taslak otomatik çözülmez", () => {
+    expect(canResolveUnknown({ ...unknown, attemptSent: false }, ready)).toBe(false);
+  });
+});
+
+describe("draftAfterCreated / draftAfterRelease (bayat sekme koruması)", () => {
+  const fresh = () => emptyWorkEntryDraft("2026-09-14", () => "new-id");
+  const pendingDraft: WorkEntryDraft = {
+    ...emptyWorkEntryDraft("2026-09-14", () => "req-1"),
+    pending: true,
+    frozenBody: "{}",
+    attemptSent: true,
+  };
+
+  it("çözülen istek taslağın kendisiyse oluşumda taslak boşalır", () => {
+    expect(draftAfterCreated(pendingDraft, "req-1", fresh)).toEqual(fresh());
+  });
+
+  it("taslak başka bir isteğe ilerlemişse (öbür sekme çözdü) yeni taslak silinmez", () => {
+    const next = { ...fresh(), requestId: "req-2", grossText: "500" };
+    expect(draftAfterCreated(next, "req-1", fresh)).toBe(next);
+  });
+
+  it("kesin hatada aynı istek serbest bırakılır: yeni requestId, alanlar korunur", () => {
+    const released = draftAfterRelease({ ...pendingDraft, grossText: "10" }, "req-1", "req-9");
+    expect(released).toMatchObject({
+      requestId: "req-9",
+      pending: false,
+      frozenBody: null,
+      attemptSent: false,
+      grossText: "10",
+    });
+  });
+
+  it("başka isteğe ait taslak serbest bırakılmaz", () => {
+    const other = { ...fresh(), requestId: "req-2", grossText: "5" };
+    expect(draftAfterRelease(other, "req-1", "req-9")).toBe(other);
+  });
+});
+
+describe("workEntryLoginHref", () => {
+  it("sabit iç yol: araç rolleri /giris, ekip /yonetim/giris; parametre taşımaz", () => {
+    expect(workEntryLoginHref("driver")).toBe("/giris");
+    expect(workEntryLoginHref("owner")).toBe("/giris");
+    expect(workEntryLoginHref("staff")).toBe("/yonetim/giris");
   });
 });

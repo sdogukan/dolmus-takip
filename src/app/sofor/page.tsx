@@ -59,6 +59,7 @@ export default async function SoforPage() {
       <h1 className="text-2xl font-semibold text-[var(--color-text)]">Günlük kayıt</h1>
       <WorkEntryForm
         today={istanbulToday()}
+        plate={plate ?? "—"}
         vehicleId={context.vehicleId}
         scopeKey={computeScopeKey(context)}
         csrfToken={context.csrfToken}

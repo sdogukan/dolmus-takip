@@ -4,7 +4,7 @@ import { redirect } from "next/navigation";
 import { getAppDb } from "../../server/data/app-db";
 import { readPageSession } from "../../server/auth/page-session";
 import { readVehiclePlateForDisplay } from "../../server/auth/vehicle-plate";
-import { WORK_ENTRY_MESSAGES } from "../../lib/messages";
+import { REPORT_MESSAGES, WORK_ENTRY_MESSAGES } from "../../lib/messages";
 import { VehiclePageHeader } from "../_components/vehicle-page-header";
 
 /**
@@ -77,6 +77,12 @@ export default async function SahipPage() {
           className="inline-flex min-h-[var(--control-min-height)] items-center rounded-[var(--radius-control)] border border-[var(--color-input-border)] px-4 text-base font-medium text-[var(--color-text)]"
         >
           Şoförlerim
+        </Link>
+        <Link
+          href="/sahip/raporlar"
+          className="inline-flex min-h-[var(--control-min-height)] items-center rounded-[var(--radius-control)] border border-[var(--color-input-border)] px-4 text-base font-medium text-[var(--color-text)]"
+        >
+          {REPORT_MESSAGES.link}
         </Link>
       </nav>
     </main>

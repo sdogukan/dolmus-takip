@@ -305,6 +305,38 @@ export const COMMON_SCREEN_MESSAGES = {
   unauthorizedOrInactiveAccess: "Bu işlem için erişimin yok.",
 } as const;
 
+/** S5.x — sahip raporları ekranı (`../app/_components/vehicle-period-report.tsx`,
+ * görünüm: `./report-ui.ts`). "Hesaplanan kalan" ve "Teslim alınan" açıklamaları
+ * DESIGN "Raporlar — notes": kâr veya eldeki para gibi okunmaz. */
+export const REPORT_MESSAGES = {
+  title: "Raporlar",
+  link: "Raporlar",
+  periodTabsLabel: "Dönem",
+  periodTabs: { week: "Bu hafta", month: "Bu ay", year: "Bu yıl" },
+  previous: "← Önceki",
+  previousLabel: "Önceki dönem",
+  next: "Sonraki →",
+  nextLabel: "Sonraki dönem",
+  loading: "Rapor yükleniyor…",
+  retry: "Tekrar dene",
+  loginAgain: "Giriş sayfasına git",
+  remainderLabel: "Hesaplanan kalan",
+  remainderHelp: "Girilen masraflar ve şoför payı düşüldükten sonra kalan tutar.",
+  receivedLabel: "Teslim alınan (onaylı)",
+  receivedHelp: "Yalnız onaylanmış şoför teslimlerinin toplamı.",
+  breakdownSummary: "Hesap dökümünü gör",
+  breakdown: {
+    gross: "Hasılat",
+    fuel: "Mazot",
+    otherExpense: "Diğer masraf",
+    share: "Şoför payı",
+    duration: "Toplam süre",
+    workDays: "Çalışılan gün",
+    entryCount: "Kayıt sayısı",
+  },
+  dayCount: (days: number): string => `${days} gün`,
+} as const;
+
 /** T2.4 — şoför yönetimi 422 `fields` metinleri (`../app/api/v1/drivers/_http.ts`
  * ve `../server/usecases/drivers/**`). */
 export const DRIVER_FIELD_MESSAGES = {

@@ -793,6 +793,112 @@ export function confirmErrorNeedsReread(outcome: { status: number; code?: string
   return updateErrorNeedsReread(outcome);
 }
 
+/**
+ * Onaylı kaydı düzelt ve onayla (T4.3 istemcisi) — SAF yardımcılar. Düzeltme
+ * taslağı düzenleme ve onay taslaklarından AYRI saklanır (adı yine
+ * `workEntryEditDraftPrefix` ile başlar: kapsam süpürmesi onu da siler). Alanlar
+ * kaydın güncel değerleridir; `receivedText` güncel ONAYIN tutarıyla başlar ve
+ * hasılat/gider değişince ASLA yeni beklenen teslime kaymaz (ilk onaydaki
+ * `receivedPrefill`den farkı budur). Gövde ilk gönderimden ÖNCE `frozenBody`
+ * olarak dondurulur; belirsiz sonuçta aynı `requestId` + bu metin BAYTI BAYTINA
+ * yeniden yollanır.
+ */
+export function workEntryCorrectDraftName(vehicleId: string, entryId: string): string {
+  return `${workEntryEditDraftPrefix(vehicleId)}${entryId}-duzelt`;
+}
+
+export interface WorkEntryCorrectDraft extends WorkEntryEditDraft {
+  /** "Aldığım tutar (TL)" alanı; güncel onayın alınan tutarıyla başlar. */
+  receivedText: string;
+}
+
+/** Sunucudaki onaylı kayıttan TEMİZ taslak; alınan tutar `confirmation.receivedCents`tir, kalan değil. */
+export function correctDraftFromEntry(entry: WorkEntryDetail, newId: () => string): WorkEntryCorrectDraft {
+  return {
+    ...editDraftFromEntry(entry, newId),
+    receivedText: entry.confirmation ? centsToInputText(entry.confirmation.receivedCents) : "",
+  };
+}
+
+/** Kullanıcının kayıttan/onaydan farklı bir değeri (veya sonucu belirsiz bir gönderimi) var mı. */
+export function isCorrectDraftDirty(draft: WorkEntryCorrectDraft, entry: WorkEntryDetail): boolean {
+  if (draft.pending) return true;
+  const base = correctDraftFromEntry(entry, () => draft.requestId);
+  return isEditDraftDirty(draft, entry) || draft.receivedText.trim() !== base.receivedText;
+}
+
+/** Belirsiz/kesin sonuçtan sonra formu serbest bırakır: yeni `requestId`, alan değerleri korunur. */
+export function releaseCorrectDraft(draft: WorkEntryCorrectDraft, newId: () => string): WorkEntryCorrectDraft {
+  return { ...draft, pending: false, frozenBody: null, attemptSent: false, requestId: newId() };
+}
+
+/** Kullanıcı güncel değerleri gördükten sonra kendi değerleriyle sürer: taslak güncel sürüme bağlanır. */
+export function rebaseCorrectDraft(
+  draft: WorkEntryCorrectDraft,
+  currentVersion: number,
+  newId: () => string,
+): WorkEntryCorrectDraft {
+  return { ...releaseCorrectDraft(draft, newId), baseVersion: currentVersion };
+}
+
+export interface WorkEntryCorrectBody extends WorkEntryPatchBody {
+  receivedCents: string;
+}
+
+/**
+ * Taslaktan düzelt-ve-onayla gövdesi (şoför kaydı): PATCH gövdesi + AÇIK
+ * `receivedCents`. Tür/işletme/rol/pay/durum alanları gövdeye ASLA konmaz.
+ * Geçersiz tutar (alınan dahil) → `null`.
+ */
+export function buildWorkEntryCorrectBody(draft: WorkEntryCorrectDraft): WorkEntryCorrectBody | null {
+  const patch = buildWorkEntryPatchBody(draft, "driver");
+  const received = parseTlAmount(draft.receivedText);
+  if (!patch || !received.ok) return null;
+  return { ...patch, receivedCents: centsToApiString(received.cents) };
+}
+
+export type WorkEntryCorrectOutcome =
+  | { kind: "corrected"; entry: WorkEntryDetail }
+  | { kind: "ambiguous" }
+  | { kind: "error"; status: number; code?: string; fields: Record<string, string> };
+
+/**
+ * Düzeltme yanıtını sınıflar. Başarı YALNIZ onaylı durumlu, onayı dolu ve onayı
+ * kaydın GÜNCEL sürümüne ait (`confirmation.entryVersion === version`) bir
+ * 200'den gelir; ağ hatası, okunamayan gövde, 5xx ve beklenmeyen 200 belirsizdir.
+ */
+export function classifyWorkEntryCorrectResponse(
+  response: { status: number; body: unknown } | null,
+): WorkEntryCorrectOutcome {
+  const outcome = classifyWorkEntryUpdateResponse(response);
+  if (outcome.kind !== "saved") return outcome;
+  const { entry } = outcome;
+  if (entry.status !== "confirmed" || entry.confirmation === null || entry.confirmation.entryVersion !== entry.version) {
+    return { kind: "ambiguous" };
+  }
+  return { kind: "corrected", entry };
+}
+
+/**
+ * Sunucu makbuz aramasını kayıt/sürüm denetiminden ÖNCE yapar; bu yüzden 422,
+ * 409 VERSION_CONFLICT ve 409 ENTRY_NOT_CONFIRMED bu `requestId` altında hiçbir
+ * şey yazılmadığını kanıtlar — düzenlemeyle aynı kural.
+ */
+export function shouldReleaseAfterCorrectError(
+  outcome: { status: number; code?: string },
+  earlierAttempt: boolean,
+): boolean {
+  return (
+    shouldReleaseAfterUpdateError(outcome, earlierAttempt) ||
+    (outcome.status === 409 && outcome.code === "ENTRY_NOT_CONFIRMED")
+  );
+}
+
+/** Sürüm çakışması veya kayıt artık onaylı değil: güncel kayıt yeniden okunmalı. */
+export function correctErrorNeedsReread(outcome: { status: number; code?: string }): boolean {
+  return outcome.status === 409 && (outcome.code === "VERSION_CONFLICT" || outcome.code === "ENTRY_NOT_CONFIRMED");
+}
+
 export interface EditPersonOption {
   personId: string;
   label: string;

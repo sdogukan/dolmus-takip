@@ -8,6 +8,9 @@
  * şoför kaydında kişi değiştirilebilir. Onaylı kayıt ve şoför için bugün
  * dışındaki/doğrulanmış kayıt salt okunurdur; asıl karar sunucudadır.
  *
+ * Onaylı şoför kaydını sahip `WorkEntryCorrectForm` ile düzeltir (T4.3); şoför ve
+ * ekip görünümlerinde onaylı kayıt salt okunur kalır.
+ *
  * Taslak (`kayit-duzenle-<araç>-<kayıt>`) oluşturma taslağından AYRIDIR ve
  * dayandığı sürümü (`baseVersion`) taşır: PATCH taslağın sürümünü yollar, o an
  * okunan taze sürümü DEĞİL. Taslağın sürümü kayıttan farklıysa (başka sekme/cihaz
@@ -63,6 +66,7 @@ import { evaluateWorkTime, formatDuration, formatWorkDate, istanbulWallClock } f
 import { ConfirmDialog } from "./confirm-dialog";
 import { useUnsavedChanges } from "./unsaved-changes";
 import { WorkEntryConfirmPanel } from "./work-entry-confirm-panel";
+import { WorkEntryCorrectForm } from "./work-entry-correct-form";
 import {
   amountInputProps,
   computeSummary,
@@ -499,9 +503,13 @@ export function WorkEntryEditForm({
         ? TEXT.ownerShareLabel
         : TEXT.onBehalfShareLabel;
   const remainderLabel = entry.workKind === "owner" ? TEXT.ownerRemainderLabel : TEXT.remainderLabel;
+  // Sahip onaylı şoför kaydını "Kaydı düzenle" ile düzeltebilir; salt okunur notu yalnız düzeltilemeyen onaylı kayıtta görünür.
+  const correctable = ownerView && !disabled && entry.status === "confirmed" && entry.confirmation !== null;
   const readOnlyNote =
     entry.status === "confirmed"
-      ? getErrorMessage("ENTRY_CONFIRMED")
+      ? correctable
+        ? undefined
+        : getErrorMessage("ENTRY_CONFIRMED")
       : mode === "driver"
         ? TEXT.driverEditWindow
         : undefined;
@@ -585,6 +593,17 @@ export function WorkEntryEditForm({
             </section>
           )}
         </div>
+      )}
+
+      {correctable && (
+        <WorkEntryCorrectForm
+          entry={entry}
+          vehicleId={vehicleId}
+          scopeKey={scopeKey}
+          csrfToken={csrfToken}
+          onEntry={adoptEntry}
+          onReread={rereadForConfirm}
+        />
       )}
 
       {editable && !editVisible && (

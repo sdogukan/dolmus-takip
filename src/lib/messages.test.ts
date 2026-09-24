@@ -151,4 +151,14 @@ describe("messages", () => {
       expect(text).not.toMatch(/Ödenmedi|Borç/i);
     }
   });
+
+  it("T4.3 — düzelt ve onayla metinleri sabittir; başarı metni ortak ekran metnidir", () => {
+    expect(WORK_ENTRY_MESSAGES.correctTitle).toBe("Onaylanmış kaydı düzelt");
+    expect(WORK_ENTRY_MESSAGES.newExpectedLabel).toBe("Yeni beklenen teslim");
+    expect(WORK_ENTRY_MESSAGES.correctSubmit).toBe("Düzelt ve onayla");
+    expect(WORK_ENTRY_MESSAGES.correctCancel).toBe("Vazgeç");
+    expect(WORK_ENTRY_MESSAGES.editTitle).toBe("Kaydı düzenle");
+    expect(WORK_ENTRY_MESSAGES.correctUnknownResult).not.toMatch(/Henüz kaydedilmedi/);
+    expect(COMMON_SCREEN_MESSAGES.correctedAndConfirmed).toBe("Kayıt düzeltildi ve onaylandı.");
+  });
 });

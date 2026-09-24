@@ -392,10 +392,24 @@ export interface WorkEntryDetail {
   confirmation: WorkEntryConfirmation | null;
 }
 
+/** Onaylayan özeti; bilinmeyen/eksik biçim `null` (iz satırı gösterilmez, kayıt reddedilmez). */
+export type WorkEntryConfirmationActor = { kind: "vehicle_credential" } | { kind: "platform_user"; username: string };
+
 export interface WorkEntryConfirmation {
   receivedCents: string;
   confirmedAt: string;
   entryVersion: number;
+  actor: WorkEntryConfirmationActor | null;
+}
+
+function parseConfirmationActor(value: unknown): WorkEntryConfirmationActor | null {
+  const actor = value as Record<string, unknown> | null | undefined;
+  if (typeof actor !== "object" || actor === null) return null;
+  if (actor.kind === "vehicle_credential") return { kind: "vehicle_credential" };
+  if (actor.kind === "platform_user" && typeof actor.username === "string" && actor.username !== "") {
+    return { kind: "platform_user", username: actor.username };
+  }
+  return null;
 }
 
 const CENT_KEYS = ["grossCents", "fuelCents", "otherExpenseCents", "shareCents"] as const;
@@ -418,6 +432,7 @@ function parseConfirmation(value: unknown): WorkEntryConfirmation | null | undef
     receivedCents: confirmation.receivedCents,
     confirmedAt: confirmation.confirmedAt,
     entryVersion: confirmation.entryVersion,
+    actor: parseConfirmationActor(confirmation.actor),
   };
 }
 

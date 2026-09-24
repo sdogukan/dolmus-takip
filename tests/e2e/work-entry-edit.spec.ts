@@ -773,7 +773,7 @@ test.describe("Sahip kayıt düzenleme (/sahip/kayitlar/:id)", () => {
     expect((await response.json()).workEntry.version).toBe(3);
   });
 
-  test("düzelt ve onayla: şoför ve ekip görünümünde onaylı kayıtta düzeltme kontrolü çıkmaz", async ({
+  test("düzelt ve onayla: şoför görünümünde onaylı kayıtta düzeltme kontrolü çıkmaz; ekip tek 'Düzelt ve onayla' görür", async ({
     page,
     browser,
   }, testInfo) => {
@@ -795,9 +795,109 @@ test.describe("Sahip kayıt düzenleme (/sahip/kayitlar/:id)", () => {
     await loginAsAdmin(staff);
     await staff.goto(`/yonetim/araclar/${SEED_IDS.vehicleA1}/kayitlar/${entryId}`);
     await staff.waitForLoadState("networkidle");
-    await expect(staff.getByText("Bu kayıt onaylanmış; buradan düzenlenemez.")).toBeVisible();
-    await expect(staff.getByRole("button", { name: "Kaydı düzenle", exact: true })).toHaveCount(0);
-    await expect(staff.getByRole("button", { name: CORRECT })).toHaveCount(0);
+    await expect(staff.getByText("Bu kayıt onaylanmış; buradan düzenlenemez.")).toHaveCount(0);
+    await openCorrectForm(staff);
+    await expect(staff.getByRole("button", { name: CORRECT })).toHaveCount(1);
+    await expect(staff.getByLabel("Sahip adına alınan tutar")).toBeVisible();
+    await expect(staff.getByText("Aldığım tutar")).toHaveCount(0);
+  });
+
+  test("ekip sahip adına teslimi onaylar: X-Target-Vehicle + CSRF, tek POST, tutarlar değişmez, iz sahip ve geçmiş sayfalarında; sonra ekip düzeltip onaylar", async ({
+    page,
+    browser,
+  }, testInfo) => {
+    await login(page, SEED_RAW_PLATES.vehicleA1, SEED_TEST_PASSWORDS.owner, "/sahip");
+    await createOwnerEntry(page, { date: "2026-06-26", kind: "driver" });
+    const entryId = page.url().split("/").pop()!;
+    const trace = `Sahip adına platform desteği · ${SEED_USERNAMES.admin}`;
+
+    const staff = await (await browser.newContext({ baseURL: testInfo.project.use.baseURL })).newPage();
+    await loginAsAdmin(staff);
+    await staff.goto(`/yonetim/araclar/${SEED_IDS.vehicleA1}/kayitlar/${entryId}`);
+    await staff.waitForLoadState("networkidle");
+    await expect(staff.getByText("Destek: İşletme A")).toBeVisible();
+    await expect(staff.getByText(`İşlemi yapan: ${SEED_USERNAMES.admin}`)).toBeVisible();
+    await expect(detailRow(staff, "Hasılat")).toContainText("10.000,00 TL");
+    await expect(staff.getByLabel("Sahip adına alınan tutar")).toBeVisible();
+    await expect(staff.getByText("Aldığım tutar")).toHaveCount(0);
+    await expect(staff.getByText("Parayı aldım")).toHaveCount(0);
+
+    const requests: Array<{ url: string; target: string | undefined; csrf: string | undefined; body: string }> = [];
+    staff.on("request", (request) => {
+      if (request.method() === "POST" && request.url().includes("/confirm")) {
+        requests.push({
+          url: request.url(),
+          target: request.headers()["x-target-vehicle"],
+          csrf: request.headers()["x-csrf-token"],
+          body: request.postData() ?? "",
+        });
+      }
+    });
+    await staff.getByLabel("Sahip adına alınan tutar").fill("6.000");
+    await staff.getByRole("button", { name: "Sahip adına teslimi onayla" }).click();
+    await expect(staff.getByText(trace)).toBeVisible();
+    expect(requests).toHaveLength(1);
+    expect(requests[0]!.url).toContain(`/api/v1/work-entries/${entryId}/confirm`);
+    expect(requests[0]!.target).toBe(SEED_IDS.vehicleA1);
+    expect(requests[0]!.csrf).toBeTruthy();
+    expect(JSON.parse(requests[0]!.body)).toMatchObject({ receivedCents: "600000" });
+    await expect(staff.getByText("Alınan tutar", { exact: true })).toBeVisible();
+    await expect(staff.locator("section", { hasText: "Alınan tutar" }).first()).toContainText("6.000,00 TL");
+    await expect(detailRow(staff, "Hasılat")).toContainText("10.000,00 TL");
+    await expect(detailRow(staff, "Şoför payı")).toContainText("2.000,00 TL");
+    await expect(detailRow(staff, "Teslim edilecek tutar")).toContainText("6.200,00 TL");
+
+    // İz sahip sayfasında ve iki geçmiş sayfasında aynı metindir.
+    await page.goto(`/sahip/kayitlar/${entryId}`);
+    await page.waitForLoadState("networkidle");
+    await expect(page.getByText(trace)).toBeVisible();
+    await page.goto(`/sahip/kayitlar/${entryId}/gecmis`);
+    await expect(page.getByText(trace)).toBeVisible();
+    await staff.goto(`/yonetim/araclar/${SEED_IDS.vehicleA1}/kayitlar/${entryId}/gecmis`);
+    await expect(staff.getByText(trace)).toBeVisible();
+
+    // Onaylı kayıtta ekip tek "Düzelt ve onayla" ile düzeltir; istek hedef araçla gider.
+    await staff.goto(`/yonetim/araclar/${SEED_IDS.vehicleA1}/kayitlar/${entryId}`);
+    await staff.waitForLoadState("networkidle");
+    const corrects = captureCorrects(staff);
+    const targets: Array<string | undefined> = [];
+    staff.on("request", (request) => {
+      if (request.method() === "POST" && request.url().includes("/correct-and-confirm")) {
+        targets.push(request.headers()["x-target-vehicle"]);
+      }
+    });
+    await openCorrectForm(staff);
+    await staff.getByLabel("Sahip adına alınan tutar").fill("6.100");
+    await staff.getByRole("button", { name: CORRECT }).click();
+    await expect(staff.getByText(CORRECTED_TEXT)).toBeVisible();
+    expect(corrects).toHaveLength(1);
+    expect(targets).toEqual([SEED_IDS.vehicleA1]);
+    expect(JSON.parse(corrects[0]!)).toMatchObject({ receivedCents: "610000" });
+  });
+
+  test("ekip onayı: yazılmış tutarla Hedefi değiştir onay ister ve devam edince taslağı siler; başka aracın kaydı bu araç URL'sinde 404", async ({
+    page,
+    browser,
+  }, testInfo) => {
+    await login(page, SEED_RAW_PLATES.vehicleA1, SEED_TEST_PASSWORDS.owner, "/sahip");
+    await createOwnerEntry(page, { date: "2026-06-27", kind: "driver" });
+    const entryId = page.url().split("/").pop()!;
+
+    const staff = await (await browser.newContext({ baseURL: testInfo.project.use.baseURL })).newPage();
+    await loginAsAdmin(staff);
+    const url = `/yonetim/araclar/${SEED_IDS.vehicleA1}/kayitlar/${entryId}`;
+    await staff.goto(url);
+    await staff.waitForLoadState("networkidle");
+    await staff.getByLabel("Sahip adına alınan tutar").fill("5.500");
+    await staff.getByRole("button", { name: "Hedefi değiştir" }).click();
+    await staff.getByRole("button", { name: "Bırakıp çık" }).click();
+    await staff.waitForURL("**/yonetim");
+    await staff.goto(url);
+    await staff.waitForLoadState("networkidle");
+    await expect(staff.getByLabel("Sahip adına alınan tutar")).toHaveValue("6.200,00");
+
+    const other = await staff.goto(`/yonetim/araclar/${SEED_IDS.vehicleA2}/kayitlar/${entryId}`);
+    expect(other?.status()).toBe(404);
   });
 
   test("kayıt geçmişi: onaylanıp düzeltilen kayıtta 'Geçmişi gör' — oluşturma, iki ayrı onay satırı (yalnız sonuncu güncel), düzenleme/silme kontrolü ve toplam yok; şoför yönlenir ve bağlantı görmez; kapsam dışı kimlik 404", async ({

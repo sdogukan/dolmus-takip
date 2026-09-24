@@ -2,7 +2,10 @@
 
 /**
  * Sahibin teslim onayı (T4.2 istemcisi): "Aldığım tutar (TL)" alanı ve
- * "Parayı aldım, tutar doğru". Kayıt durumu (`entry`) düzenleme formuyla
+ * "Parayı aldım, tutar doğru". Ekip (destek) aynı paneli `onBehalf` ile kullanır:
+ * "Sahip adına alınan tutar" / "Sahip adına teslimi onayla"; istekler URL'deki
+ * hedef araçla `X-Target-Vehicle` taşır, onaylı durumda "Sahip adına platform
+ * desteği · <kullanıcı>" izi görünür. Kayıt durumu (`entry`) düzenleme formuyla
  * PAYLAŞILIR: onay başarısında kayıt `onEntry` ile güncellenir, düzenleme
  * formu yeni sürüme ve salt okunur duruma kendiliğinden geçer.
  *
@@ -38,6 +41,7 @@ import {
   type WorkEntryDetail,
 } from "../../lib/work-entry-ui";
 import { formatWorkDate, istanbulWallClock } from "../../lib/work-time";
+import { useUnsavedChanges } from "./unsaved-changes";
 import {
   amountInputProps,
   controlClass,
@@ -49,12 +53,19 @@ import {
 } from "./work-entry-form";
 
 /** Dondurulmuş gövdeyi olduğu gibi yollar; sonuç `classifyWorkEntryConfirmResponse`ta sınıflanır. */
-async function postConfirm(entryId: string, frozenBody: string, csrfToken: string): Promise<WorkEntryConfirmOutcome> {
+async function postConfirm(
+  entryId: string,
+  frozenBody: string,
+  csrfToken: string,
+  targetVehicleId: string | undefined,
+): Promise<WorkEntryConfirmOutcome> {
+  const headers: Record<string, string> = { "X-CSRF-Token": csrfToken, "Content-Type": "application/json" };
+  if (targetVehicleId) headers["X-Target-Vehicle"] = targetVehicleId;
   let response: Response;
   try {
     response = await fetch(`/api/v1/work-entries/${encodeURIComponent(entryId)}/confirm`, {
       method: "POST",
-      headers: { "X-CSRF-Token": csrfToken, "Content-Type": "application/json" },
+      headers,
       body: frozenBody,
     });
   } catch {
@@ -80,6 +91,8 @@ export function WorkEntryConfirmPanel({
   persistDraft,
   blocked,
   csrfToken,
+  targetVehicleId,
+  onBehalf,
   onEntry,
   onReread,
 }: {
@@ -89,6 +102,10 @@ export function WorkEntryConfirmPanel({
   /** Düzenleme taslağı bekliyor ya da bayat: bekleyen PATCH sürümü değiştirebilir, onay yollanmaz. */
   blocked: boolean;
   csrfToken: string;
+  /** Ekip modunda hedef araç (URL'den); her istekte `X-Target-Vehicle` olarak gider. */
+  targetVehicleId?: string;
+  /** Ekip: sahip adına onay; "Aldığım tutar" / "Parayı aldım" iddiası yapılmaz. */
+  onBehalf?: boolean;
   /** Sunucunun onayladığı kayıt; düzenleme formunun kayıt durumunu günceller. */
   onEntry: (entry: WorkEntryDetail) => void;
   /** Güncel kaydı yeniden okur (sürüm çakışması / başka yerde onaylanmış); başarısızsa gösterilecek mesajı döner. */
@@ -98,6 +115,9 @@ export function WorkEntryConfirmPanel({
   const [submitted, setSubmitted] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const inFlightRef = useRef(false);
+  // Yazılmış ama gönderilmemiş tutar (ya da sonucu belirsiz gönderim) sayfa/hedef değişiminde uyarı ister.
+  const dirty = entry.status === "pending" && (draft.pending || (draft.touched && draft.receivedText.trim() !== ""));
+  useUnsavedChanges("work-entry-confirm", dirty);
 
   if (entry.status === "confirmed") {
     if (!entry.confirmation) return null;
@@ -112,6 +132,11 @@ export function WorkEntryConfirmPanel({
           <span>{TEXT.confirmedAtLabel}</span>
           <span className="text-right">{TEXT.confirmedAtValue(formatWorkDate(at.date), at.time)}</span>
         </p>
+        {entry.confirmation.actor?.kind === "platform_user" && (
+          <p className="text-base text-[var(--color-text-secondary)]">
+            {TEXT.supportTrace(entry.confirmation.actor.username)}
+          </p>
+        )}
       </section>
     );
   }
@@ -132,7 +157,7 @@ export function WorkEntryConfirmPanel({
     inFlightRef.current = true;
     setSending(true);
     setMessage(null);
-    const outcome = await postConfirm(entry.id, frozenBody, csrfToken);
+    const outcome = await postConfirm(entry.id, frozenBody, csrfToken, targetVehicleId);
     inFlightRef.current = false;
     setSending(false);
     if (outcome.kind === "ambiguous") return; // taslak `pending` kalır: alan kilitli, tekrar dene.
@@ -177,13 +202,13 @@ export function WorkEntryConfirmPanel({
     <section className="flex flex-col gap-4">
       <div>
         <label htmlFor="received-amount" className={labelClass}>
-          {TEXT.receivedLabel}
+          {onBehalf ? TEXT.receivedLabelOnBehalf : TEXT.receivedLabel}
         </label>
         <input
           id="received-amount"
           {...amountInputProps}
           value={value}
-          disabled={locked}
+          disabled={locked || blocked}
           onChange={(event) => {
             persistDraft((prev) => ({ ...prev, touched: true, receivedText: event.target.value }));
             setMessage(null);
@@ -234,7 +259,7 @@ export function WorkEntryConfirmPanel({
         onClick={() => void handleConfirm()}
         className={primaryButtonClass}
       >
-        {sending ? TEXT.confirmSending : TEXT.confirmButton}
+        {sending ? TEXT.confirmSending : onBehalf ? TEXT.confirmButtonOnBehalf : TEXT.confirmButton}
       </button>
     </section>
   );

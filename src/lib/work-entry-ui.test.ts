@@ -804,12 +804,33 @@ describe("workEntryLoginHref", () => {
   });
 });
 
-const confirmation = { receivedCents: "620000", confirmedAt: "2026-09-14T15:00:00.000Z", entryVersion: 4 };
+const confirmation = { receivedCents: "620000", confirmedAt: "2026-09-14T15:00:00.000Z", entryVersion: 4, actor: null };
 
 describe("parseWorkEntryDetail (teslim onayı)", () => {
   it("onay null ya da geçerli { receivedCents, confirmedAt, entryVersion } olabilir", () => {
     expect(parseWorkEntryDetail(serverEntry())?.confirmation).toBeNull();
     expect(parseWorkEntryDetail(serverEntry({ status: "confirmed", confirmation }))?.confirmation).toEqual(confirmation);
+  });
+
+  it("onaylayan: araç credential'ı ve ekip kullanıcı adı korunur", () => {
+    const parse = (actor: unknown) =>
+      parseWorkEntryDetail({ ...serverEntry({ status: "confirmed" }), confirmation: { ...confirmation, actor } })?.confirmation;
+    expect(parse({ kind: "vehicle_credential" })?.actor).toEqual({ kind: "vehicle_credential" });
+    expect(parse({ kind: "platform_user", username: "destek1", role: "support" })?.actor).toEqual({
+      kind: "platform_user",
+      username: "destek1",
+    });
+  });
+
+  it("onaylayan eksik/bilinmeyen/bozuksa kayıt reddedilmez; iz satırı için actor null olur", () => {
+    const { actor: _omit, ...withoutActor } = confirmation;
+    const missing = parseWorkEntryDetail({ ...serverEntry({ status: "confirmed" }), confirmation: withoutActor });
+    expect(missing?.confirmation).toEqual({ ...withoutActor, actor: null });
+    for (const bad of [null, "x", [], {}, { kind: "robot" }, { kind: "platform_user" }, { kind: "platform_user", username: "" }, { kind: "platform_user", username: 5 }]) {
+      const parsed = parseWorkEntryDetail({ ...serverEntry({ status: "confirmed" }), confirmation: { ...confirmation, actor: bad } });
+      expect(parsed).not.toBeNull();
+      expect(parsed?.confirmation?.actor).toBeNull();
+    }
   });
 
   it("alanı olmayan, başka türde ya da bozuk onay kaydı bozuk sayar", () => {
@@ -1010,7 +1031,7 @@ describe("onaylı kaydı düzelt ve onayla (T4.3) — taslak", () => {
   const confirmed = serverEntry({
     status: "confirmed",
     version: 4,
-    confirmation: { receivedCents: "600000", confirmedAt: "2026-09-14T15:00:00.000Z", entryVersion: 4 },
+    confirmation: { receivedCents: "600000", confirmedAt: "2026-09-14T15:00:00.000Z", entryVersion: 4, actor: null },
   });
 
   it("adı düzenleme önekiyle başlar; düzenleme ve onay taslaklarından ayrıdır", () => {
@@ -1070,7 +1091,7 @@ describe("buildWorkEntryCorrectBody", () => {
   const confirmed = serverEntry({
     status: "confirmed",
     version: 4,
-    confirmation: { receivedCents: "600000", confirmedAt: "2026-09-14T15:00:00.000Z", entryVersion: 4 },
+    confirmation: { receivedCents: "600000", confirmedAt: "2026-09-14T15:00:00.000Z", entryVersion: 4, actor: null },
   });
 
   it("günlük alanlar + açık receivedCents; yalnız tutar 6.100 olunca gövde tam bu alanları taşır", () => {
@@ -1114,7 +1135,7 @@ describe("classifyWorkEntryCorrectResponse", () => {
   const corrected = serverEntry({
     status: "confirmed",
     version: 5,
-    confirmation: { receivedCents: "610000", confirmedAt: "2026-09-14T16:00:00.000Z", entryVersion: 5 },
+    confirmation: { receivedCents: "610000", confirmedAt: "2026-09-14T16:00:00.000Z", entryVersion: 5, actor: null },
   });
 
   it("yalnız onaylı, onayı GÜNCEL sürüme ait 200 başarıdır", () => {

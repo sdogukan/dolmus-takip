@@ -44,6 +44,9 @@ function Row({ row }: { row: HistoryRow }) {
       </p>
       <p className="text-base text-[var(--color-text-secondary)]">{row.actor}</p>
       {row.onBehalf && <p className="text-base text-[var(--color-text-secondary)]">{row.onBehalf}</p>}
+      {row.kind === "confirmation" && row.supportTrace && (
+        <p className="text-base text-[var(--color-text-secondary)]">{row.supportTrace}</p>
+      )}
       {row.kind === "confirmation" && (
         <p className="text-lg font-semibold tabular-nums text-[var(--color-text)]">{TEXT.historyReceived(row.received)}</p>
       )}

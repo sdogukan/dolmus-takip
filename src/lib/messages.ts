@@ -595,6 +595,10 @@ export const WORK_ENTRY_MESSAGES = {
   receivedShortfall: (amount: string): string => `Beklenenden ${amount} az.`,
   receivedExcess: (amount: string): string => `Beklenenden ${amount} fazla.`,
   confirmButton: "Parayı aldım, tutar doğru",
+  // Ekip (destek) sahip adına onaylar: "aldım" iddiası yok.
+  receivedLabelOnBehalf: "Sahip adına alınan tutar",
+  confirmButtonOnBehalf: "Sahip adına teslimi onayla",
+  supportTrace: (username: string): string => `Sahip adına platform desteği · ${username}`,
   confirmSending: "Onaylanıyor…",
   confirmRetry: "Sonucu şimdi kontrol et",
   deliveryConfirmed: "Teslim doğrulandı",

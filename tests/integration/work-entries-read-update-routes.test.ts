@@ -26,6 +26,7 @@ import { POST as platformLoginRoute } from "../../src/app/api/v1/auth/platform-l
 import { POST as vehicleLoginRoute } from "../../src/app/api/v1/auth/vehicle-login/route";
 import { GET as listWorkEntries, POST as postWorkEntry } from "../../src/app/api/v1/work-entries/route";
 import { GET as getWorkEntry, PATCH as patchWorkEntry } from "../../src/app/api/v1/work-entries/[id]/route";
+import { POST as confirmWorkEntryRoute } from "../../src/app/api/v1/work-entries/[id]/confirm/route";
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");
 const migrationsFolder = path.join(projectRoot, "drizzle");
@@ -573,6 +574,47 @@ describe("work-entries okuma ve düzenleme (T3.5)", () => {
       withRaw((sqlite) => sqlite.prepare("UPDATE people SET active = 0 WHERE id = ?").run(SEED_IDS.driverA1a));
       expect((await getOne(driver, driverEntry)).status).toBe(404);
       expect((await getOne(owner, driverEntry)).status).toBe(200);
+    });
+
+    it("onaylayan özeti: ekip onayı platform_user + kullanıcı adı, sahip onayı vehicle_credential; şoför görünümü actor null; listede de aynı", async () => {
+      const staffId = await seedDriverEntry("c-actor-s");
+      const confirmAs = (session: Session, id: string, requestId: string, targetVehicle?: string) =>
+        confirmWorkEntryRoute(
+          new Request(`${URL_WORK_ENTRIES}/${id}/confirm`, {
+            method: "POST",
+            headers: writeHeaders(session, targetVehicle),
+            body: JSON.stringify({ requestId, version: 1, receivedCents: "600000" }),
+          }),
+          { params: Promise.resolve({ id }) },
+        );
+      const confirmed = await confirmAs(admin, staffId, "k-actor-s", SEED_IDS.vehicleA1);
+      expect(confirmed.status).toBe(200);
+      const ownerConfirmedId = await seedDriverEntry("c-actor-o");
+      expect((await confirmAs(owner, ownerConfirmedId, "k-actor-o")).status).toBe(200);
+      const pendingId = await seedDriverEntry("c-actor-p");
+
+      const staffActor = { kind: "platform_user", username: SEED_USERNAMES.admin };
+      const ownerActor = { kind: "vehicle_credential" };
+      const asOwner = async (id: string) => (await (await getOne(owner, id)).json()).workEntry.confirmation;
+      expect(await asOwner(staffId)).toMatchObject({ actor: staffActor });
+      expect(await asOwner(ownerConfirmedId)).toMatchObject({ actor: ownerActor });
+      expect(await asOwner(pendingId)).toBeNull();
+      expect((await (await getOne(admin, staffId, SEED_IDS.vehicleA1)).json()).workEntry.confirmation.actor).toEqual(staffActor);
+
+      const ownerList = (await (await getList(owner)).json()).workEntries as { id: string; confirmation: { actor: unknown } | null }[];
+      expect(ownerList.find((e) => e.id === staffId)!.confirmation!.actor).toEqual(staffActor);
+      expect(ownerList.find((e) => e.id === ownerConfirmedId)!.confirmation!.actor).toEqual(ownerActor);
+      expect(ownerList.find((e) => e.id === pendingId)!.confirmation).toBeNull();
+
+      // Şoför: ekip kullanıcı adı sızmaz (K1 listesi dahil).
+      expect((await (await getOne(driver, staffId)).json()).workEntry.confirmation.actor).toBeNull();
+      const driverList = await getList(driver, `?workerPersonId=${SEED_IDS.driverA1a}`);
+      expect(driverList.status).toBe(200);
+      const driverBody = await driverList.json();
+      expect(JSON.stringify(driverBody)).not.toContain(SEED_USERNAMES.admin);
+      for (const e of driverBody.workEntries as { confirmation: { actor: unknown } | null }[]) {
+        if (e.confirmation) expect(e.confirmation.actor).toBeNull();
+      }
     });
 
     it("oturum yok: 401", async () => {

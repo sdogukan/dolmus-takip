@@ -2,7 +2,7 @@
 
 /**
  * Sahibin onaylı şoför kaydını tek işlemde düzeltip yeniden onaylaması (T4.3
- * istemcisi): "Kaydı düzenle" → "Onaylanmış kaydı düzelt" formu. Alanlar
+ * istemcisi; ekip aynı formu `onBehalf` + `X-Target-Vehicle` ile kullanır): "Kaydı düzenle" → "Onaylanmış kaydı düzelt" formu. Alanlar
  * SUNUCUNUN güncel değerleriyle başlar; "Aldığım tutar (TL)" güncel onayın
  * tutarıyla ön doludur ve hasılat/gider değişince yeni beklenen teslime KAYMAZ —
  * fark yalnız bilgi olarak gösterilir. "Yeni beklenen teslim" canlı hesaplanır
@@ -72,12 +72,19 @@ type ListState =
   | { status: "error"; message: string; retryable: boolean };
 
 /** Dondurulmuş gövdeyi olduğu gibi yollar; sonuç `classifyWorkEntryCorrectResponse`ta sınıflanır. */
-async function postCorrect(entryId: string, frozenBody: string, csrfToken: string): Promise<WorkEntryCorrectOutcome> {
+async function postCorrect(
+  entryId: string,
+  frozenBody: string,
+  csrfToken: string,
+  targetVehicleId: string | undefined,
+): Promise<WorkEntryCorrectOutcome> {
+  const headers: Record<string, string> = { "X-CSRF-Token": csrfToken, "Content-Type": "application/json" };
+  if (targetVehicleId) headers["X-Target-Vehicle"] = targetVehicleId;
   let response: Response;
   try {
     response = await fetch(`/api/v1/work-entries/${encodeURIComponent(entryId)}/correct-and-confirm`, {
       method: "POST",
-      headers: { "X-CSRF-Token": csrfToken, "Content-Type": "application/json" },
+      headers,
       body: frozenBody,
     });
   } catch {
@@ -123,6 +130,9 @@ export function WorkEntryCorrectForm({
   vehicleId,
   scopeKey,
   csrfToken,
+  targetVehicleId,
+  onBehalf = false,
+  disabled = false,
   onEntry,
   onReread,
 }: {
@@ -131,6 +141,12 @@ export function WorkEntryCorrectForm({
   vehicleId: string;
   scopeKey: string;
   csrfToken: string;
+  /** Ekip modunda hedef araç (URL'den); her istekte `X-Target-Vehicle` olarak gider. */
+  targetVehicleId?: string;
+  /** Ekip: sahip adına düzeltme; "Aldığım tutar" iddiası yapılmaz. */
+  onBehalf?: boolean;
+  /** Pasif hedef: form açılamaz, gönderilemez. */
+  disabled?: boolean;
   /** Sunucunun düzeltip onayladığı kayıt; sayfanın kayıt durumunu günceller. */
   onEntry: (entry: WorkEntryDetail) => void;
   /** Güncel kaydı yeniden okur ve benimser; başarısızsa gösterilecek mesajı döner. */
@@ -192,7 +208,7 @@ export function WorkEntryCorrectForm({
     listControllerRef.current = controller;
     setList({ status: "loading" });
     try {
-      const result = await fetchDrivers(controller.signal, undefined);
+      const result = await fetchDrivers(controller.signal, targetVehicleId);
       if (!controller.signal.aborted) applyList(result);
     } catch {
       // Kesildi: yeni istek durumu yönetir.
@@ -203,7 +219,7 @@ export function WorkEntryCorrectForm({
     if (!visible) return;
     const controller = new AbortController();
     listControllerRef.current = controller;
-    void fetchDrivers(controller.signal, undefined).then(
+    void fetchDrivers(controller.signal, targetVehicleId).then(
       (result) => {
         if (!controller.signal.aborted) applyList(result);
       },
@@ -254,7 +270,7 @@ export function WorkEntryCorrectForm({
     (submitted && !receivedResult.ok ? receivedResult.message : undefined) ?? serverFields.receivedCents;
   const difference = summary.status === "ready" ? receivedDifference(String(summary.remainderCents), draft.receivedText) : null;
 
-  const locked = draft.pending || sending || stale;
+  const locked = draft.pending || sending || stale || disabled;
   const drivers = list.status === "loaded" ? list.drivers : [];
   const personOptions =
     list.status === "loaded"
@@ -311,7 +327,7 @@ export function WorkEntryCorrectForm({
     inFlightRef.current = true;
     setSending(true);
     setMessage(null);
-    const outcome = await postCorrect(entry.id, frozenBody, csrfToken);
+    const outcome = await postCorrect(entry.id, frozenBody, csrfToken, targetVehicleId);
     inFlightRef.current = false;
     setSending(false);
     if (outcome.kind === "ambiguous") return; // taslak `pending` kalır: form kilitli, tekrar dene.
@@ -346,7 +362,7 @@ export function WorkEntryCorrectForm({
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>): Promise<void> {
     event.preventDefault();
-    if (inFlightRef.current || stale) return;
+    if (inFlightRef.current || stale || disabled) return;
     if (draft.pending && draft.frozenBody !== null) {
       // Belirsiz sonuç: dondurulmuş gövde aynen, aynı requestId ile.
       await send(draft.frozenBody, hasEarlierAttempt(draft));
@@ -392,6 +408,7 @@ export function WorkEntryCorrectForm({
         )}
         <button
           type="button"
+          disabled={disabled}
           onClick={openForm}
           className="inline-flex min-h-[var(--control-min-height)] items-center self-start rounded-[var(--radius-control)] px-1 text-base font-medium text-[var(--color-primary)] underline focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]"
         >
@@ -637,7 +654,7 @@ export function WorkEntryCorrectForm({
           )}
         </div>
 
-        <Field id="correct-received" label={TEXT.receivedLabel} error={receivedError}>
+        <Field id="correct-received" label={onBehalf ? TEXT.receivedLabelOnBehalf : TEXT.receivedLabel} error={receivedError}>
           <input
             id="correct-received"
             {...amountInputProps}
@@ -691,7 +708,7 @@ export function WorkEntryCorrectForm({
       )}
 
       {!stale && (
-        <button type="submit" disabled={sending} className={primaryButtonClass}>
+        <button type="submit" disabled={sending || disabled} className={primaryButtonClass}>
           {sending ? TEXT.correctSending : draft.pending ? TEXT.confirmRetry : TEXT.correctSubmit}
         </button>
       )}

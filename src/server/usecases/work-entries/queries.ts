@@ -11,7 +11,7 @@ import { WORK_ENTRY_MESSAGES as TEXT } from "../../../lib/messages";
 import type { Scope } from "../../auth/scope";
 import type { AppDatabase } from "../../data/db";
 import { scopedVehiclesFilter, scopeFilter } from "../../data/scoped";
-import { cashConfirmations, people, vehicles, workEntries } from "../../data/schema";
+import { cashConfirmations, people, platformUsers, vehicles, workEntries } from "../../data/schema";
 import { entryPersonSelectableWhere, findSelectableDriver } from "../drivers/queries";
 import { encodeCursor, requireCursor } from "../list-cursor";
 
@@ -38,21 +38,41 @@ export interface WorkEntryView {
   confirmation: WorkEntryConfirmationView | null;
 }
 
-/** Aktör/oturum kimliği taşımaz; kuruş ondalık tam sayı metnidir. */
+/** Onaylayan özeti: yalnız tür (+ ekip için kullanıcı adı); hiçbir kimlik dışarı çıkmaz. */
+export type WorkEntryConfirmationActor = { kind: "vehicle_credential" } | { kind: "platform_user"; username: string };
+
+/** Oturum/credential/kişi kimliği taşımaz; kuruş ondalık tam sayı metnidir.
+ * `actor`: şoför oturumuna her zaman `null` (ekip kullanıcı adı şoföre sızmaz). */
 export interface WorkEntryConfirmationView {
   receivedCents: string;
   confirmedAt: string;
   entryVersion: number;
+  actor: WorkEntryConfirmationActor | null;
 }
 
 /** Kaydın ham satırı (düzenleme kararları için) + kişinin adı + güncel sürümün onayı. */
 export interface WorkEntryRow {
   entry: typeof workEntries.$inferSelect;
   fullName: string;
-  confirmation: { receivedCents: number; confirmedAt: string; entryVersion: number } | null;
+  confirmation: {
+    receivedCents: number;
+    confirmedAt: string;
+    entryVersion: number;
+    actorKind: "vehicle_credential" | "platform_user";
+  } | null;
+  /** Onayı veren ekip kullanıcısının adı (araç onayında ve onaysız kayıtta `null`). */
+  confirmedByUsername: string | null;
 }
 
-export function toWorkEntryView({ entry: e, fullName, confirmation }: WorkEntryRow): WorkEntryView {
+function toConfirmationActor(
+  actorKind: "vehicle_credential" | "platform_user",
+  username: string | null,
+): WorkEntryConfirmationActor | null {
+  if (actorKind === "vehicle_credential") return { kind: "vehicle_credential" };
+  return username === null ? null : { kind: "platform_user", username };
+}
+
+export function toWorkEntryView({ entry: e, fullName, confirmation, confirmedByUsername }: WorkEntryRow, scope: Scope): WorkEntryView {
   return {
     id: e.id,
     version: e.version,
@@ -76,6 +96,7 @@ export function toWorkEntryView({ entry: e, fullName, confirmation }: WorkEntryR
           receivedCents: String(confirmation.receivedCents),
           confirmedAt: confirmation.confirmedAt,
           entryVersion: confirmation.entryVersion,
+          actor: scope.actor === "driver" ? null : toConfirmationActor(confirmation.actorKind, confirmedByUsername),
         }
       : null,
   };
@@ -105,7 +126,9 @@ function selectEntryRows(db: AppDatabase, where: SQL | undefined) {
         receivedCents: cashConfirmations.receivedCents,
         confirmedAt: cashConfirmations.confirmedAt,
         entryVersion: cashConfirmations.entryVersion,
+        actorKind: cashConfirmations.actorKind,
       },
+      confirmedByUsername: platformUsers.username,
     })
     .from(workEntries)
     .innerJoin(
@@ -121,6 +144,8 @@ function selectEntryRows(db: AppDatabase, where: SQL | undefined) {
         eq(cashConfirmations.entryVersion, workEntries.version),
       ),
     )
+    // Ekip onayında kullanıcı adı için; araç onayında (NULL kimlik) satır yine döner.
+    .leftJoin(platformUsers, eq(platformUsers.id, cashConfirmations.actorPlatformUserId))
     .where(where);
 }
 
@@ -147,7 +172,7 @@ export function readWorkEntryView(
   entryId: string,
 ): WorkEntryView | undefined {
   const row = findWorkEntryRowForScope(db, scope, entryId, { applyK1: false });
-  return row ? toWorkEntryView(row) : undefined;
+  return row ? toWorkEntryView(row, scope) : undefined;
 }
 
 /** `GET /work-entries/:id` — kapsam + K1. Görünmeyen kayıt `undefined`. */
@@ -157,7 +182,7 @@ export function readWorkEntryForScope(
   entryId: string,
 ): WorkEntryView | undefined {
   const row = findWorkEntryRowForScope(db, scope, entryId, { applyK1: true });
-  return row ? toWorkEntryView(row) : undefined;
+  return row ? toWorkEntryView(row, scope) : undefined;
 }
 
 export interface ListWorkEntriesOptions {
@@ -206,7 +231,7 @@ export function listWorkEntriesForScope(
   const last = page[page.length - 1];
   return {
     ok: true,
-    workEntries: page.map(toWorkEntryView),
+    workEntries: page.map((row) => toWorkEntryView(row, scope)),
     nextCursor: rows.length > options.limit && last ? encodeCursor([last.entry.workDate, last.entry.id]) : null,
   };
 }

@@ -25,6 +25,8 @@ import { WorkEntryEditForm } from "../../../../../_components/work-entry-edit-fo
  * türetme: hedef YALNIZ URL'deki araç kimliğinden SUNUCUDA çözülür (bilinmeyen
  * araç → 404); kayıt o aracın kapsamıyla okunur, başka araç kaydı bilinmeyen
  * kimlikle AYNI 404'ü alır. Pasif araç/işletmede okuma serbest, yazma yoktur.
+ * Bekleyen şoför kaydında sahip adına teslim onayı, onaylı kayıtta sahip adına
+ * düzelt ve onayla burada verilir; formlar hedef aracı bu URL'deki `vehicleId`den alır.
  */
 export const metadata: Metadata = {
   title: "Kayıt detayı — Dolmuş Takip",

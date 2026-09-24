@@ -224,9 +224,9 @@ describe("onaylı kaydı düzelt ve onayla (T4.3)", () => {
         grossCents: "1000000",
         shareCents: "200000",
         remainderCents: "620000",
-        confirmation: { receivedCents: "610000", entryVersion: 3 },
+        confirmation: { receivedCents: "610000", entryVersion: 3, actor: { kind: "vehicle_credential" } },
       });
-      expect(Object.keys(workEntry.confirmation).sort()).toEqual(["confirmedAt", "entryVersion", "receivedCents"]);
+      expect(Object.keys(workEntry.confirmation).sort()).toEqual(["actor", "confirmedAt", "entryVersion", "receivedCents"]);
 
       expect(counts()).toEqual({
         ...before,
@@ -309,6 +309,39 @@ describe("onaylı kaydı düzelt ve onayla (T4.3)", () => {
         { entry_version: 3, received_cents: 610000 },
         { entry_version: 4, received_cents: 620000 },
       ]);
+    });
+
+    it("ekip düzeltmesi: GÜNCEL sürümün aktörü ekip kullanıcısıdır (önceki sahip onayı değil); sahip GET'i aynı, şoför GET'i actor null, kimlik sızmaz", async () => {
+      const id = await seedConfirmedEntry();
+      const response = await correct(support, id, correctBody("x-actor", 2, "610000"), SEED_IDS.vehicleA1);
+      expect(response.status).toBe(200);
+      const { workEntry } = await response.json();
+      expect(workEntry).toMatchObject({
+        version: 3,
+        grossCents: "1000000",
+        shareCents: "200000",
+        remainderCents: "620000",
+        confirmation: { receivedCents: "610000", entryVersion: 3, actor: { kind: "platform_user", username: SEED_USERNAMES.support } },
+      });
+      expect((await (await getOne(owner, id)).json()).workEntry.confirmation).toEqual(workEntry.confirmation);
+      expect((await (await getOne(driver, id)).json()).workEntry.confirmation).toMatchObject({ entryVersion: 3, actor: null });
+      const [confirmation] = rows("SELECT actor_session_id, actor_platform_user_id FROM cash_confirmations WHERE entry_version = 3");
+      for (const value of Object.values(confirmation!)) expect(JSON.stringify(workEntry)).not.toContain(String(value));
+
+      const replay = await correct(support, id, correctBody("x-actor", 2, "610000"), SEED_IDS.vehicleA1);
+      expect(replay.status).toBe(200);
+      expect((await replay.json()).workEntry).toEqual(workEntry);
+      expect(rows("SELECT entry_version FROM cash_confirmations WHERE entry_version = 3")).toHaveLength(1);
+      expect(counts().admin_audit).toBe(1);
+    });
+
+    it("başka aracın X-Target-Vehicle'ı ile ekip düzeltmesi 404 WORK_ENTRY_NOT_FOUND, hiçbir yazım yok", async () => {
+      const id = await seedConfirmedEntry();
+      const before = counts();
+      const response = await correct(support, id, correctBody("x-actor-x"), SEED_IDS.vehicleB1);
+      expect(response.status).toBe(404);
+      expect((await errorOf(response)).code).toBe("WORK_ENTRY_NOT_FOUND");
+      expect(counts()).toEqual(before);
     });
 
     it("istemcinin gönderdiği status/share/kind alanları yok sayılır; hesaplama sunucudadır", async () => {

@@ -3,6 +3,7 @@ import {
   buildHistoryRows,
   currentHistorySummary,
   formatHistoryActor,
+  formatHistorySupportTrace,
   formatHistoryFieldValue,
   formatHistoryOnBehalf,
   type HistoryActor,
@@ -85,6 +86,20 @@ describe("buildHistoryRows", () => {
     });
     expect(rows[2]).toMatchObject({ received: "6.000,00 TL", current: false });
     expect(rows[3]).toMatchObject({ received: "6.100,00 TL", current: true });
+  });
+
+  it("ekip onay satırı 'Sahip adına platform desteği · <kullanıcı>' izini taşır; araç onayı taşımaz", () => {
+    const rows = buildHistoryRows(view);
+    expect(rows[2]).toMatchObject({ kind: "confirmation", supportTrace: null });
+    const staffView: HistoryView = {
+      ...view,
+      confirmations: [{ ...view.confirmations[1]!, actor: view.revisions[1]!.actor }],
+    };
+    const staffRow = buildHistoryRows(staffView).find((r) => r.kind === "confirmation");
+    expect(staffRow).toMatchObject({ supportTrace: "Sahip adına platform desteği · destek1" });
+    expect(formatHistorySupportTrace({ ...view.revisions[1]!.actor, username: "" } as never)).toBe(
+      "Sahip adına platform desteği · —",
+    );
   });
 
   it("sürüm 1 değişiklik taşımaz; alınan tutar değişim satırlarında tekrarlanmaz", () => {

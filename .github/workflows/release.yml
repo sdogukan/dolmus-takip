@@ -4,8 +4,9 @@
 # tetikleyicisi burada YOKTUR.
 #
 # Bu iş akışı `ci.yml` ile AYNI doğrulama zincirini (quality-gate
-# [typecheck → lint → unit → integration] → release meta-testi → e2e →
-# release:build → release:verify) çalıştırır
+# [typecheck → lint → unit → integration] → release meta-testi ve
+# release-apply aracı testleri → e2e → release:build → release:verify)
+# çalıştırır
 # ve doğrulanmış çıktıyı artifact olarak saklar — GERÇEK sunucuya dağıtım
 # (SSH/Lightsail) BURADA YOKTUR. (Ayrı bir "build" adımı BİLEREK YOKTUR —
 # `e2e` adımı kendi `next build`'ini zaten çalıştırır; bkz. `ci.yml`
@@ -67,7 +68,7 @@ jobs:
       - name: Kalite kapısı (typecheck/lint/birim/entegrasyon)
         run: npm run quality-gate
 
-      - name: Yayın boru hattı testleri (release:build/verify meta-testi)
+      - name: Yayın boru hattı testleri (release:build/verify meta-testi + release-apply aracı)
         run: npm run test:release
 
       - name: Playwright tarayıcısını kur (chromium)

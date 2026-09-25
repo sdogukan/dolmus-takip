@@ -42,7 +42,7 @@ sessizce bir varsayılana düşmez.
 | `npm run test:unit` | Vitest birim testleri (`src/**/*.test.ts`) — dış kaynağa (DB/ağ) dokunmaz. Kalite kapısı kaydı yazmaz; `release:build` öncesi kayıt için `npm run quality-gate` kullanın. |
 | `npm run test:integration` | Vitest entegrasyon testleri (`tests/integration/**`) — gerçek geçici SQLite dosyaları ve gerçek migration ile çalışır; dosyalar arası sıralı yürütülür. Kalite kapısı kaydı yazmaz; `release:build` öncesi kayıt için `npm run quality-gate` kullanın. |
 | `npm run quality-gate` | Kalite kapısı: `typecheck` → `lint` → `test:unit` → `test:integration`, ilk hatada durur. Hepsi geçerse ve çalışma ağacı baştan sona temiz, HEAD aynıysa `.quality-gate/<tree>.json` kaydını yazar (gitignore'lu); kirli ağaçta adımlar koşar, kayıt yazılmaz. |
-| `npm run test:release` | Yayın boru hattı meta-testi (`tests/release/**`) — geçici bir klonda `release:build`/`release:verify`'ı uçtan uca dener. Klon, kendi ağacı için yazılmış hazır bir kapı kaydıyla başlar; proje kökündeki kayda bakmaz, kalite kapısını yalnız başarısız birim testli ağaç testinde tam koşar (bu konteynerde ölçülen: kurulum ~2 sn, testler 57,7 / 1,7 / 58,9 / 42,5 sn). `test:integration`'a dahil değildir; CI `quality-gate`'ten sonra ayrı adım olarak koşar. |
+| `npm run test:release` | Yayın testleri (`tests/release/**`): `release:build`/`release:verify` meta-testi ve kontrollü yayın aracı `scripts/release-apply.ts`'in testleri. Meta-test (`release-build.test.ts`) geçici bir klonda `release:build`/`release:verify`'ı uçtan uca dener. Klon, kendi ağacı için yazılmış hazır bir kapı kaydıyla başlar; proje kökündeki kayda bakmaz, kalite kapısını yalnız başarısız birim testli ağaç testinde tam koşar (bu konteynerde ölçülen: kurulum ~2 sn, testler 57,7 / 1,7 / 58,9 / 42,5 sn). `test:integration`'a dahil değildir; CI `quality-gate`'ten sonra ayrı adım olarak koşar. |
 | `npm run test:e2e` | Playwright uçtan uca testleri. **Not:** Tarayıcı ikilileri bu pakette indirilmedi; `npx playwright install` T1.6'da ele alınacaktır. |
 | `npm run db:init` | Açık ilk şema kurulumu / bekleyen migration'ları uygular (idempotent). |
 | `npm run db:seed-dev` | Yerel test verisini kurar (idempotent); yalnız `NODE_ENV=production` DEĞİLKEN çalışır. |
@@ -170,7 +170,12 @@ komutu gerçek (geçici) bir `git clone` içinde uçtan uca dener; kirli
 ağaçta reddi, **temiz ağaçta ama başarısız bir birim testiyle reddi**
 (S6.1 AC3, düzeltme turu 3) ve manifest alanlarının doluluğunu da
 kapsar. Bu test uzun sürebileceğinden dosyaya özel bir Vitest zaman
-aşımı tanımlıdır ve rutin `test:integration`'a dahil değildir.
+aşımı tanımlıdır ve rutin `test:integration`'a dahil değildir. Aynı
+`test:release` komutu kontrollü yayın aracının (`scripts/release-apply.ts`)
+testlerini de (`tests/release/release-apply.test.ts`) koşar; bu dosya
+2026-09-25'te `test:integration`'dan taşındı, bu yüzden elle çağrılan
+`release:build`'in kalite kapısı onu koşmaz (karar ve ölçümler için bkz.
+`docs/qa.md` "Run frequency").
 
 ## GitHub Actions (`.github/workflows/`)
 

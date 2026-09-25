@@ -44,6 +44,7 @@ interface CliResult {
 }
 
 let template: string;
+let templateDb: string;
 let root: string;
 let releasesDir: string;
 let currentLink: string;
@@ -275,6 +276,20 @@ beforeAll(async () => {
     "0099_release_apply_bad",
     "UPDATE `cash_confirmations` SET `received_cents` = `received_cents` + 1;\n",
   );
+
+  // Her testin başladığı DB bir kez kurulur; seedDevData sabit id'li ve saatsizdir, her test bu dosyanın bağımsız
+  // kopyasıyla başlar. Bağlantı WAL kipinde açılır: kapatılınca checkpoint yapılır, kopya tek dosyadır.
+  templateDb = path.join(template, "app.sqlite");
+  const sqlite = openDatabaseConnection(templateDb, { createIfMissing: true });
+  migrate(createDb(sqlite), { migrationsFolder: path.join(projectRoot, "drizzle") });
+  await seedDevData(sqlite);
+  insertEntry(sqlite, "entry-1", 100_000, "driver");
+  insertEntry(sqlite, "entry-2", 250_050, "owner");
+  insertSession(sqlite, "s-before-release");
+  sqlite.close();
+  expect(fs.existsSync(`${templateDb}-wal`)).toBe(false);
+  expect(fs.existsSync(`${templateDb}-shm`)).toBe(false);
+
   server = http.createServer((request, response) => {
     const status = request.url === "/api/v1/health/live" ? health.live : request.url === "/api/v1/health/ready" ? health.ready : 404;
     response.writeHead(status).end();
@@ -357,13 +372,9 @@ exec "$@"
     { mode: 0o755 },
   );
 
-  const sqlite = openDatabaseConnection(dbPath, { createIfMissing: true });
-  migrate(createDb(sqlite), { migrationsFolder: path.join(projectRoot, "drizzle") });
-  await seedDevData(sqlite);
-  insertEntry(sqlite, "entry-1", 100_000, "driver");
-  insertEntry(sqlite, "entry-2", 250_050, "owner");
-  insertSession(sqlite, "s-before-release");
-  sqlite.close();
+  // Bağımsız bayt kopyası (sabit bağlantı değil): testin yazdıkları şablona ve sonraki testlere sızmaz.
+  fs.mkdirSync(path.dirname(dbPath), { recursive: true });
+  fs.copyFileSync(templateDb, dbPath);
 }, SLOW);
 
 afterEach(() => {

@@ -544,9 +544,10 @@ Sürüm dizini `ProtectSystem=strict` ile salt okunurdur ve `ReadWritePaths` yal
 
 ## 7. Otomatik yayın (GitHub Actions → SSH zorunlu komut)
 
-2026-09-26'dan beri sürüm değişimi (§4) elle değil, `.github/workflows/deploy.yml` ile yapılır: `main` push'unun CI koşusu yeşil bitince o koşunun `release-<sha>` paketi SSH stdin'inden sunucuya akar ve `/usr/local/sbin/dolmus-deploy-receive` §4 adımlarını uygular. Karar: [DECISIONS](DECISIONS.md) "Otomatik yayın". Sunucuda bir kez (denendi, 2026-09-26):
+2026-09-26'dan beri sürüm değişimi (§4) elle değil, `.github/workflows/deploy.yml` ile yapılır: `main` push'unun CI koşusu yeşil bitince o koşunun `release-<sha>` paketi SSH stdin'inden sunucuya akar ve `/usr/local/sbin/dolmus-deploy-receive` §4 adımlarını uygular. Karar: [DECISIONS](DECISIONS.md) "Otomatik yayın". Sunucuda bir kez:
 
 ```bash
+# denendi (2026-09-26, gerçek sunucuda; anahtarla başka komut çalışmadığı ve aynı paketin etkisiz olduğu sınandı)
 sudo useradd --create-home --shell /bin/sh --comment "GitHub Actions otomatik yayin" deploy && sudo passwd -l deploy
 sudo install -m 0755 -o root -g root deploy/ci/dolmus-deploy-receive /usr/local/sbin/dolmus-deploy-receive
 sudo visudo -cf deploy/ci/sudoers-dolmus-deploy && sudo install -m 0440 -o root -g root deploy/ci/sudoers-dolmus-deploy /etc/sudoers.d/dolmus-deploy

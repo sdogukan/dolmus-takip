@@ -779,11 +779,13 @@ describe("docs/SERVER-SETUP.md", () => {
     expect(guide).toContain("**silinmez**");
   });
 
-  test("her komut bloğunun başında 'denenmedi' işareti var", () => {
+  test("her komut bloğunun başında deneme durumu işareti var (denenmedi / denendi)", () => {
+    // Her blok gerçek sunucuda denenip denenmediğini ilk satırında söyler (RELEASE §5: denenmemiş
+    // komut denenmiş gibi sunulmaz). Gerçek sunucuda denenen blok "# denendi (<tarih>…)" taşır.
     const blocks = guide.split("```bash").slice(1);
     expect(blocks.length).toBeGreaterThan(0);
     for (const block of blocks) {
-      expect(block.split("\n")[1] ?? "").toContain("denenmedi");
+      expect(block.split("\n")[1] ?? "").toMatch(/^# (hazırlandı, denenmedi|denendi \(\d{4}-\d{2}-\d{2})/);
     }
   });
 });

@@ -29,6 +29,9 @@ test-results/
 # release:build output (T6.1) — tarball + manifest, rebuilt on demand
 /dist/
 
+# Quality gate records (scripts/lib/quality-gate.ts) — one file per passed tree
+/.quality-gate/
+
 # Local databases and their sidecar files
 *.sqlite
 *.sqlite-*

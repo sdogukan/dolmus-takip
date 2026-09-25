@@ -275,7 +275,7 @@ _Conflict: the approved rationale says an external probe on /api/v1/health/live 
 
 GitHub Actions: ci.yml (push + pull_request, ubuntu-24.04) and release.yml (workflow_dispatch, artifact only); manual SSH release into versioned /opt/dolmus-takip/releases/<id> with systemd
 
-_Step list single-sourced in scripts/ci-steps.json (typecheck → lint → unit → integration → e2e → release:build → release:verify), mirrored by npm run ci:local. Least-privilege token, no secrets, artifact retention 14/30 days. No deploy step yet (T6.2/T6.5)._
+_Step list single-sourced in scripts/ci-steps.json (quality-gate [typecheck → lint → unit → integration, defined only in scripts/lib/quality-gate.ts QUALITY_GATE_STEPS] → test:release → e2e → release:build → release:verify), mirrored by npm run ci:local; ci.yml and release.yml run the same order and tests/unit/ci-workflows.test.ts asserts quality-gate is the single first step, before test:release and release:build. Least-privilege token, no secrets, artifact retention 14/30 days. No deploy step yet (T6.2/T6.5)._
 
 ### Rejected notes
 

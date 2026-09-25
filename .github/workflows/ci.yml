@@ -76,17 +76,12 @@ jobs:
       - name: Bağımlılıkları kur (lockfile ile sabit)
         run: npm ci
 
-      - name: Tip kontrolü
-        run: npm run typecheck
-
-      - name: Lint
-        run: npm run lint
-
-      - name: Birim testleri
-        run: npm run test:unit
-
-      - name: Entegrasyon testleri (gerçek geçici SQLite + migration)
-        run: npm run test:integration
+      # typecheck → lint → test:unit → test:integration tek adımda
+      # (scripts/lib/quality-gate.ts). Geçerse bu commit'in ağacı için
+      # .quality-gate kaydı yazılır; test:release ve release:build aynı
+      # içerik için kapıyı yeniden çalıştırmaz.
+      - name: Kalite kapısı (typecheck/lint/birim/entegrasyon)
+        run: npm run quality-gate
 
       # release:build/release:verify boru hattının uçtan uca meta-testi —
       # rutin test:integration'dan ayrı (bkz. vitest.config.mts `release`

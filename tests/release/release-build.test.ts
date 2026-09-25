@@ -5,6 +5,12 @@ import os from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
+import {
+  qualityGateStepIds,
+  readRecord,
+  recordPathFor,
+  type ExpectedRecord,
+} from "../../scripts/lib/quality-gate.ts";
 import { compareVersions, MINIMUM_SQLITE_VERSION } from "../../src/server/data/db";
 
 /**
@@ -19,12 +25,24 @@ import { compareVersions, MINIMUM_SQLITE_VERSION } from "../../src/server/data/d
  *
  * ## Bu dosya NEDEN `tests/integration/` altında değil (2026-09-24)
  *
- * İlk iki test birer tam `release:build` koşar; o da kalite kapısında
- * typecheck/lint/unit/integration'ı yeniden çalıştırır. Rutin
- * `test:integration` içindeyken bu dosya tek başına ~20 dk sürüyor ve
- * entegrasyon paketini fiilen üç kez koşturuyordu. Artık ayrı `release`
- * Vitest projesindedir: `npm run test:release`. CI onu ayrı adım olarak
- * koşar (`scripts/ci-steps.json`); hiçbir test atlanmaz.
+ * İki test birer tam `release:build` koşar. Rutin `test:integration`
+ * içindeyken bu dosya tek başına ~20 dk sürüyor ve entegrasyon paketini
+ * fiilen üç kez koşturuyordu. Artık ayrı `release` Vitest projesindedir:
+ * `npm run test:release`. CI onu `quality-gate` adımından sonra ayrı adım
+ * olarak koşar (`scripts/ci-steps.json`); hiçbir test atlanmaz.
+ *
+ * ## Kalite kapısı klonda NEDEN yalnız gerektiğinde koşar (2026-09-25)
+ *
+ * `release:build`, klonun `HEAD^{tree}`'si için geçerli bir `.quality-gate`
+ * kaydı bulursa kapıyı yeniden çalıştırmaz (bkz. `scripts/release-build.ts`
+ * üst notu). `beforeAll`, proje kökünde klonun ağacı için geçerli bir kayıt
+ * varsa (CI'da az önceki `quality-gate` adımının yazdığı) onu klona kopyalar;
+ * yoksa klonda `npm run quality-gate`'i BİR kez tam koşar. Böylece:
+ * - Test 1 kaydı kullanır ve kapının atlandığını söyleyen satırı doğrular.
+ * - Test 3'ün ikinci commit'i `--allow-empty`'dir: farklı commit (farklı
+ *   arşiv adı ve `source_commit`), aynı ağaç, aynı kayıt.
+ * - Test 4'ün başarısız birim testi commit'i ağacı değiştirir; o ağaç için
+ *   kayıt YOKTUR, kapı tam çalışır, `test:unit`'te durur ve kayıt yazmaz.
  *
  * ## Bu test NEDEN gerçek proje deposunu (`.git`) DEĞİL, kendi ürettiği
  * bir "kaynak depo"yu klonluyor (varsayım DEĞİL, kanıtlı zorunluluk)
@@ -67,15 +85,30 @@ const projectRoot = path.resolve(
 );
 
 // Görev tanımı: "Bu test uzun sürebilir; vitest testTimeout'u bu dosya
-// için açıkça artır." — gerçek `next build` + native modül doğrulaması +
-// standalone sunucu açılışı iki kez (release:build içindeki kontroller +
-// release:verify) çalışır; 10 dakika cömert bir üst sınırdır.
-const TEST_TIMEOUT_MS = 10 * 60 * 1000;
+// için açıkça artır." Ölçüm (2026-09-25, DIJJI çalışma konteyneri, 4 CPU,
+// Node v24.21.0; proje kökünde klonun ağacı için kayıt yoktu, yani kapı
+// klonda tam koştu): dosya toplam 786 s. Testler (`--reporter=json`):
+// Test 1 57,8 s, Test 2 1,7 s, Test 3 57,1 s, Test 4 40,8 s. Geriye kalan
+// ~629 s `beforeAll`'dur; içindeki `node_modules` kopyası ayrıca ölçüldü
+// (1,6 s), yani bu sürenin neredeyse tamamı klondaki `npm run quality-gate`.
+// - SETUP_TIMEOUT_MS 20 dk: ölçülen tam kapı yolunun (~629 s) ~1,9 katı.
+//   Kayıt kopyalanabilen yolda (CI'da beklenen) `beforeAll` saniyeler sürer.
+// - BUILD_TEST_TIMEOUT_MS 5 dk: en uzun test (57,8 s) ~5 katı; daha yavaş bir
+//   runner için pay. Kayıt kullanılmayıp kapı test içinde tam koşsaydı
+//   (~10 dk) bu sınır aşılır — Test 1/3 zaten atlama satırını doğrular.
+// CI iş bütçesine (`timeout-minutes: 30`) sığdığı ubuntu-24.04 runner'ında
+// ölçülmedi; buradaki süreler yalnız bu konteynere aittir.
+const SETUP_TIMEOUT_MS = 20 * 60 * 1000;
+const BUILD_TEST_TIMEOUT_MS = 5 * 60 * 1000;
 const SHA256_HEX = /^[0-9a-f]{64}$/;
 
 let workDir: string;
 let sourceRepoDir: string;
 let cloneDir: string;
+let cloneTree: string;
+
+const GATE_STEP_LINES = qualityGateStepIds().map((id) => `$ npm run ${id}`);
+const GATE_SKIP_LINE = "[release:build] Kalite kapısı yeniden çalıştırılmıyor";
 
 function runOrThrow(
   cmd: string,
@@ -169,7 +202,27 @@ beforeAll(() => {
     workDir,
     "node_modules kopyalama",
   );
-}, TEST_TIMEOUT_MS);
+
+  // 5) Klonun ağacı için kalite kapısı kaydı (dosya üstü not). Doğrulama,
+  // `release:build` ile AYNI değerlerle (şimdiki tree, adım listesi, Node).
+  const expected: ExpectedRecord = {
+    tree: runOrThrow("git", ["rev-parse", "HEAD^{tree}"], cloneDir, "git rev-parse (klon ağacı)").stdout.trim(),
+    steps: qualityGateStepIds(),
+    nodeVersion: process.version,
+  };
+  if (readRecord(projectRoot, expected).valid) {
+    const cloneRecordPath = recordPathFor(cloneDir, expected.tree);
+    fs.mkdirSync(path.dirname(cloneRecordPath), { recursive: true });
+    fs.copyFileSync(recordPathFor(projectRoot, expected.tree), cloneRecordPath);
+  } else {
+    runOrThrow("npm", ["run", "quality-gate"], cloneDir, "npm run quality-gate (klon)");
+  }
+  const cloneCheck = readRecord(cloneDir, expected);
+  if (!cloneCheck.valid) {
+    throw new Error(`[release-build.test setup] klonda geçerli kalite kapısı kaydı yok: ${cloneCheck.reason}`);
+  }
+  cloneTree = expected.tree;
+}, SETUP_TIMEOUT_MS);
 
 afterAll(() => {
   if (workDir) {
@@ -189,6 +242,12 @@ describe("release:build / release:verify boru hattı (T6.1, S6.1)", () => {
         build.status,
         `release:build başarısız olmamalı:\n${build.stdout}\n${build.stderr}`,
       ).toBe(0);
+
+      // --- Klonun ağacı için geçerli kayıt var: kapı yeniden çalışmaz. ---
+      expect(build.stdout).toContain(GATE_SKIP_LINE);
+      for (const line of GATE_STEP_LINES) {
+        expect(build.stdout).not.toContain(line);
+      }
 
       const distDir = path.join(cloneDir, "dist");
       const distFiles = fs.readdirSync(distDir);
@@ -277,7 +336,7 @@ describe("release:build / release:verify boru hattı (T6.1, S6.1)", () => {
       expect(verify.stdout).toContain("db-backup run/status çalıştı");
       expect(verify.stdout).toContain("Doğrulama BAŞARILI");
     },
-    TEST_TIMEOUT_MS,
+    BUILD_TEST_TIMEOUT_MS,
   );
 
   test(
@@ -312,7 +371,7 @@ describe("release:build / release:verify boru hattı (T6.1, S6.1)", () => {
         fs.writeFileSync(touchedFile, original);
       }
     },
-    TEST_TIMEOUT_MS,
+    BUILD_TEST_TIMEOUT_MS,
   );
 
   test(
@@ -330,10 +389,9 @@ describe("release:build / release:verify boru hattı (T6.1, S6.1)", () => {
       ) as { source_commit: string };
 
       // Yeni bir commit üret (görev tanımının "art arda iki farklı
-      // commit'te ci:local koşusu" senaryosunu birebir üretir).
-      const marker = path.join(cloneDir, "RELEASE_BUILD_TEST_MARKER.txt");
-      fs.writeFileSync(marker, "release-build.test.ts ikinci commit\n");
-      runOrThrow("git", ["add", "-A"], cloneDir, "git add (ikinci commit)");
+      // commit'te ci:local koşusu" senaryosu). `--allow-empty`: farklı
+      // commit SHA'sı (arşiv adı ve source_commit değişir), aynı ağaç —
+      // kapı kaydı bu commit için de geçerlidir (dosya üstü not).
       runOrThrow(
         "git",
         [
@@ -343,6 +401,7 @@ describe("release:build / release:verify boru hattı (T6.1, S6.1)", () => {
           "user.name=Release Build Test",
           "commit",
           "-q",
+          "--allow-empty",
           "-m",
           "release-build.test.ts ikinci anlık görüntü",
         ],
@@ -358,6 +417,7 @@ describe("release:build / release:verify boru hattı (T6.1, S6.1)", () => {
         secondBuild.status,
         `ikinci release:build başarısız olmamalı:\n${secondBuild.stdout}\n${secondBuild.stderr}`,
       ).toBe(0);
+      expect(secondBuild.stdout).toContain(GATE_SKIP_LINE);
 
       // --- Kök neden düzeltmesi: dist/ artık YALNIZ bu (ikinci) çalıştırmanın
       // arşiv+manifest çiftini içerir; İLK çalıştırmanın BAYAT dosyaları
@@ -390,7 +450,7 @@ describe("release:build / release:verify boru hattı (T6.1, S6.1)", () => {
       ).toBe(0);
       expect(verify.stdout).toContain(`source_commit=${secondManifest.source_commit}`);
     },
-    TEST_TIMEOUT_MS,
+    BUILD_TEST_TIMEOUT_MS,
   );
 
   test(
@@ -439,6 +499,12 @@ describe("release:build / release:verify boru hattı (T6.1, S6.1)", () => {
         "git commit (kasıtlı başarısız test)",
       );
 
+      const failingTree = runOrThrow("git", ["rev-parse", "HEAD^{tree}"], cloneDir, "git rev-parse (başarısız test ağacı)")
+        .stdout.trim();
+      expect(failingTree).not.toBe(cloneTree);
+      const failingRecordPath = recordPathFor(cloneDir, failingTree);
+      expect(fs.existsSync(failingRecordPath)).toBe(false);
+
       const distDir = path.join(cloneDir, "dist");
       const distFilesBefore = fs.readdirSync(distDir).sort();
 
@@ -455,6 +521,9 @@ describe("release:build / release:verify boru hattı (T6.1, S6.1)", () => {
       ).toBe(1);
       expect(build.stdout + build.stderr).toMatch(/[Kk]alite kapısı/);
       expect(build.stdout + build.stderr).toMatch(/test:unit/);
+      // Bu ağaç için kayıt yoktu: kapı tam çalıştı ve başarısız kapı kayıt yazmadı.
+      expect(build.stdout).not.toContain(GATE_SKIP_LINE);
+      expect(fs.existsSync(failingRecordPath)).toBe(false);
 
       // --- Yarım/eski bir arşiv "başarılı" gibi bırakılmaz: dist/
       // İÇERİĞİ bu başarısız denemeyle DEĞİŞMEMİŞ olmalı (önceki testin
@@ -463,6 +532,6 @@ describe("release:build / release:verify boru hattı (T6.1, S6.1)", () => {
       const distFilesAfter = fs.readdirSync(distDir).sort();
       expect(distFilesAfter).toEqual(distFilesBefore);
     },
-    TEST_TIMEOUT_MS,
+    BUILD_TEST_TIMEOUT_MS,
   );
 });

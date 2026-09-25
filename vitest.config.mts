@@ -18,12 +18,15 @@ import { defineConfig } from "vitest/config";
  *   edilmez"; bu proje gerçek `better-sqlite3` dosya bağlantısı kullanır.
  * - `release`: `tests/release/**\/*.test.ts` — `release:build`/
  *   `release:verify` boru hattının uçtan uca meta-testi (`npm run
- *   test:release`). Her testi geçici bir klonda tam `release:build` koşar;
- *   o da kendi kalite kapısında typecheck/lint/unit/integration'ı yeniden
- *   çalıştırır. Rutin `test:integration`'a dahil olsaydı entegrasyon
- *   paketi fiilen üç kez koşardı (ölçülen: dosya tek başına ~20 dk,
- *   paketin %72'si). Bu yüzden `perf:reports` gibi ayrı bir komuttur;
- *   CI (`scripts/ci-steps.json`) onu ayrı adım olarak koşar.
+ *   test:release`). Geçici bir klonda `release:build` koşar; klonun ağacı
+ *   için geçerli `.quality-gate` kaydı yoksa kalite kapısını
+ *   (typecheck/lint/unit/integration) klonda bir kez tam çalıştırır (bkz.
+ *   `scripts/lib/quality-gate.ts`). Rutin `test:integration`'a dahil
+ *   olsaydı kapı, klondaki iç içe `release:build` üzerinden kendini
+ *   çağırırdı (ölçülen, kayıttan önce: dosya tek başına ~20 dk, paketin
+ *   %72'si). Bu yüzden `perf:reports` gibi ayrı bir komuttur; CI
+ *   (`scripts/ci-steps.json`) onu `quality-gate` adımından sonra ayrı adım
+ *   olarak koşar.
  *
  * `passWithNoTests` kullanılmaz: her proje gerçek test içerir.
  */

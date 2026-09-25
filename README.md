@@ -41,14 +41,15 @@ sessizce bir varsayılana düşmez.
 | `npm run lint` | ESLint (flat config, `eslint.config.mjs`). |
 | `npm run test:unit` | Vitest birim testleri (`src/**/*.test.ts`) — dış kaynağa (DB/ağ) dokunmaz. |
 | `npm run test:integration` | Vitest entegrasyon testleri (`tests/integration/**`) — gerçek geçici SQLite dosyaları ve gerçek migration ile çalışır; dosyalar arası sıralı yürütülür. |
-| `npm run test:release` | Yayın boru hattı meta-testi (`tests/release/**`) — geçici bir klonda `release:build`/`release:verify`'ı uçtan uca dener. Uzun sürer (her tam `release:build` kalite kapısını da koşar), bu yüzden `test:integration`'a dahil değildir; CI ayrı adım olarak koşar. |
+| `npm run quality-gate` | Kalite kapısı: `typecheck` → `lint` → `test:unit` → `test:integration`, ilk hatada durur. Hepsi geçerse ve çalışma ağacı baştan sona temiz, HEAD aynıysa `.quality-gate/<tree>.json` kaydını yazar (gitignore'lu); kirli ağaçta adımlar koşar, kayıt yazılmaz. |
+| `npm run test:release` | Yayın boru hattı meta-testi (`tests/release/**`) — geçici bir klonda `release:build`/`release:verify`'ı uçtan uca dener. Klonun ağacı için proje kökünde geçerli kapı kaydı varsa onu kullanır, yoksa klonda kalite kapısını bir kez tam koşar (bu konteynerde ölçülen: ~13 dk, bunun ~10,5 dk'sı kapı). `test:integration`'a dahil değildir; CI `quality-gate`'ten sonra ayrı adım olarak koşar. |
 | `npm run test:e2e` | Playwright uçtan uca testleri. **Not:** Tarayıcı ikilileri bu pakette indirilmedi; `npx playwright install` T1.6'da ele alınacaktır. |
 | `npm run db:init` | Açık ilk şema kurulumu / bekleyen migration'ları uygular (idempotent). |
 | `npm run db:seed-dev` | Yerel test verisini kurar (idempotent); yalnız `NODE_ENV=production` DEĞİLKEN çalışır. |
 | `npm run db:generate` | `drizzle-kit generate` — şema (`src/server/data/schema.ts`) değiştiğinde yeni migration SQL dosyası üretir (yalnız geliştirici aracı; uygulamayı çalıştırmaz). |
-| `npm run release:build` | Yayın arşivi + manifest üretir (bkz. aşağıdaki "Yayın çıktısı" bölümü). Çalışma ağacı kirliyse (`git status --porcelain` boş değilse) `exit 1` ile durur; `--allow-dirty` yoktur. Derlemeden ÖNCE **kendi içinde** `typecheck`/`lint`/`test:unit`/`test:integration`'ı da çalıştırır (S6.1 AC3) — bu komut doğrudan, CI dışında çağrıldığında da testleri atlamaz. |
+| `npm run release:build` | Yayın arşivi + manifest üretir (bkz. aşağıdaki "Yayın çıktısı" bölümü). Çalışma ağacı kirliyse (`git status --porcelain` boş değilse) `exit 1` ile durur; `--allow-dirty` yoktur. Derlemeden ÖNCE kalite kapısının bu commit'in ağacı için geçtiğini ister (S6.1 AC3): geçerli `.quality-gate` kaydı varsa kapıyı yeniden çalıştırmaz ve bunu yazar; yoksa `typecheck`/`lint`/`test:unit`/`test:integration`'ı **kendi içinde** tam çalıştırır — doğrudan, CI dışında çağrıldığında da testleri atlamaz. |
 | `npm run release:verify -- <tar.gz yolu>` | Üretilen arşivi temiz bir ortamda (geçici dizin/DB/port) açar, `db:init` ile şema kurar, standalone sunucuyu başlatıp `/api/v1/health/live`'dan 200 alır. |
-| `npm run ci:local` | GitHub Actions `verify` job'ının adımlarını AYNI sırada yerelde çalıştırır (`scripts/ci-steps.json` — tek kaynak): typecheck → lint → unit → integration → release (meta-test) → e2e → release:build → release:verify. İlk hatada durur, her adımın çıkış kodunu raporlar. (Ayrı bir "build" adımı yoktur — `e2e` kendi `next build`'ini zaten çalıştırır.) |
+| `npm run ci:local` | GitHub Actions `verify` job'ının adımlarını AYNI sırada yerelde çalıştırır (`scripts/ci-steps.json` — tek kaynak): quality-gate (typecheck → lint → unit → integration) → release (meta-test) → e2e → release:build → release:verify. İlk hatada durur, her adımın çıkış kodunu raporlar. (Ayrı bir "build" adımı yoktur — `e2e` kendi `next build`'ini zaten çalıştırır.) |
 
 ## Veritabanı: konum ve kalıcılık
 
@@ -109,12 +110,22 @@ kısmi/sessiz geçiş yoktur):
 
 1. **Temiz ağaç kapısı** (S6.1 AC4): `git status --porcelain` boş
    değilse `exit 1`; devre dışı bırakma bayrağı yoktur.
-2. **Kalite kapısı** (S6.1 AC3, düzeltme turu 3): `npm run typecheck` →
-   `npm run lint` → `npm run test:unit` → `npm run test:integration`'ı
-   **script'in KENDİSİ** çalıştırır; herhangi biri başarısız olursa
-   derlemeye HİÇ girmeden `exit 1` ile durur. Bu adım yalnız CI'nın adım
-   SIRASINA güvenmez — `release:build` doğrudan/elle çağrıldığında da (CI
-   dışında) testleri atlamadan uygulanır. (Bu script'in kendi meta-testi
+2. **Kalite kapısı** (S6.1 AC3, düzeltme turu 3; kapı kaydı 2026-09-25):
+   kapının bu commit'in içeriği (`git rev-parse HEAD^{tree}`) için geçtiği
+   kanıtlanmadan arşiv üretilmez. `.quality-gate/<tree>.json` kaydı şimdiki
+   tree, güncel adım listesi ve Node sürümüyle birebir eşleşiyorsa kapı
+   yeniden çalıştırılmaz ("Kalite kapısı yeniden çalıştırılmıyor" satırı).
+   Kayıt yoksa veya tutmuyorsa (başka tree, farklı adım listesi, başka Node
+   sürümü, bozuk JSON) `npm run typecheck` → `npm run lint` →
+   `npm run test:unit` → `npm run test:integration`'ı **script'in KENDİSİ**
+   çalıştırır; herhangi biri başarısız olursa derlemeye HİÇ girmeden
+   `exit 1` ile durur ve kayıt yazılmaz. Kaydı yalnız dört adımın hepsini
+   geçen, ağacı baştan sona temiz gören bir koşu yazar (`npm run
+   quality-gate` ya da `release:build`'in kendi tam kapısı). Kayıt bir kaza
+   korumasıdır, kurcalamaya karşı koruma değildir: checkout'a yazabilen
+   biri kaydı da taklit edebilir. Bu adım yalnız CI'nın adım SIRASINA
+   güvenmez — `release:build` doğrudan/elle çağrıldığında da (CI dışında)
+   testleri atlamadan uygulanır. (Bu script'in kendi meta-testi
    `tests/release/release-build.test.ts` ayrı `test:release` komutundadır;
    kapı onu çalıştırmaz, aksi halde script kendini sonsuz derinlikte
    çağırırdı — bkz. `scripts/release-build.ts` üst notu.)
@@ -158,9 +169,10 @@ aşımı tanımlıdır ve rutin `test:integration`'a dahil değildir.
 artifact kotaları sınırlıdır" gereği iki ayrı iş akışı vardır:
 
 - **`ci.yml`** — her push'ta (tüm dallar) ve her pull request'te tetiklenir;
-  `ubuntu-24.04` üzerinde yukarıdaki tüm komutları (`typecheck` →
-  `lint` → `test:unit` → `test:integration` → `test:release` → Playwright tarayıcı
-  kurulumu → `test:e2e` → `release:build` → `release:verify`) sırayla
+  `ubuntu-24.04` üzerinde yukarıdaki tüm komutları (`quality-gate`
+  [`typecheck` → `lint` → `test:unit` → `test:integration`] → `test:release` →
+  Playwright tarayıcı kurulumu → `test:e2e` → `release:build` →
+  `release:verify`) sırayla
   çalıştırır — ayrı bir `build` adımı BİLEREK yoktur, çünkü `test:e2e`
   kendi `next build`'ini zaten çalıştırır (bkz. `scripts/ci-steps.json`).
   Başarısız bir adım sonrakileri ÇALIŞTIRMAZ; yayın çıktısı

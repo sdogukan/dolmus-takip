@@ -20,7 +20,7 @@ import { defineConfig } from "vitest/config";
  *   `release:build`/`release:verify` boru hattının uçtan uca meta-testi
  *   (`release-build.test.ts`) ve kontrollü yayın aracı
  *   `scripts/release-apply.ts`'in testleri (`release-apply.test.ts`;
- *   2026-09-25'te `integration`'dan taşındı, bkz. `docs/DECISIONS.md`).
+ *   2026-09-25'te `integration`'dan taşındı, bkz. `docs/qa.md` Run frequency).
  *   Meta-test geçici bir klonda `release:build` koşar; klon, kendi
  *   ağacı için yazılmış hazır bir `.quality-gate` kaydıyla başlar, kalite
  *   kapısı (typecheck/lint/unit/integration) yalnız kayıtsız ağaç testinde

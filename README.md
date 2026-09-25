@@ -174,8 +174,8 @@ aşımı tanımlıdır ve rutin `test:integration`'a dahil değildir. Aynı
 `test:release` komutu kontrollü yayın aracının (`scripts/release-apply.ts`)
 testlerini de (`tests/release/release-apply.test.ts`) koşar; bu dosya
 2026-09-25'te `test:integration`'dan taşındı, bu yüzden elle çağrılan
-`release:build`'in kalite kapısı onu koşmaz (bkz. `docs/DECISIONS.md`
-"Yayın aracı testleri `test:release`'te").
+`release:build`'in kalite kapısı onu koşmaz (karar ve ölçümler için bkz.
+`docs/qa.md` "Run frequency").
 
 ## GitHub Actions (`.github/workflows/`)
 

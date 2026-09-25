@@ -11,6 +11,7 @@ import {
   recordPathFor,
   type ExpectedRecord,
 } from "../../scripts/lib/quality-gate.ts";
+import { restoreGitViewOfHiddenFiles } from "./git-view-snapshot.ts";
 import { compareVersions, MINIMUM_SQLITE_VERSION } from "../../src/server/data/db";
 
 /**
@@ -165,6 +166,15 @@ beforeAll(() => {
       return true;
     },
   });
+
+  // 1b) Git'in "değişmedi say" dediği dosyalara (skip-worktree /
+  // assume-unchanged) kopyada git'in hâlini yaz. Disk ile git ayrışıp
+  // `git status` temiz derken kopya diskteki baytları taşırsa klonun ağacı
+  // `HEAD^{tree}`'den ayrılır ve kapı klonda boşuna yeniden koşar; DIJJI
+  // konteyneri kök `CLAUDE.md`'yi tam böyle değiştiriyor (bkz.
+  // `./git-view-snapshot.ts`). Diğer dosyalar, commit edilmemiş
+  // değişiklikler dahil, diskteki hâliyle kalır.
+  restoreGitViewOfHiddenFiles(projectRoot, sourceRepoDir);
 
   // 2) Bu geçici dizinde YENİ, GERÇEK proje deposundan TAMAMEN BAĞIMSIZ
   // bir git deposu kur (dosya üstü not — gerçek `.git`'e HİÇ dokunulmaz).

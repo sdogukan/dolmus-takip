@@ -559,5 +559,6 @@ echo 'restrict,command="sudo -n /usr/local/sbin/dolmus-deploy-receive" ssh-ed255
 
 - Repo secret'ları: `DEPLOY_HOST`, `DEPLOY_SSH_KEY`, `DEPLOY_KNOWN_HOSTS` (sunucunun doğrulanmış ed25519 host anahtarı satırı), `DIJJI_DEPLOY_KEY`.
 - Güvenlik duvarı: 22 GitHub runner'ları için herkese açık (parola girişi kapalı; `sshd -T`: `passwordauthentication no`).
+- Alıcı `mark-verified` çalıştırmaz: `cleanup` doğrulanmamış yayında önceki release'i ve yayın öncesi DB kopyasını korur; geri dönüş (RELEASE §7) bir sonraki yayına kadar mümkündür.
 - Aynı paket tekrar gelirse alıcı `deploy_already_current` yazar ve hiçbir şeye dokunmaz. Başarısızlıkta §4'teki kurallar geçerlidir (bakım işareti yerinde kalır, geri dönüş RELEASE §7 kararıyla elle).
 - Günlük: `sudo journalctl -t dolmus-deploy` (alıcı) ve `-t dolmus-release` (yayın aracı).

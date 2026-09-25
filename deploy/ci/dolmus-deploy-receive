@@ -6,8 +6,11 @@
 # yazar. `deploy` kullanıcısının authorized_keys satırı bu betiği ZORLA çalıştırır
 # (restrict,command="sudo -n /usr/local/sbin/dolmus-deploy-receive"); anahtar başka hiçbir
 # komut çalıştıramaz. Betik SERVER-SETUP.md §4 adımlarını birebir uygular:
-# hash kontrolü → yeni releases/<id> dizini → release-apply deploy → dış kontrol →
-# mark-verified → cleanup. Çıktının son satırları iş akışının okuduğu anahtar=değer satırlarıdır.
+# hash kontrolü → yeni releases/<id> dizini → release-apply deploy → dış kontrol → cleanup.
+# `mark-verified` BİLEREK çalıştırılmaz: doğrulanmamış yayında cleanup önceki release'i ve yayın
+# öncesi DB kopyasını korur, böylece RELEASE §7 geri dönüşü (--code / --code-and-db) bir sonraki
+# yayına kadar mümkün kalır. Bir sonraki deploy'u engellemez (trafiği açık yayın "çözülmüş" sayılır).
+# Çıktının son satırları iş akışının okuduğu anahtar=değer satırlarıdır.
 set -euo pipefail
 umask 022
 
@@ -74,7 +77,6 @@ set -a; . /etc/dolmus-takip/domain.env; set +a
 CODE="$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 "https://${DOLMUS_DOMAIN}/giris" || true)"
 [[ "$CODE" == "200" ]] || fail "external_check_$CODE"
 
-/usr/bin/node scripts/release-apply.ts mark-verified || fail "mark_verified"
 /usr/bin/node scripts/release-apply.ts cleanup || log "event=deploy_cleanup_warning"
 
 log "event=deploy_done release_id=$ID source_commit=$SRC"

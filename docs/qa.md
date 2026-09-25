@@ -111,7 +111,7 @@ _Step list single-sourced; runner.temp moved from job env to step level (commit 
 
 | Test type | When |
 | --- | --- |
-| Quality gate: typecheck, lint, unit, integration (npm run quality-gate) | Every push and PR (ci.yml) and on release.yml dispatch, first step; locally via ci:local or directly. release:build re-runs it only when no valid .quality-gate record exists for the current tree; test:release does not read that record (its clone starts with its own fixture record) and runs the full gate only in its failing-tree scenario |
+| Quality gate: typecheck, lint, unit, integration (npm run quality-gate) | Every push and PR (ci.yml) and on release.yml dispatch, first step; locally via ci:local or directly. release:build re-runs it only when no valid .quality-gate record exists for the current tree. Only npm run quality-gate or release:build's own full gate on a clean tree write that record; separate typecheck/lint/test:unit/test:integration runs leave none, so running them before release:build runs the full gate twice (release:build prints this hint right after its no-record line); test:release does not read that record (its clone starts with its own fixture record) and runs the full gate only in its failing-tree scenario |
 | Release pipeline meta-test (npm run test:release: release:build/verify end to end in a temporary clone) | Every push and PR (ci.yml) and on release.yml dispatch, right after quality-gate; locally via ci:local; outside test:integration |
 | E2E Chromium + WebKit | Every push and PR in CI; Chromium-only at package gates inside the DIJJI runtime container |
 | Release build + verify | Every push/PR and on manual release.yml dispatch |

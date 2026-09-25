@@ -75,8 +75,11 @@
  * - Kayıt yoksa ya da herhangi bir alanı tutmuyorsa (başka tree, farklı
  *   adım listesi, başka Node sürümü, ayrıştırılamayan JSON) typecheck/lint/
  *   test:unit/test:integration bu script'in KENDİSİ tarafından eskisi gibi
- *   çalıştırılır; herhangi biri başarısız olursa `buildStandalone()`'a HİÇ
- *   girmeden `exit 1` ile durur ve kayıt yazılmaz.
+ *   çalıştırılır. Kapıdan önce, kaydı yalnız `npm run quality-gate`'in ya da
+ *   bu script'in temiz ağaçtaki tam kapısının yazdığını, ayrı adım
+ *   koşularının kayıt bırakmadığını söyleyen bir satır basılır. Adımlardan
+ *   biri başarısız olursa `buildStandalone()`'a HİÇ girmeden `exit 1` ile
+ *   durur ve kayıt yazılmaz.
  *
  * Kayıt bir KAZA korumasıdır, kurcalamaya karşı koruma değildir: checkout'a
  * yazabilen biri kaydı da taklit edebilir — bu dosyayı düzenleyebileceği
@@ -179,6 +182,10 @@ function ensureQualityGate(): void {
   }
 
   console.log(`[release:build] Geçerli kalite kapısı kaydı yok (${check.reason}); kapı tam çalıştırılıyor.`);
+  console.log(
+    "[release:build] Kalite kapısı kaydını yalnız `npm run quality-gate` ya da release:build'in " +
+      `temiz ağaçtaki kendi tam kapısı yazar; ayrı ${qualityGateStepIds().join("/")} koşuları kayıt bırakmaz.`,
+  );
   const outcome = runQualityGate({ root: projectRoot, logPrefix: "[release:build]" });
   if (!outcome.ok) {
     fail(outcome.message);

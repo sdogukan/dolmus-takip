@@ -265,7 +265,7 @@ _TECH-STACK §8, ARCHITECTURE §8.2; last item from the product owner's answer o
 
 None for now — no external health check and no team alert channel; only the local 30 s systemd health timer
 
-_Conflict: the approved rationale says an external probe on /api/v1/health/live 'can be added later without code changes', but the code written for this task (deploy/caddy/Caddyfile, matcher @health on /api/v1/health and /api/v1/health/*) answers 404 to every request from outside, and tests/unit/deploy-config.test.ts asserts it. The API Endpoint List already marks the health endpoints 'Localhost only via Caddy'. Existing value kept unchanged — keep the Caddy block and correct the note, or expose /api/v1/health/live publicly?_
+_Product owner answer: not needed for now. This supersedes the go-live prerequisite in ARCHITECTURE §8.2 'Makine sorunu' and §11: the local timer stops together with the machine, so a full machine outage is not detected automatically. The health endpoints stay closed to the outside: deploy/caddy/Caddyfile (matcher @health on /api/v1/health and /api/v1/health/*) answers 404 to every external request before the maintenance gate and reverse_proxy, asserted by tests/unit/deploy-config.test.ts and checked manually in SERVER-SETUP §5 row 5. If an external probe is added later (e.g. on /api/v1/health/live), that Caddy block must change as well; the application code itself does not._
 
 ## CI/CD
 

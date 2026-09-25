@@ -93,13 +93,17 @@ _Implemented in T1.2/T1.3/T1.6 via the shared LoginForm component._
 35 ABC 123                    Çıkış
 Günlük kayıt
 
-Adın
-[ Ahmet Yılmaz                    v ]
-Çalışma tarihi
-[ 14 Eylül 2026                    v ]
-Başlangıç               Bitiş
-[ 08:00      ]          [ 17:30     ]
-Çalışma süresi: 9 saat 30 dakika
+Çalışılan gün
+[ 14.09.2026                      ]
+14 Eylül 2026
+Kim çalıştı?
+[ Ahmet Yılmaz                  v ]
+Başlangıç saati
+[ 08:00                           ]
+Bitiş saati
+[ 17:30                           ]
+[ ] Bitiş ertesi gün
+Süre: 9 saat 30 dakika
 
 Hasılat (TL)
 [ 10.000,00                         ]
@@ -115,19 +119,25 @@ Teslim edilecek tutar    6.200,00 TL
 [               Kaydet              ]
 ```
 
-_Conflict between the approved wireframe (value kept unchanged) and the code written for T3.1, still open after T3.4. T3.4 (this task) renamed the single button from 'Kontrol et' to 'Kaydet' (WORK_ENTRY_MESSAGES.submit; 'Kaydediliyor…' while sending) and made it save, so the button now matches the approved wireframe. The amount section (T3.2) already matches the approved order and labels. Remaining T3.1 differences: the approved layout orders 'Adın' (person) before 'Çalışma tarihi' (date) and shows no overnight control. WorkEntryForm renders, under the plate header and 'Günlük kayıt' heading: 'Çalışılan gün' (native date input prefilled with the server-computed Istanbul date, the formatted date '14 Eylül 2026' shown below it), 'Kim çalıştı?' (select starting at 'Adını seç'), 'Başlangıç saati', 'Bitiş saati' with a 'Bitiş ertesi gün' checkbox, live 'Bitiş: <date> <time>' when overnight and 'Süre: 9 saat 30 dakika'. Start and end times are stacked, not side by side. Update the upper part of the wireframe to the implemented order and labels, or keep it and change the code later?_
+_Upper part updated to the implemented order and labels per the product owner's correction; the amount section and the Kaydet button are unchanged. WorkEntryForm (src/app/_components/work-entry-form.tsx) renders under the plate header and the 'Günlük kayıt' heading: 'Çalışılan gün' (native date input prefilled with the server-computed Istanbul date, the formatted date shown below it), 'Kim çalıştı?' (select starting at 'Adını seç'), 'Başlangıç saati', 'Bitiş saati' stacked, a 'Bitiş ertesi gün' checkbox with a live 'Bitiş: <date> <time>' line when checked, and 'Süre: …'._
 
 ### Şoför günlük kayıt — notes
 
 **Repos:** dolmus-takip
 
-Fields: plate fixed; date defaults to today (editable); name starts as "Adını seç" from active drivers of the vehicle; no free-text name or ID fields.
-Time: labelled start/end pickers, duration auto-computed; overnight shows explicit end date ("Ertesi gün bitti"), 0 < duration ≤ 24 h (K3).
-Money: gross and fuel required (explicit 0 allowed); decimal keyboard; summary shows "—" while inputs invalid; single other expense + optional note (K6); negative remainder shown with a clear warning (K5).
-States: empty driver list ("Bu araç için şoför eklenmemiş. Mal sahibinden adını eklemesini iste."); saving ("Kaydediliyor…"); success after commit only; unknown result ("Kaydın sonucu kontrol ediliyor." — same request re-checked, form frozen); known not-sent ("Bağlantı yok. Henüz kaydedilmedi."); validation error under field; session expired.
+Fields: plate fixed; "Çalışılan gün" defaults to today's Istanbul date (editable, formatted date shown below); "Kim çalıştı?" starts at "Adını seç" and lists only the vehicle's active drivers; no free-text name or ID fields.
+
+Time: "Başlangıç saati" and "Bitiş saati"; duration computed live ("Süre: 9 saat 30 dakika"); overnight work needs the explicit "Bitiş ertesi gün" checkbox, which shows "Bitiş: <date> <time>"; 0 < duration ≤ 24 h (K3). An end before the start without the checkbox → "Bitiş saati başlangıçtan önce. Ertesi gün bitiyorsa “Bitiş ertesi gün” kutusunu işaretle."
+
+Money: gross and fuel required (explicit 0 allowed, empty → "Tutarı gir. Yoksa 0 yaz."); amounts are text fields with Turkish parsing (thousands dot, comma for kuruş, max 2 decimals, too-large amounts refused); summary shows "—" while inputs are invalid; single other expense + optional note (K6), note max 200 characters, a note without an amount is an amount error; removing a filled expense asks "Masraf kaldırılsın mı?"; negative remainder shown with a clear warning (K5).
+
+Driver list states: loading ("Şoförler yükleniyor…"); empty ("Bu araçta seçilebilir şoför yok. Araç sahibinden şoför eklemesini iste.", picker disabled); list error with "Tekrar dene"; person no longer selectable on save → "Bu kişi artık bu araçta seçilemiyor. Liste yenilendi; adını yeniden seç."
+
+Save states: saving ("Kaydediliyor…"); success after commit only; a double tap sends one request. Known not-sent (offline) → nothing sent, every field kept, "Bağlantı yok. Henüz kaydedilmedi." Unknown result → fields locked, "Kaydın sonucu kontrol ediliyor." + "Bağlantı gelince kendiliğinden tekrar kontrol edilir. Aynı kayıt yalnız bir kez oluşur."; the same request is re-checked automatically on page open and when the connection returns, and manually with "Sonucu şimdi kontrol et" (pressed offline → "Bağlantı yok. Sonuç bağlantı gelince kontrol edilecek."). Session ended → "Oturumun sona erdi. Yeniden giriş yap." with a "Yeniden giriş yap" link; the pending entry resolves after logging in to the same vehicle. Conflict with another attempt → "Bu kayıt başka bir denemeyle çakıştı. Bilgileri kontrol edip yeniden kaydet."; validation error under the field.
+
 Draft + request_id persisted in localStorage for 24 h (F6); no offline queue (K7).
 
-_Conflict between the approved notes (value kept unchanged) and the code written for T3.1–T3.4 and this task (S3.6, labelled T3.7 in code comments and tests). Closed by this task: (a) Unknown result — WorkEntryForm now shows WORK_ENTRY_MESSAGES.checking (= COMMON_SCREEN_MESSAGES.checkingResultAfterDisconnect 'Kaydın sonucu kontrol ediliyor.') with the fields locked and re-sends the frozen body with the same requestId automatically once on page open (readClientState + canResolveUnknown) and on the browser 'online' event, as the approved notes require; the old unknownResult text and the 'Kaydı tekrar dene' button are gone. (b) Known not-sent — with navigator.onLine === false 'Kaydet' sends nothing, freezes nothing, keeps every field and shows connectionFailed 'Bağlantı yok. Henüz kaydedilmedi.'. Not in the approved notes: the manual button checkNow 'Sonucu şimdi kontrol et' ('Kontrol ediliyor…' while checking) with checkHint 'Bağlantı gelince kendiliğinden tekrar kontrol edilir. Aynı kayıt yalnız bir kez oluşur.'; stillOffline 'Bağlantı yok. Sonuç bağlantı gelince kontrol edilecek.' when that button is pressed offline (never 'Henüz kaydedilmedi', since the request may already have arrived); a 401 shows COMMON_SCREEN_MESSAGES.sessionEnded plus a 'Yeniden giriş yap' link to a fixed internal path (workEntryLoginHref: /giris, staff /yonetim/giris) and the pending draft resolves after logging in to the same vehicle; a synchronous in-flight guard turns a double tap into one POST; a draft is cleared or released only while it still belongs to the resolved requestId (draftAfterCreated / draftAfterRelease, stale-tab protection); 409 → 'Bu kayıt başka bir denemeyle çakıştı. Bilgileri kontrol edip yeniden kaydet.'; after an attempt that may have arrived, 401/403/404 keep the form locked and only 422 and 409 REQUEST_ID_REUSED release it with a new requestId. Earlier differences still open: (1) empty driver list text — approved 'Bu araç için şoför eklenmemiş. Mal sahibinden adını eklemesini iste.', code WORK_ENTRY_MESSAGES.personEmpty 'Bu araçta seçilebilir şoför yok. Araç sahibinden şoför eklemesini iste.'; (2) overnight — approved 'Ertesi gün bitti' end date, code an explicit 'Bitiş ertesi gün' checkbox with 'Bitiş: <date> <time>' (evaluateWorkTime in src/lib/work-time.ts); (3) list loading, list error with 'Tekrar dene' and 'Bu kişi artık bu araçta seçilemiyor. Liste yenilendi; adını yeniden seç.' states; (4) T3.2 additions — removing a filled expense asks 'Masraf kaldırılsın mı?', a note with an empty amount is an amount error, the note is limited to 200 characters, Turkish amount parsing rules and too-large texts (parseTlAmount in src/lib/money.ts). Update the notes to the implemented texts and states, or keep them and change the code later?_
+_Updated to the implemented texts and states per the product owner's correction. Texts from WORK_ENTRY_MESSAGES and COMMON_SCREEN_MESSAGES in src/lib/messages.ts; time rules in evaluateWorkTime (src/lib/work-time.ts); amount parsing in parseTlAmount (src/lib/money.ts); unknown-result handling in WorkEntryForm (readClientState, canResolveUnknown, 'online' event, synchronous in-flight guard; after an attempt that may have arrived, 401/403/404 keep the form locked and only 422 and 409 REQUEST_ID_REUSED release it with a new requestId). Owner and staff forms use their own empty-list texts pointing to Şoförlerim / Şoförler._
 
 ### Kayıt sonucu — wireframe
 
@@ -144,20 +154,30 @@ Mal sahibi parayı aldığında
 burada görebileceksin.
 
 [ Yenile ]
+Kaydı aç
 Başka bir çalışma kaydı gir
+
+--- "Kaydı aç" → entry detail and edit page ---
+(driver: /sofor/kayitlar/:id — "Kayıt detayı", current values,
+ delivery status with its own "Yenile", "Kaydı düzenle" only for
+ today's unconfirmed entry)
 ```
 
-_Conflict between the approved wireframe (value kept unchanged) and the code. This task (S3.6, T3.7 in code) rebuilt the post-save result in WorkEntryForm to the approved layout: 'Kaydedildi' (focused after save), savedWho '<name> · <plate>' (new plate prop passed by /sofor, /sahip/kayit/yeni and /yonetim/araclar/:id/kayit/yeni), savedWhen '<date> · <HH:MM–HH:MM>' (formatWorkTimeRange, '(ertesi gün)' when the end falls on the next Istanbul day), 'Teslim edilecek tutar' (owner kind: 'Giderlerden sonra kalan'), 'Henüz doğrulanmadı' / 'Teslim doğrulandı' / 'Onay gerekmiyor' (since the driver delivery-status change T4.6 through the shared WorkEntryDeliveryStatus, which for a confirmed entry read by 'Yenile' also shows 'Alınan tutar' and 'Doğrulama zamanı' on separate lines), the resultHint 'Mal sahibi parayı aldığında burada görebileceksin.' (driver mode, pending only), a 'Yenile' button that re-reads GET /api/v1/work-entries/:id ('Güncel kayıt okunuyor…'; on failure 'Güncel kayıt okunamadı. Tekrar dene.', never claiming deletion) and 'Başka bir çalışma kaydı gir'. Remaining differences: (1) a 'Kaydı aç' link (workEntryDetailHref, added by the previous task) sits between 'Yenile' and 'Başka bir çalışma kaydı gir' and is not in the wireframe; (2) /sofor/kayitlar/:id — the planned result/delivery page — is implemented as a detail + edit page (WorkEntryEditForm: 'Kayıt detayı', 'Güncel kayıt', 'Sürüm N', 'Kaydı düzenle' only for today's pending entry; since T4.6 it also shows the delivery status with the same component and its own 'Yenile' button). Add the link and accept the detail page, or keep the wireframe and change the code later?_
+_Per the product owner's correction the 'Kaydı aç' link is added between 'Yenile' and 'Başka bir çalışma kaydı gir' (workEntryDetailHref in WorkEntryForm), and the entry's own page is accepted as the detail + edit page (WorkEntryEditForm: 'Kayıt detayı', 'Güncel kayıt', 'Sürüm N', 'Kaydı düzenle' only for today's pending entry; delivery status through WorkEntryDeliveryStatus with its own 'Yenile'). The rest of the result matches the approved layout: 'Kaydedildi' (focused after save), '<name> · <plate>', '<date> · <HH:MM–HH:MM>' ('(ertesi gün)' when the end falls on the next Istanbul day), 'Teslim edilecek tutar' (owner kind: 'Giderlerden sonra kalan'), status and the driver-only hint._
 
 ### Kayıt sonucu — notes
 
 **Repos:** dolmus-takip
 
 Pending: "Henüz doğrulanmadı". Confirmed: "Teslim doğrulandı" + received amount + confirmation time; short delivery shows expected 6.200 TL and verified 6.000 TL together.
+
 Refresh on open and via "Yenile"; no background polling. New entry link hidden while a result is unknown.
+
 Driver history scope: entries of the selected person on the same vehicle; unconfirmed edits only on the work day (K1). No "Kayıtlarım" privacy promise.
 
-_Conflict between the approved notes (value kept unchanged) and the code. Consistent since S3.6 (T3.7 in code): the post-save result in WorkEntryForm has a 'Yenile' button that re-reads the entry through GET /api/v1/work-entries/:id, with no background polling; while a result is unknown the form stays in place, so 'Başka bir çalışma kaydı gir' is not shown (asserted in driver-daily-form.spec.ts and owner-staff-work-entry.spec.ts); pending shows 'Henüz doğrulanmadı'; no 'teslim ettim' action is offered. Consistent since the driver delivery-status change (T4.6): the shared WorkEntryDeliveryStatus (deliveryStatusView in src/lib/work-entry-ui.ts) on the post-save result and on the driver's /sofor/kayitlar/:id shows a confirmed entry as WORK_ENTRY_MESSAGES.deliveryConfirmed 'Teslim doğrulandı' with 'Teslim edilecek tutar' and 'Alınan tutar' on separate lines (a short delivery shows 6.200,00 TL expected and 6.000,00 TL received together, asserted in driver-daily-form.spec.ts and work-entry-edit.spec.ts) and 'Doğrulama zamanı'; DriverEntriesList rows use deliveryStatusLabel ('Teslim doğrulandı'); the driver detail page gained a 'Yenile' button (one GET per press, no automatic retry, the last known state kept on failure). Still open: (1) naming — approved 'No "Kayıtlarım" privacy promise' (DESIGN §2.3: 'Kayıtlarım adıyla bireysel gizlilik güvencesi verilmez.'), code WORK_ENTRY_MESSAGES.listTitle and listLink 'Kayıtlarım' and the /sofor/kayitlar page title 'Kayıtlarım — Dolmuş Takip', followed by the 'Kimin kayıtları?' person picker; (2) 'Yenile' on the driver list — DriverEntriesList loads on open and on person change and has no 'Yenile' control. Rename the list and add 'Yenile' to it, or accept the implemented name and drop the rule from the notes?_
+Open code change (recorded 2026-09-25): the driver's entry list is still titled "Kayıtlarım" (link on /sofor, page title and heading) and has no "Yenile" control. It must open under a non-personal name (e.g. "Araçtaki kayıtlar") and gain a "Yenile" button.
+
+_Approved notes kept per the product owner's correction; the code must change to match them. Matches the code: the post-save result and the driver detail page have 'Yenile' (one GET per press, no polling); 'Başka bir çalışma kaydı gir' is hidden while a result is unknown; confirmed entries show 'Teslim doğrulandı' with 'Teslim edilecek tutar' and 'Alınan tutar' on separate lines and 'Doğrulama zamanı' through WorkEntryDeliveryStatus. Open gap: WORK_ENTRY_MESSAGES.listTitle and listLink are 'Kayıtlarım' (src/lib/messages.ts) and the /sofor/kayitlar page title is 'Kayıtlarım — Dolmuş Takip'; DriverEntriesList (src/app/_components/driver-entries-list.tsx) loads on open and on person change and has no 'Yenile' control (DESIGN §2.3: 'Kayıtlarım adıyla bireysel gizlilik güvencesi verilmez.')._
 
 ### Sahip çalışma kaydı — wireframe
 
@@ -236,14 +256,18 @@ _Current /sahip is an honest placeholder with plate + logout (M1 decision)._
 **Repos:** dolmus-takip
 
 ```
-< Özete dön
+--- owner: /sahip/kayitlar/:id (pending) ---
+35 ABC 123                    Çıkış
+← Özet
+Kayıt detayı
+
 Ahmet Yılmaz · 35 ABC 123
 14 Eylül 2026 · 08:00–17:30
 Henüz doğrulanmadı
 
 Hasılat                 10.000,00 TL
 Mazot                    1.500,00 TL
-Diğer masraf               300,00 TL
+Diğer masraf (Otopark)     300,00 TL
 Şoför payı               2.000,00 TL
 Beklenen teslim          6.200,00 TL
 
@@ -254,29 +278,98 @@ Beklenenden 200,00 TL az.
 [ Parayı aldım, tutar doğru          ]
 Kaydı düzenle
 
---- after confirmation, "Kaydı düzenle" ---
+Geçmişi gör
+
+--- after confirmation ---
+Teslim doğrulandı
+... amounts as above ...
+Alınan tutar             6.000,00 TL
+Doğrulama zamanı   14 Eylül 2026 · 18:05
+Sahip adına platform desteği · destek.ayse   (only if staff confirmed)
+Kaydı düzenle
+
+Geçmişi gör
+
+--- "Kaydı düzenle" on a confirmed entry ---
 Onaylanmış kaydı düzelt
-Ahmet Yılmaz · 35 ABC 123
 Günlük form alanları: düzenlenebilir
 Yeni beklenen teslim     6.200,00 TL
 Aldığım tutar (TL) [ 6.000,00        ]
 [         Düzelt ve onayla           ]
-Vazgeç                  Geçmişi gör
+Vazgeç
+
+Geçmişi gör
+
+--- staff: /yonetim/araclar/:id/kayitlar/:entryId ---
+destek.ayse · Destek               Çıkış
+Destek: Görkem işletmesi
+Araç: 35 ABC 123 · Sahip: Görkem
+İşlemi yapan: destek.ayse (Destek)
+[ Hedefi değiştir ]
+← Destek
+Kayıt detayı
+
+Güncel kayıt · Sürüm 1
+Kayıt türü / Çalışan / Çalışılan gün / Saat /
+Süre / Hasılat / Mazot / Diğer masraf /
+Şoför payı / Teslim edilecek tutar
+Henüz doğrulanmadı
+
+Sahip adına alınan tutar (TL)
+[ 6.000,00                          ]
+Beklenenden 200,00 TL az.
+[ Sahip adına teslimi onayla         ]
+  after confirmation:
+  Teslim doğrulandı · Alınan tutar · Doğrulama zamanı
+  Sahip adına platform desteği · destek.ayse
+  Kaydı düzenle → correction form with
+  "Sahip adına alınan tutar" and [ Düzelt ve onayla ]
+
+Geçmişi gör
+
+--- "Geçmişi gör": /sahip/kayitlar/:id/gecmis (staff: .../gecmis) ---
+35 ABC 123                    Çıkış
+← Kayıt detayı
+Kayıt geçmişi
+
+Güncel kayıt
+Çalışan              Ahmet Yılmaz
+Çalışılan gün        14 Eylül 2026
+Saat                 08:00–17:30
+Hasılat / Mazot / Diğer masraf / Şoför payı
+Teslim edilecek tutar    6.200,00 TL
+Alınan tutar             6.000,00 TL
+Onaylandı
+Sürüm 2
+
+Değişiklikler
+Kayıt oluşturuldu
+Sürüm 1 · 14 Eylül 2026 · 17:40
+Şoför oturumu · 35 ABC 123
+Teslim doğrulandı          Güncel
+Sürüm 1 · 14 Eylül 2026 · 18:05
+Sahip adına platform desteği · destek.ayse
+destek.ayse · Destek · Sahip adına Görkem
+Alınan tutar: 6.000,00 TL
 ```
 
-_Conflict between the approved wireframe (value kept unchanged) and the code written for T4.1/T4.2, T4.3, the work-entry history change and this task (staff on-behalf confirmation). This task: the staff detail page /yonetim/araclar/:id/kayitlar/:entryId now renders WorkEntryConfirmPanel and WorkEntryCorrectForm in staff mode (onBehalf: WORK_ENTRY_MESSAGES.receivedLabelOnBehalf 'Sahip adına alınan tutar', confirmButtonOnBehalf 'Sahip adına teslimi onayla', the correction form with the same received label and 'Düzelt ve onayla') below the T3.6 'Güncel kayıt' list with 'Sürüm N' (not OwnerEntrySummary); requests carry X-Target-Vehicle and an inactive target locks them. A staff confirmation shows WORK_ENTRY_MESSAGES.supportTrace 'Sahip adına platform desteği · <username>' under 'Doğrulama zamanı' on the owner and staff detail pages. The approved wireframe draws only the owner view and has no staff variant, on-behalf labels or trace line. Earlier differences remain: 'Geçmişi gör' (WORK_ENTRY_MESSAGES.historyLink) sits at the bottom of the detail page in every state instead of next to 'Vazgeç' and opens /sahip/kayitlar/:id/gecmis (or the staff equivalent), which has no approved wireframe; the correction form 'Onaylanmış kaydı düzelt' has no '<person> · <plate>' line of its own; the back link is WORK_ENTRY_MESSAGES.backToOwner '← Özet' instead of '< Özete dön' and the page has an h1 'Kayıt detayı'. Update the wireframe to the implemented owner and staff views and add a history-page wireframe, or keep it and change the code?_
+_Updated to the implemented owner and staff views per the product owner's correction. Owner page (src/app/sahip/kayitlar/[id]/page.tsx): back link WORK_ENTRY_MESSAGES.backToOwner '← Özet', h1 'Kayıt detayı', OwnerEntrySummary, WorkEntryConfirmPanel, WorkEntryCorrectForm ('Onaylanmış kaydı düzelt', no '<person> · <plate>' line of its own) and WORK_ENTRY_MESSAGES.historyLink 'Geçmişi gör' at the bottom of the page in every state. Staff page (src/app/yonetim/araclar/[id]/kayitlar/[entryId]/page.tsx): pinned SupportTargetHeader, '← Destek', 'Kayıt detayı', the 'Güncel kayıt' list with 'Sürüm N', and the confirm/correct components in on-behalf mode (receivedLabelOnBehalf 'Sahip adına alınan tutar', confirmButtonOnBehalf 'Sahip adına teslimi onayla'); requests carry X-Target-Vehicle and an inactive target locks them. WORK_ENTRY_MESSAGES.supportTrace appears under 'Doğrulama zamanı' for a staff confirmation. History page: WorkEntryHistory (current summary + chronological rows; actor via formatHistoryActor, on-behalf via formatHistoryOnBehalf, trace via formatHistorySupportTrace), read-only with no totals._
 
 ### Kayıt detayı ve teslim onayı — notes
 
 **Repos:** dolmus-takip
 
 First confirmation: received field may be prefilled with expected (prefill is not confirmation); received ≥ 0 and explicit.
-After confirmation: "Teslim doğrulandı", received amount, time and actor (staff shown as "Sahip adına platform desteği · <ad>"). Driver cannot edit.
+
+After confirmation: "Teslim doğrulandı", received amount and time. Staff confirmation on behalf of the owner shows "Sahip adına platform desteği · <username>" (the staff member's platform username) to the owner and staff, and "Sahip adına platform desteği" without the username to the driver. An owner's own confirmation shows no separate actor line on the detail page; the kayıt geçmişi shows it as "Sahip oturumu · <plate>". Driver cannot confirm or edit a confirmed entry.
+
 Correct-and-confirm is one operation; received amount is not auto-synced to new expected; person/date change moves the entry to the new period; driver↔owner kind change closed (K4, 422).
+
 Unconfirmed edit: "Değişiklikleri kaydet" (does not claim cash received).
+
 States: saving, success ("Kayıt düzeltildi ve onaylandı."), conflict 409 ("Bu kayıt değişmiş. Güncel halini açıp tekrar kontrol et."), validation, unknown result, unauthorized.
 
-_Conflict between the approved notes (value kept unchanged) and the code written for T4.1/T4.2, the work-entry history change and this task (staff on-behalf confirmation). Approved: 'After confirmation: "Teslim doğrulandı", received amount, time and actor (staff shown as "Sahip adına platform desteği · <ad>")'. Now: WorkEntryConfirmationView in src/server/usecases/work-entries/queries.ts carries actor { kind vehicle_credential } | { kind platform_user, username } for owner and staff sessions and only { kind } (no username key) for driver sessions; WorkEntryConfirmPanel shows 'Teslim doğrulandı', 'Alınan tutar', 'Doğrulama zamanı' and, only when actor.kind is platform_user, WORK_ENTRY_MESSAGES.supportTrace 'Sahip adına platform desteği · <username>' on /sahip/kayitlar/:id and /yonetim/araclar/:id/kayitlar/:entryId; WorkEntryHistory adds the same line to staff confirmation rows (formatHistorySupportTrace) next to formatHistoryActor '<username> · Yönetici|Destek' and 'Sahip adına <owner name>'. Remaining differences: the trace uses the platform username, not the staff member's name (<ad>); an owner confirmation shows no actor line on the detail page (only 'Sahip oturumu · <plate>' in the history). The other approved notes match the code: the prefill is not a confirmation; received ≥ 0 and explicit; the driver cannot confirm or edit a confirmed entry; the 409 conflict text is the canonical F7 text. The driver delivery-status change (T4.6) shows the confirmation on the driver's /sofor/kayitlar/:id through WorkEntryDeliveryStatus: 'Teslim doğrulandı', 'Alınan tutar', 'Doğrulama zamanı' and, only for a platform_user actor, WORK_ENTRY_MESSAGES.supportTraceAnonymous 'Sahip adına platform desteği' without a username (asserted in work-entry-edit.spec.ts); an owner confirmation shows no actor line to the driver either, and WorkEntryConfirmPanel now prints the trace only when a username is present. The approved notes do not state what the driver sees about the confirmer. Correct the notes to the implemented trace, or keep them and change the code?_
+_Corrected to the implemented trace per the product owner's correction. WorkEntryConfirmationView (src/server/usecases/work-entries/queries.ts) carries actor { kind platform_user, username } for owner and staff sessions and only { kind } for driver sessions; WorkEntryConfirmPanel prints WORK_ENTRY_MESSAGES.supportTrace only when a username is present, WorkEntryDeliveryStatus prints supportTraceAnonymous for the driver; WorkEntryHistory adds the trace to staff confirmation rows next to '<username> · Yönetici|Destek' and 'Sahip adına <owner name>', and shows an owner confirmation as 'Sahip oturumu · <plate>'. The remaining notes match the code (prefill is not confirmation, received ≥ 0 and explicit, canonical F7 conflict text)._
 
 ### Raporlar — wireframe
 
@@ -323,18 +416,53 @@ _M5 scope; F17 defines vehicle work day._
 **Repos:** dolmus-takip
 
 ```
-35 ABC 123 · Şoförlerim
-[ + Şoför ekle ]
+--- owner: /sahip/soforler ---
+35 ABC 123                    Çıkış
+← Özet
+Şoförlerim
 
+[ + Şoför ekle ]
+  Ad soyad
+  [ Ahmet Yilmaz                    ]
+  Benzer adlı kayıtlı kişi var: Ahmet Yılmaz.
+  Yeni kişi açmak yerine aşağıdan bağlayabilirsin.
+  [ Şoförü kaydet ]
+  Kayıtlı kişiyi bağla
+  Ahmet Yılmaz            [ Bu araca bağla ]
+
+Aktif şoförler
 Ahmet Yılmaz              Aktif
-[ Düzenle ]
+[ Düzenle ] [ Bu araçta pasife al ]
 Mehmet Demir              Aktif
-[ Düzenle ]
+[ Düzenle ] [ Bu araçta pasife al ]
+Anonim kişi 7F3A          Aktif
+Ad, kişisel veri silme talebiyle
+anonimleştirildi; değiştirilemez.
+[ Bu araçta pasife al ]
 
 [ Pasif şoförleri göster ]
+  Pasif şoförler
+  Ali Kaya                Pasif
+  [ Yeniden aktifleştir ]
+
+--- staff: /yonetim/araclar/:id/soforler ---
+dogukan · Yönetici               Çıkış
+Destek: Görkem işletmesi
+Araç: 35 ABC 123 · Sahip: Görkem
+İşlemi yapan: dogukan (Yönetici)
+[ Hedefi değiştir ]
+← Araç
+Şoförler
+(same add panel and lists as the owner, plus per row:)
+Ahmet Yılmaz              Aktif
+[ Düzenle ] [ Bu araçta pasife al ]
+[ Şifre sıfırla ]  → vehicle detail #sifre-sifirlama
+[ Tüm araçlarda pasife al ]  (dialog lists affected plates)
+[ Adı anonimleştir ]  (admin only; irreversible, records kept)
+inactive person: [ Kişiyi yeniden aktifleştir ]
 ```
 
-_Conflict between the approved wireframe (value kept unchanged) and the code written for this task. The owner screen /sahip/soforler (DriversManager mode=owner) shows plate header, '← Özet', h1 'Şoförlerim', a '+ Şoför ekle' toggle opening 'Ad soyad' + 'Şoförü kaydet', a similar-name hint ('Benzer adlı kayıtlı kişi var: …') and a 'Kayıtlı kişiyi bağla' candidate list with 'Bu araca bağla'; 'Aktif şoförler' rows carry name, Aktif/Pasif badge, 'Düzenle' (rename with the approved rename note) and 'Bu araçta pasife al' (then the approved F3 shared-password warning); 'Pasif şoförleri göster' reveals rows with 'Yeniden aktifleştir'. These follow 'Şoförlerim — notes' but the per-row deactivate button and the candidate list are not drawn. The staff screen /yonetim/araclar/:id/soforler (mode=staff, reached from a 'Şoförler' link on the vehicle detail page) adds 'Tüm araçlarda pasife al' behind a ConfirmDialog listing affected plates, 'Kişiyi yeniden aktifleştir' and a 'Şifre sıfırla' link to #sifre-sifirlama; the approved 'Yönetim ana ekranı ve destek alanı' wireframe instead places driver management as a 'Şoförler' tab inside the support area (/yonetim/araclar/:id/destek). The support area is now implemented as a list of links whose 'Şoförler' link opens the separate /yonetim/araclar/:id/soforler page, which also shows the pinned SupportTargetHeader; typed-but-unsent names and open row operations count as unsaved changes there. Global person deactivation corresponds to person.set_global_active (support/admin) in the approved permission matrix but is not described in any design note. Update from the KVKK anonymisation change: in staff mode with an admin session (canAnonymize) each row adds 'Adı anonimleştir' behind a ConfirmDialog; an anonymised row shows 'Ad, kişisel veri silme talebiyle anonimleştirildi; değiştirilemez.' and offers neither 'Düzenle' nor anonymisation on both the owner and the staff screen (rowNameActions); the owner screen never offers anonymisation. None of this is drawn in the approved wireframe or described in 'Şoförlerim — notes'._
+_Updated to the implemented screens per the product owner's correction. DriversManager (src/app/_components/drivers-manager.tsx) in owner mode: '+ Şoför ekle' toggle with 'Ad soyad' and 'Şoförü kaydet', a similar-name hint and a 'Kayıtlı kişiyi bağla' list with 'Bu araca bağla'; 'Aktif şoförler' rows with 'Düzenle' (rename note) and 'Bu araçta pasife al' (then the F3 shared-password warning); 'Pasif şoförleri göster' with 'Yeniden aktifleştir'. Staff mode on /yonetim/araclar/:id/soforler (reached from the support area and the vehicle detail 'Şoförler' link) adds the pinned SupportTargetHeader, 'Şifre sıfırla' (link to #sifre-sifirlama), 'Tüm araçlarda pasife al' behind a ConfirmDialog listing affected plates, 'Kişiyi yeniden aktifleştir', and — for an admin session only (canAnonymize) — 'Adı anonimleştir' behind a ConfirmDialog (PERSON_ANONYMIZE_MESSAGES). An anonymised row shows PERSON_ANONYMIZE_MESSAGES.anonymizedNote and offers neither 'Düzenle' nor anonymisation on both screens; the owner screen never offers anonymisation. Typed-but-unsent names and open row operations count as unsaved changes for 'Hedefi değiştir'._
 
 ### Şoförlerim — notes
 
@@ -353,28 +481,43 @@ _T2.4 planned._
 **Repos:** dolmus-takip
 
 ```
-Yönetim · Doğukan                 Çıkış
-[ Plaka veya işletme ara              ]
-[ + İşletme aç ]       [ + Araç ekle ]
+dogukan · Yönetici               Çıkış
+Yönetim                  [ + İşletme aç ]
+İşlem geçmişi
+Ekip hesapları            (admin only)
 
-Görkem işletmesi · 35 ABC 123
-Mal sahibi: Görkem · Aktif
+Plaka veya işletme ara
+[ 35abc                             ]
+Durum [ Hepsi v ]   (Hepsi / Aktif / Pasif)
+1 sonuç listelendi.
+
+35 ABC 123                        Aktif
+Görkem işletmesi · Sahip: Görkem
 [ Destek ekranını aç ] [ Araç bilgisi ]
+[ Daha fazla göster ]
 
---- support area ---
+(empty query → business cards:
+ Görkem işletmesi · Sahip: Görkem · 1 araç · Aktif)
+
+--- support area: /yonetim/araclar/:id/destek ---
+dogukan · Yönetici               Çıkış
 Destek: Görkem işletmesi
 Araç: 35 ABC 123 · Sahip: Görkem
-İşlemi yapan: Doğukan (platform ekibi)
+İşlemi yapan: dogukan (Yönetici)
+[ Hedefi değiştir ]
 
-[ Özet ] [ Kayıtlar ] [ Şoförler ]
-[ Raporlar ] [ Araç bilgisi ]
-[ + Çalışma kaydı gir ]
+Destek
++ Çalışma kaydı gir
+Özet
+Raporlar
+Şoförler
+Araç bilgisi
+Bu aracın işlem geçmişi
 
-Sahip adına destek işlemi
-Müşteri ekranlarıyla aynı form ve hesap
+(Kayıtlar: added in its own phase)
 ```
 
-_Conflict between the approved wireframe (value kept unchanged) and the code written for this and earlier tasks. This task (T3.3) added the '+ Çalışma kaydı gir' link on /yonetim/araclar/:id/destek, pointing to /yonetim/araclar/:id/kayit/yeni (WorkEntryForm in staff mode: 'Sahip çalıştı' / 'Şoför adına', the support target header pinned, no saving yet), so that element of the approved wireframe now exists. Remaining differences: /yonetim (page.tsx + admin-search.tsx) shows the team header, '+ İşletme aç', an 'İşlem geçmişi' link, the 'Plaka veya işletme ara' input and a 'Durum' select (Hepsi / Aktif / Pasif); there is no '+ Araç ekle' on this screen (vehicles are added from /yonetim/isletmeler/:id). An empty query lists business cards (name, 'Sahip: …' or 'Sahipsiz', vehicle count, Aktif/Pasif); a query lists vehicle cards (plate, business, owner, Aktif/Pasif, 'İşletme pasif' when relevant) with 'Destek ekranını aç' and 'Araç bilgisi'; loading, 'Sonuç yok.', 'Henüz işletme yok.', error with 'Tekrar dene' and 'Daha fazla göster' are separate states. /yonetim/araclar/:id/destek renders SupportTargetHeader ('Destek: <business>', 'Araç: <plate> · Sahip: <owner>', 'İşlemi yapan: <username> (<role>)', 'Hedefi değiştir'), h1 'Destek', an inactive-target notice, and four links ('+ Çalışma kaydı gir', Şoförler, Araç bilgisi, 'Bu aracın işlem geçmişi'); the approved tabs Özet / Kayıtlar / Raporlar are still not offered because those features do not exist yet (M1 honesty rule in the page comment). The same header is shown on /yonetim/araclar/:id, /yonetim/araclar/:id/soforler and /yonetim/araclar/:id/kayit/yeni. 'Yönetim ana ekranı ve destek alanı — notes' matches the code and is not in question. Update the wireframe to the implemented screens, or keep it and change the code later? Update from the staff summary and reports change (S5.5): /yonetim/araclar/:id/destek now links 'Özet' → /yonetim/araclar/:id/ozet and 'Raporlar' → /yonetim/araclar/:id/raporlar (six links in total, still a link list, not tabs; tests/e2e/admin-support-audit.spec.ts asserts both hrefs), so the approved Özet and Raporlar elements now exist; the approved Kayıtlar tab is still not offered, and the support target header is now also shown on the two new pages. The earlier statement that Özet / Kayıtlar / Raporlar are all still not offered is superseded._
+_Updated to the implemented screens per the product owner's correction. /yonetim (src/app/yonetim/page.tsx + admin-search.tsx, ADMIN_SEARCH_MESSAGES): team header '<username> · <role>', h1 'Yönetim', '+ İşletme aç', 'İşlem geçmişi', 'Ekip hesapları' (admin only), 'Plaka veya işletme ara' and 'Durum' (Hepsi / Aktif / Pasif); no '+ Araç ekle' here (vehicles are added from /yonetim/isletmeler/:id). An empty query lists business cards (name, 'Sahip: …' or 'Sahipsiz', vehicle count, Aktif/Pasif); a query lists vehicle cards (plate, business, owner, Aktif/Pasif, 'İşletme pasif' when relevant) with 'Destek ekranını aç' and 'Araç bilgisi'; loading, 'Sonuç yok.', 'Henüz işletme yok.', error with 'Tekrar dene' and 'Daha fazla göster' are separate states. /yonetim/araclar/:id/destek: SupportTargetHeader (SUPPORT_MESSAGES) with 'Hedefi değiştir', h1 'Destek', an inactive-target notice and six links; the header is also shown on the vehicle detail, drivers, work-entry, entry detail, summary and reports pages. The approved 'Kayıtlar' element is not offered yet and will be added in its own phase (no screen offers a feature that does not exist)._
 
 ### Yönetim ana ekranı ve destek alanı — notes
 
@@ -409,10 +552,26 @@ Görkem işletmesi · Aktif
 İşletme adı      [ Görkem işletmesi ]
 Mal sahibi       [ Görkem Kaya      ]
 [      Değişiklikleri kaydet        ]
+[ Adı anonimleştir ]      (admin only)
 [ İşletmeyi pasife al ]  (confirm dialog)
+
+--- "Adı anonimleştir" dialog ---
+Kişinin adını anonimleştir
+Görkem Kaya adı kalıcı olarak "Anonim kişi …"
+biçiminde değişir. Bu işlem geri alınamaz ve
+ad bir daha değiştirilemez.
+Çalışma ve para kayıtları, raporlar ve işlem
+geçmişi silinmez.
+[ Vazgeç ]                [ Anonimleştir ]
+
+--- anonymised owner ---
+Mal sahibi
+Anonim kişi 7F3A
+Ad, kişisel veri silme talebiyle
+anonimleştirildi; değiştirilemez.
 ```
 
-_Conflict between the approved wireframe (value kept unchanged) and the code written for this task: /yonetim/isletmeler/:id (business-detail-form.tsx, OwnerRenameSection) now shows, for admins only (canAnonymize from the session role), an 'Adı anonimleştir' button under the owner rename form, a ConfirmDialog ('Kişinin adını anonimleştir', irreversible, records kept, 'Anonimleştir'), an unknown-result state with 'Tekrar kontrol et', and for an anonymised owner a read-only 'Mal sahibi' block with the anonymous name and 'Ad, kişisel veri silme talebiyle anonimleştirildi; değiştirilemez.' instead of the rename form. Owner persons are excluded from the driver screens, so this is the only place an owner's name can be anonymised. Add these to the wireframe, or remove the control from this screen?_
+_Per the product owner's correction the anonymisation button, its dialog and the anonymised-owner state are added to the approved drawing; the rest is unchanged. /yonetim/isletmeler/:id (business-detail-form.tsx, OwnerRenameSection) shows, for admins only (canAnonymize from the session role), 'Adı anonimleştir' under the owner rename form and a ConfirmDialog with PERSON_ANONYMIZE_MESSAGES (title, irreversible description, records-kept line, 'Anonimleştir'); an unknown result shows 'Kaydın sonucu kontrol ediliyor.' with 'Tekrar kontrol et'. An anonymised owner is shown read-only under 'Mal sahibi' with the anonymous name and PERSON_ANONYMIZE_MESSAGES.anonymizedNote instead of the rename form. Owner persons are excluded from the driver screens, so this is the only place an owner's name can be anonymised._
 
 ### İşletme oluşturma / düzenleme — notes
 
@@ -430,24 +589,58 @@ _Implemented T2.1; E2E tests/e2e/admin-businesses.spec.ts._
 **Repos:** dolmus-takip
 
 ```
-Yönetim · Doğukan                 Çıkış
-< Görkem işletmesi
+dogukan · Yönetici               Çıkış
 Araç ekle
-İşletme / sahip: Görkem işletmesi · Görkem
+Görkem işletmesi · Sahip: Görkem
+
 Plaka
 [ 35 ABC 123                        ]
 Marka / model        Yıl
 [ Ford Transit ]     [ 2019 ]
 Hat / durak notu
 [                                   ]
-Mal sahibi şifresi
+Not
+[                                   ]
+Sahip şifresi
 [ ••••••••                  Göster  ]
-Ortak şoför şifresi
+Şoför şifresi
 [ ••••••••                  Göster  ]
+
 [             Aracı kaydet          ]
+
+--- edit: /yonetim/araclar/:id ---
+dogukan · Yönetici               Çıkış
+Destek: Görkem işletmesi
+Araç: 35 ABC 123 · Sahip: Görkem
+İşlemi yapan: dogukan (Yönetici)
+[ Hedefi değiştir ]
+
+35 ABC 123                        Aktif
+Görkem işletmesi · Sahip: Görkem
+Şoförler
+
+Araç bilgisi
+Marka / model [ Ford Transit ]  Yıl [ 2019 ]
+Hat / durak notu [                  ]
+Not              [                  ]
+[           Bilgiyi kaydet          ]
+
+Aktiflik
+Aracı pasifleştirmek sahip ve şoför oturum
+erişimini keser. Geçmiş kayıtlar silinmez.
+[ Aracı pasifleştir ]      (confirm dialog)
+
+Şifre sıfırlama
+Görkem işletmesi · 35 ABC 123
+( ) Mal sahibi şifresi   ( ) Şoför şifresi
+Yeni şifre
+[ ••••••••                  Göster  ]
+Yalnız seçtiğin erişimin açık oturumları
+kapatılır; diğer erişim etkilenmez.
+[          Şifreyi sıfırla          ]
 ```
 
-_Conflict between the approved wireframe (value kept unchanged) and the code written for this task. new-vehicle-form.tsx labels the password inputs 'Sahip şifresi' / 'Şoför şifresi' instead of the approved 'Mal sahibi şifresi' / 'Ortak şoför şifresi', and adds an optional free-text 'Not' field (vehicles.note) that the wireframe does not show; plate, 'Marka / model', 'Yıl', 'Hat / durak notu' and 'Aracı kaydet' match. The edit screen at /yonetim/araclar/:id (vehicle-detail-form.tsx: 'Araç bilgisi' section with 'Bilgiyi kaydet', 'Aktiflik' section with 'Aracı pasifleştir' / 'Aracı yeniden aktifleştir' behind a confirm dialog; plate not editable) is not drawn in the approved wireframe. Keep the approved wireframe and change the screens, or update the wireframe to the implemented screens? T2.3 added a 'Şifre sıfırlama' section to /yonetim/araclar/:id (password-reset-section.tsx): business name + plate, a radio choice labeled 'Mal sahibi şifresi' / 'Şoför şifresi', 'Yeni şifre' with Göster/Gizle, 'Şifreyi sıfırla', a 'Kaydın sonucu kontrol ediliyor' state with 'Tekrar kontrol et', and a success text naming plate + access and the WhatsApp handover. Its owner label matches the approved 'Mal sahibi şifresi', its driver label does not match 'Ortak şoför şifresi'; the section is not drawn in the approved wireframe either. S2.4 added a 'Şoförler' link under the business/owner line of vehicle-detail-form.tsx pointing to /yonetim/araclar/:id/soforler; it is not in the approved wireframe either. The admin support/audit change added the pinned SupportTargetHeader (business, plate, owner, real staff actor, 'Hedefi değiştir') above VehicleDetailForm on /yonetim/araclar/:id; the info section and the typed-but-unsent new password in 'Şifre sıfırlama' register as unsaved changes, so 'Hedefi değiştir' asks 'Değişiklikleri bırakıp çık?' before clearing the vehicle's drafts. Not in the approved wireframe either._
+_Updated to the implemented screens per the product owner's correction (Seçenek 2): the short password labels and the optional 'Not' field (vehicles.note; 'Not' is among the vehicle details in PRD §6) are accepted. Create: new-vehicle-form.tsx ('Araç ekle', '<business> · Sahip: <owner>', Plaka, Marka / model, Yıl, Hat / durak notu, Not, 'Sahip şifresi' / 'Şoför şifresi' with Göster/Gizle, 'Aracı kaydet'; unknown result with 'Tekrar kontrol et'). Edit: /yonetim/araclar/:id renders the pinned SupportTargetHeader above vehicle-detail-form.tsx (plate + Aktif/Pasif, business/owner line, 'Şoförler' link to /yonetim/araclar/:id/soforler, 'Araç bilgisi' with 'Bilgiyi kaydet', plate not editable, 'Aktiflik' with 'Aracı pasifleştir' / 'Aracı yeniden aktifleştir' behind a confirm dialog) and password-reset-section.tsx ('Şifre sıfırlama', radio 'Mal sahibi şifresi' / 'Şoför şifresi', 'Yeni şifre', 'Şifreyi sıfırla', success text naming plate + access and the WhatsApp hand-over; inactive target → 'Araç veya işletme pasif; şifre sıfırlanamaz.'). The info section and a typed-but-unsent new password count as unsaved changes, so 'Hedefi değiştir' asks 'Değişiklikleri bırakıp çık?'._
 
 ### Araç oluşturma / düzenleme — notes
 
@@ -465,21 +658,59 @@ _T2.2/T2.3 planned; WhatsApp handover per the product owner's answer to F14._
 **Repos:** dolmus-takip
 
 ```
-Yönetim · Doğukan (Yönetici)      Çıkış
-Ekip hesapları        [ + Hesap aç ]
-destek.ayse   Ayşe K.   Destek   Aktif
+dogukan · Yönetici               Çıkış
+← Yönetim
+Ekip hesapları           [ + Hesap aç ]
+
+destek.ayse
+Ayşe Kaya · Destek · Aktif
 [ Düzenle ] [ Şifre sıfırla ]
 
+--- /yonetim/ekip/yeni ---
+← Ekip hesapları
+Ekip hesabı aç
+Kullanıcı adı, ad soyad, yetki ve ilk şifreyi
+gir. Şifreyi kişiye kendin ilet; uygulama
+mesaj göndermez.
+Kullanıcı adı
+[ destek.ayse                       ]
+3–32 karakter; harf, rakam, nokta, alt çizgi ve tire.
+Ad soyad
+[ Ayşe Kaya                         ]
+Yetki   ( ) Yönetici   (•) Destek
+Şifre
+[ ••••••••                  Göster  ]
+[             Hesabı aç             ]
+
+--- /yonetim/ekip/:id ---
+← Ekip hesapları
+destek.ayse                       Aktif
+Hesap bilgisi
+Ad soyad [ Ayşe Kaya                ]
+Yetki    ( ) Yönetici   (•) Destek
+[          Bilgiyi kaydet           ]
+Aktiflik
+[ Hesabı pasifleştir ]     (confirm dialog)
+Şifre sıfırlama
+Yeni şifre [ ••••••••        Göster ]
+[          Şifreyi sıfırla          ]
+
 --- /yonetim/islem-gecmisi ---
+dogukan · Yönetici               Çıkış
+← Yönetim
 İşlem geçmişi
-[ İşletme / plaka filtrele          ]
-21 Eyl 2026 14:05 · Görkem işletmesi
-İşletme adı değişti · Doğukan
+Filtre: 35 ABC 123 · Görkem işletmesi
+Filtreyi kaldır      (only via "Bu aracın işlem geçmişi")
+
+21 Eyl 2026 14:05 · Görkem işletmesi · 35 ABC 123
+İşletme bilgisi değişti
+İşlemi yapan: dogukan (Yönetici)
+Ekip hesabı: destek.ayse   (team-account rows)
 Önce: Görkem Dolmuş  Sonra: Görkem işletmesi
 [ Daha fazla göster ]
 ```
 
-_Conflict between the approved wireframe (value kept unchanged) and the code written for this task. /yonetim/islem-gecmisi (page.tsx + audit-history.tsx) shows the team header, '← Yönetim', h1 'İşlem geçmişi', and when ?vehicleId= or ?businessId= is present a 'Filtre: <plate · business>' line with 'Filtreyi kaldır'; there is no free-text 'İşletme / plaka filtrele' input. Each entry shows '<Istanbul time> · <business> · <plate>', the Turkish action label (audit-ui.ts, e.g. 'İşletme bilgisi değişti'), 'İşlemi yapan: <username> (<role>)' or, for owner-made driver actions, the vehicle access + plate without a person name, 'Sahip adına: <name>' for staff acting on behalf, 'Önce: … Sonra: …' rows for changed fields only, and 'Önceki değer yok (yeni kayıt).' on creations; 20 entries per page with 'Daha fazla göster'; loading, empty ('Henüz işlem kaydı yok.') and error with 'Tekrar dene' are separate. Team-account rows (entity_type platform_user, S2.6) add 'Ekip hesabı: <username>' under the actor line. The team-accounts half (S2.6, this task): /yonetim/ekip matches the approved drawing — team header with the role label, '← Yönetim', h1 'Ekip hesapları', '+ Hesap aç', cards with username, '<full name or Ad soyad yok> · <role> · Aktif/Pasif', 'Düzenle' and 'Şifre sıfırla' (→ /yonetim/ekip/:id#sifre-sifirlama), 'Henüz ekip hesabı yok.' when empty. Not drawn: /yonetim/ekip/yeni (NewTeamUserForm: h1 'Ekip hesabı aç', an intro saying the password is handed over by staff and the app sends no message, 'Kullanıcı adı' with help text, 'Ad soyad', 'Yetki' choice, 'Şifre' with Göster/Gizle, 'Hesabı aç'; a result-check state with 'Tekrar kontrol et') and /yonetim/ekip/:id (TeamUserDetailForm: username heading with Aktif/Pasif; 'Hesap bilgisi' with 'Ad soyad', 'Yetki', 'Bilgiyi kaydet' and a conflict banner with 'Güncel halini aç'; 'Aktiflik' with 'Hesabı pasifleştir' behind a ConfirmDialog, a self-deactivation warning and 'Hesabı yeniden aktifleştir'; 'Şifre sıfırlama' with 'Yeni şifre', 'Şifreyi sıfırla', a self-reset warning and a success text naming the account and the manual hand-over). A self-deactivation or self-reset sends the admin to /yonetim/giris?oturum=bitti, which shows 'Oturumun sona erdi. Yeniden giriş yap.' above the login form._
+_Updated to the implemented screens per the correction marked Seçenek 1 on this card; the free-text explanation attached to it repeated the Manual Test Checklist answer, so Seçenek 1 of this card's own options (update the wireframe to the implemented screens) was applied. /yonetim/ekip (TEAM_USER_MESSAGES): '← Yönetim', 'Ekip hesapları', '+ Hesap aç', cards with username, '<full name or Ad soyad yok> · <role> · Aktif/Pasif', 'Düzenle' and 'Şifre sıfırla' (→ /yonetim/ekip/:id#sifre-sifirlama), 'Henüz ekip hesabı yok.' when empty. /yonetim/ekip/yeni (NewTeamUserForm) and /yonetim/ekip/:id (TeamUserDetailForm: conflict banner with 'Güncel halini aç', self-deactivation and self-reset warnings, success text naming the account and the manual hand-over; a self-deactivation or self-reset lands on /yonetim/giris?oturum=bitti showing 'Oturumun sona erdi. Yeniden giriş yap.'). /yonetim/islem-gecmisi (audit-history.tsx, AUDIT_MESSAGES): no free-text filter; ?vehicleId= or ?businessId= shows 'Filtre: …' with 'Filtreyi kaldır'; each entry shows '<Istanbul time> · <business> · <plate>', the action label, 'İşlemi yapan: <username> (<role>)' (owner-made driver actions show the vehicle access + plate), 'Ekip hesabı: <username>' on team-account rows, 'Sahip adına: <name>' for on-behalf actions, 'Önce/Sonra' rows or 'Önceki değer yok (yeni kayıt).'; 20 per page with 'Daha fazla göster'; loading, empty and error with 'Tekrar dene' are separate._
 
 ### Ekip hesapları ve işlem geçmişi — notes
 

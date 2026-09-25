@@ -34,14 +34,23 @@ _Login is implemented and E2E-covered (tests/e2e/vehicle-login.spec.ts); vehicle
 
 **Repos:** dolmus-takip
 
-1. First admin is created with `npm run platform-admin -- create-first-admin` on the server shell (idempotent); `reset-admin-password` recovers access. No public admin signup endpoint.
-2. Staff signs in at /yonetim/giris → POST /api/v1/auth/platform-login (username normalized, dummy hash, 20/username + shared IP bucket per 15 min).
-3. /yonetim lists businesses; "İşletme aç" posts name + owner full name (always created with an owner).
-4. /yonetim/isletmeler/:id edits name/owner name, assigns an owner only to an owner-less business (no transfer, K8), deactivates/reactivates with confirmation; PATCH is optimistic on businesses.version.
-5. Deactivation revokes all sessions under the business in the same transaction; every change writes admin_audit with real staff actor and before/after.
-6. Planned: vehicle management, team accounts (/yonetim/ekip, admin only), support target area and audit history (T2.2–T2.6).
+1. First admin is created on the server from the release archive: scripts/platform-admin.ts create-first-admin run as the service user with the password read from stdin (--password-stdin), never on the command line or in shell history; re-running is idempotent. reset-admin-password recovers access. No public admin signup endpoint.
 
-_Conflict between the approved flow (value kept unchanged) and the code written for this and earlier tasks. Approved step 3 says /yonetim lists businesses; approved step 6 lists team accounts (/yonetim/ekip, admin only), the support target area and audit history as planned (T2.2–T2.6). The code now implements: /yonetim search (AdminSearch: q matches a plate in any spacing/case, a business name or an owner name with Turkish case folding; 'Durum' filter all/active/inactive; empty query → business list via GET /api/v1/admin/businesses, non-empty → vehicle cards via GET /api/v1/admin/vehicles?q= with 'Destek ekranını aç' and 'Araç bilgisi'; keyset 'Daha fazla göster'), /yonetim/araclar/:id/destek with the pinned SupportTargetHeader and 'Hedefi değiştir' → 'Değişiklikleri bırakıp çık?' confirm when a registered form is dirty, /yonetim/islem-gecmisi backed by GET /api/v1/admin/audit (audit.read: support/admin), and — in this task (S2.6) — team accounts: an 'Ekip hesapları' link on /yonetim shown to admins only; /yonetim/ekip lists all accounts incl. inactive; /yonetim/ekip/yeni creates an account (username trimmed + lower-cased, unique case-insensitively; full name; role admin/support; initial password handed over by staff, the app sends no message); /yonetim/ekip/:id edits full name and role (optimistic on platform_users.version), deactivates behind a confirm dialog (revokes all the account's sessions; reactivation restores none) and resets the password (revokes all the account's sessions). The actor's admin role is re-checked inside every write transaction; the last active admin cannot be deactivated or demoted (422); an admin who deactivates or resets their own account is sent to /yonetim/giris?oturum=bitti. Every change writes admin_audit (platform_user.create / update / role_change / deactivate / reactivate / reset_password) with the real staff actor. Vehicle management in step 6 was already implemented before these tasks. Proposed replacement: 3. /yonetim searches businesses and vehicles (plate, business or owner name, active filter); 6. From a vehicle card staff open the support area with the target pinned; switching target with unsaved input asks for confirmation; staff read the history of all actions or of one vehicle; 7. Admins open, edit, deactivate/reactivate team accounts and reset their passwords under /yonetim/ekip; deactivation and reset end the account's sessions; at least one active admin always remains. Update the flow, or keep it and describe these screens only in design?_
+2. Staff signs in at /yonetim/giris → POST /api/v1/auth/platform-login (username normalized, dummy hash, 20/username + shared IP bucket per 15 min).
+
+3. /yonetim shows the team header (username · role), "+ İşletme aç", an "İşlem geçmişi" link, an "Ekip hesapları" link for admins only, and the search: "Plaka veya işletme ara" matches a plate in any spacing/case, a business name or an owner name (Turkish case folding), with a "Durum" filter (Hepsi / Aktif / Pasif). An empty query lists business cards (GET /api/v1/admin/businesses); a non-empty query lists vehicle cards (GET /api/v1/admin/vehicles?q=) with "Destek ekranını aç" and "Araç bilgisi"; keyset "Daha fazla göster"; q and the filter are mirrored in the URL.
+
+4. "+ İşletme aç" posts name + owner full name (always created with an owner). /yonetim/isletmeler/:id edits name/owner name, assigns an owner only to an owner-less business (no transfer, K8), deactivates/reactivates with confirmation; PATCH is optimistic on businesses.version. Deactivation revokes all sessions under the business in the same transaction.
+
+5. Support area: "Destek ekranını aç" opens /yonetim/araclar/:id/destek. The target (business, plate, owner and the real staff actor) is pinned in a header on every support page; links: "+ Çalışma kaydı gir", Özet, Raporlar, Şoförler, Araç bilgisi, "Bu aracın işlem geçmişi". Every request carries X-Target-Vehicle and the server resolves the scope; an inactive target is read-only.
+
+6. "Hedefi değiştir" with unsaved input on the page (typed form fields, a typed-but-unsent new password) asks "Değişiklikleri bırakıp çık?"; continuing clears that vehicle's drafts, writes nothing and returns to /yonetim; a clean page leaves at once.
+
+7. Audit history: /yonetim/islem-gecmisi (GET /api/v1/admin/audit, audit.read: support + admin) lists all actions read-only, 20 per page; "Bu aracın işlem geçmişi" opens it filtered to one vehicle, removable with "Filtreyi kaldır". Every change writes admin_audit with the real staff actor and before/after values.
+
+8. Team accounts (admin only, platform_user.manage): /yonetim/ekip lists all accounts incl. inactive; /yonetim/ekip/yeni opens an account (username trimmed + lower-cased, unique case-insensitively; full name; role admin/support; the initial password is handed over by staff, the app sends no message); /yonetim/ekip/:id edits full name and role (optimistic on platform_users.version), deactivates behind a confirm dialog and resets the password — both revoke all of the account's sessions in the same transaction, reactivation restores none. The actor's admin role is re-checked inside every write transaction; the last active admin cannot be deactivated or demoted (422); an admin who deactivates or resets their own account lands on /yonetim/giris?oturum=bitti. Audit actions: platform_user.create / update / role_change / deactivate / reactivate / reset_password.
+
+_Updated to the implemented behaviour per the product owner's correction. Steps 2 and 4 are unchanged from T1.3/T2.1; step 1 follows the packaged first-admin procedure in SERVER-SETUP §3.4. Search: src/app/yonetim/page.tsx, admin-search.tsx, src/lib/admin-search.ts; support area and target switch: src/app/yonetim/araclar/[id]/destek/page.tsx, src/app/_components/support-target-header.tsx, unsaved-changes.tsx; audit history: src/app/yonetim/islem-gecmisi, src/app/api/v1/admin/audit; team accounts (S2.6): src/app/yonetim/ekip/**, src/server/usecases/admin-users (assertActorIsAdmin, last-active-admin guard, revokeSessionsForPlatformUserSync). Covered end to end by E2E scenario 2 (platform-login, admin-businesses, admin-vehicles, admin-support-audit and team-accounts specs)._
 
 ### Flow: Daily work entry (PRD §3–4, S3.1–S3.6)
 
@@ -73,23 +82,32 @@ _Planned for M4; ADR-002 is the governing decision._
 **Repos:** dolmus-takip
 
 1. Server resolves authorized business/vehicle and period [start, next start) in Europe/Istanbul; week starts Monday (K3); max one calendar year per request.
-2. SQL SUM/GROUP BY over current work_entries for hours, gross, costs, share, remainder; verified hand-over sums only the confirmation whose entry_version equals the current version.
-3. Person view: COUNT(DISTINCT work_date) work days, SUM(duration_minutes); vehicle work day = distinct work_date with ≥1 entry (F17).
-4. Day-by-day list paginated 50 (max 100) with (work_date, id) cursor; totals and list read in one snapshot.
-5. No export/charts in v1; screens refresh on open and "Yenile".
 
-_Planned for M5 (T5.1–T5.5). Conflict raised by the daily-entries change: step 4 says the day-by-day list and the totals are read in one snapshot, but the implemented Gün gün tab reads the totals from GET /api/v1/reports/vehicles (VehiclePeriodReport) and the list from GET /api/v1/work-entries?period&date (DailyEntriesReport) as two separate requests, and filter changes re-read only the list; the page states the summary is the whole period's vehicle total and unaffected by the filters. The pagination part of step 4 (50, max 100, (work_date, id) cursor) matches the code. Keep the approved one-snapshot rule (the code must change) or record the two-request behaviour (the flow must change)? The owner summary change repeats the pattern on /sahip: OwnerSummary (src/app/_components/owner-summary.tsx) reads GET /api/v1/reports/summary and, keyed by the server's (period, startDate), the pending list from GET /api/v1/work-entries?period&date&status=pending as two separate requests, and its header comment states that no single-snapshot guarantee is given — step 4 ('totals and list read in one snapshot') is contradicted on a second screen. The report consistency change (S5.5) adds two facts. First, the staff support pages /yonetim/araclar/:id/ozet and /yonetim/araclar/:id/raporlar mount the same OwnerSummary and VehiclePeriodReport components with targetVehicleId, so the two-request pattern now also runs for staff (every request carries X-Target-Vehicle). Second, tests/integration/reports-snapshot.test.ts proves that each single response is one snapshot (the owner summary header + totals and the person detail totals + entry page are read inside one deferred transaction; the vehicle report, people list and day-by-day list are single SELECTs), using a second real connection that commits a correct-and-confirm in between; it does not cover the separate totals and list requests of one screen, so step 4 is still contradicted on the owner and staff screens._
+2. SQL SUM/GROUP BY over current work_entries for hours, gross, costs, share, remainder; verified hand-over sums only the confirmation whose entry_version equals the current version.
+
+3. Person view: COUNT(DISTINCT work_date) work days, SUM(duration_minutes); vehicle work day = distinct work_date with ≥1 entry (F17).
+
+4. Each screen reads its period totals and its list as separate requests: the reports page reads the vehicle totals (GET /api/v1/reports/vehicles) and the day-by-day list (GET /api/v1/work-entries?period&date, filters re-read only the list); the owner summary reads the totals (GET /api/v1/reports/summary) and the pending list (GET /api/v1/work-entries?period&date&status=pending). Each single response is one snapshot; totals and list of one screen may briefly disagree when an entry is added, corrected or confirmed between the two reads, and match again on the next read. Lists are paginated 50 (max 100) with a (work_date, id) cursor.
+
+5. Staff support pages /yonetim/araclar/:id/ozet and /yonetim/araclar/:id/raporlar reuse the same screens; every request carries X-Target-Vehicle.
+
+6. No export/charts in v1. Report screens re-read on open, on period change and when the page is shown again (back navigation); they have no separate "Yenile" control.
+
+_Updated to the implemented two-request behaviour per the product owner's correction; no further development. OwnerSummary (src/app/_components/owner-summary.tsx) and VehiclePeriodReport + DailyEntriesReport read totals and list separately and re-read on pageshow; tests/integration/reports-snapshot.test.ts proves that each single response is one snapshot (owner summary header + totals and person totals + entry page inside one deferred transaction; vehicle report, people list and day-by-day list are single SELECTs). Pagination as in the approved step. Covered end to end by E2E scenario 5 (owner-reports, owner-summary, staff-reports specs)._
 
 ### Flow: Logout and access revocation (S1.4)
 
 **Repos:** dolmus-takip
 
 1. POST /api/v1/auth/logout requires a valid session + CSRF token; client clears local state regardless.
-2. Access-change use cases (bumpCredentialVersion, setVehicleActive, setBusinessActive, setPlatformUserActive/Role, bumpPlatformUserVersion) revoke sessions in the same BEGIN IMMEDIATE transaction.
+
+2. Access-change use cases (bumpCredentialVersion, setVehicleActive, setBusinessActive, setPlatformUserActive, bumpPlatformUserVersion, team-account deactivation and password reset) revoke sessions in the same BEGIN IMMEDIATE transaction. A staff role change revokes nothing and bumps no version: the role is read fresh on every request, so it takes effect on the next request, and a write racing the demotion is refused inside its transaction (403).
+
 3. Every request checks expiry, revoked_at, issued_version vs credential_version and active flags → 401 SESSION_EXPIRED / SESSION_REVOKED.
+
 4. Session lifetime: vehicle 30 days absolute / 7 days idle; staff 12 h / 30 min idle.
 
-_Conflict between the approved flow (value kept unchanged) and the code written for this task. Approved step 2 lists setPlatformUserActive/Role among the access-change use cases that revoke sessions in the same BEGIN IMMEDIATE transaction. access/set-platform-user-role.ts documents that a role change needs no revoke and no version bump (resolveSession reads the role fresh on every request), and this task made role changes reachable: PATCH /api/v1/admin/users/:userId (updatePlatformUser) changes platform_role without bumping credential_version and without revoking sessions; a demoted admin's next /admin/users request gets 403, and a write racing the demotion is refused by assertActorIsAdmin inside the transaction (403, rolled back). Deactivation (same PATCH, active:false) and POST /api/v1/admin/users/:userId/reset-password revoke all the account's sessions in the same transaction through revokeSessionsForPlatformUserSync, and staff login now re-checks active and credential_version at session insert (401 INVALID_CREDENTIALS, no session), so those still match the approved steps. Proposed step 2: 'Access-change use cases (bumpCredentialVersion, setVehicleActive, setBusinessActive, setPlatformUserActive, bumpPlatformUserVersion, team-account deactivation and password reset) revoke sessions in the same BEGIN IMMEDIATE transaction; a staff role change revokes nothing and takes effect on the next request.' Correct the flow, or keep it and make role changes revoke sessions?_
+_Corrected per the product owner's correction to match the code. setPlatformUserRole (src/server/usecases/access/set-platform-user-role.ts) documents that resolveSession reads platform_role fresh on every request, so a role change needs no revoke (S1.4 AC5: the new permission applies on the next request). updatePlatformUser changes platform_role without bumping credential_version or revoking sessions, and assertActorIsAdmin re-checks the actor inside every write transaction; deactivation (PATCH active:false) and POST /api/v1/admin/users/:userId/reset-password revoke all the account's sessions through revokeSessionsForPlatformUserSync. Covered by tests/integration/session-revocation.test.ts and admin-users-routes.test.ts._
 
 ### Flow: Daily backup, restore and release (S6.1, S6.4–S6.5)
 
@@ -102,6 +120,24 @@ _Conflict between the approved flow (value kept unchanged) and the code written 
 5. Rollback: code-only if schema compatible; old code + pre-release DB only while no new customer writes were accepted; otherwise forward fix.
 
 _Release build/verify implemented (T6.1); backup/restore/deploy planned for M6._
+
+### Flow: Driver management (S2.4)
+
+**Repos:** dolmus-takip
+
+1. The owner opens Şoförlerim from /sahip (own vehicle only); staff open /yonetim/araclar/:id/soforler from the support area or the vehicle detail (target vehicle resolved server-side, X-Target-Vehicle on every request).
+
+2. "+ Şoför ekle" posts a full name (POST /api/v1/drivers) → one person + an active assignment on that vehicle in one transaction. A similar-name hint offers linking an existing person of the same business instead ("Bu araca bağla" → PUT /api/v1/vehicles/:vehicleId/drivers/:personId, no duplicate person).
+
+3. Rename (PATCH /api/v1/drivers/:personId) keeps the same person id, so old records show the new name; an anonymised name cannot be changed.
+
+4. "Bu araçta pasife al" closes only this vehicle's assignment; the shared driver password stays valid (F3 warning shown), no session is revoked; the row can be re-activated.
+
+5. Staff only: "Tüm araçlarda pasife al" deactivates the person globally after a dialog listing the affected plates (person.set_global_active); an inactive person drops out of every driver picker and cannot be linked until re-activated.
+
+6. Every change writes admin_audit with the real actor (staff on behalf of the vehicle owner) and a receipt. Driver sessions read only the selectable list (active assignment + active person, owners excluded) used by the daily entry form.
+
+_Added per the product owner's correction; derived from src/server/usecases/drivers, src/app/api/v1/drivers, src/app/api/v1/vehicles/[vehicleId]/drivers/[personId] and src/app/_components/drivers-manager.tsx. Linked to E2E scenario 8 (tests/e2e/drivers.spec.ts: owner adds, renames, deactivates and re-activates a driver, links a person from another vehicle, staff deactivate across all vehicles; same-name people listed as two rows; unauthorized sessions refused; KVKK anonymisation in person-anonymize.spec.ts)._
 
 ## Service Topology
 
@@ -428,30 +464,35 @@ _ARCHITECTURE §1.4, §5; DECISIONS K7._
 | Brute force | Sliding 15 min counters: 20 failures per plate or username, 120 per IP (shared vehicle+staff bucket); 429 + Retry-After; no permanent lockout; IP from X-Forwarded-For only if TRUSTED_PROXY set |
 | Enumeration | Unknown plate/user, inactive vehicle/business and wrong password → same 401 INVALID_CREDENTIALS; dummy Argon2 hash path; no role disclosure |
 | Session token | 32 random bytes (base64url), SHA-256 stored; cookie dolmus_session HttpOnly, SameSite=Lax, Path=/, no Domain, Secure when APP_ORIGIN is https; never in URL/localStorage |
-| Token rotation / revocation | New token per login; logout, password reset, credential_version bump and vehicle/business/staff deactivation revoke sessions in the same transaction |
+| Token rotation / revocation | New token per login; logout, password reset, credential_version bump and vehicle/business/staff deactivation revoke sessions in the same transaction; a staff role change revokes nothing and applies on the next request (role read fresh per request) |
 | JWT secret | Not applicable — no JWT |
 | Reset / verify token | Not applicable — no email tokens; password reset only via back office or server CLI (reset-admin-password) |
 | Credential handover | New owner/driver passwords are sent to the customer manually by staff over WhatsApp, outside the app; the app never displays existing passwords and sends no message |
 | CSRF | Same-origin check (Sec-Fetch-Site or Origin == APP_ORIGIN) + session-bound CSRF token (SHA-256(token + ':csrf:v1')) in X-CSRF-Token, constant-time compare; JSON content type (415), body ≤ 64 KB (413) |
 | XSS / headers | Plain-text names/notes via React escaping; nonce-based CSP set in src/proxy.ts; no dynamic HTML; zod allowlist validation |
-| Object authorization | Server-derived scope on every query; permission matrix (16 permissions × 4 actors); role/personId/businessId/ownerId forbidden in request bodies (scopeSafeObject); out-of-scope → 404, inactive target write → 403 TARGET_INACTIVE_FOR_WRITE |
+| Object authorization | Server-derived scope on every query; permission matrix (17 permissions × 4 actors; person.anonymize is admin-only — support deliberately does not receive it); role/personId/businessId/ownerId forbidden in request bodies (scopeSafeObject); out-of-scope → 404, inactive target write → 403 TARGET_INACTIVE_FOR_WRITE |
 | Tenant integrity | Composite (business_id, id) foreign keys reject cross-business links at DB level |
 | Rate limiting | Login endpoints as above; Caddy request size limit |
 | Secrets and logs | Passwords, hashes, tokens and cookies never logged or copied into audit/revisions; secrets in /etc/dolmus-takip with restricted permissions |
 | Network | Only 80/443 public; Next and DB not internet-facing; SSH key auth with host verification; no GitHub secrets in client bundle |
 
-_The approved Object authorization row says "permission matrix (16 permissions × 4 actors)" (value kept unchanged). The code written for this task added person.anonymize to PERMISSIONS in src/server/auth/permissions.ts and to ADMIN_PERMISSIONS only, so the matrix is now 17 permissions × 4 actors (permissions.test.ts asserts 17 and admin-only). Update the row to 17 with the admin-only note, or keep 16 and fold anonymisation into an existing permission?_
+_Custom auth ⇒ detailed checklist. Rows reflect ARCHITECTURE §6 plus implemented values from DECISIONS T1.2–T1.5; the credential handover row is the product owner's answer to F14. Object authorization updated per the product owner's correction: src/server/auth/permissions.ts now lists 17 PERMISSIONS; person.anonymize is in ADMIN_PERMISSIONS only and support deliberately does not receive it although it holds person.set_global_active and business.manage (permissions.test.ts asserts 17 and admin-only). The token-rotation row states the implemented role-change behaviour (see Flow: Logout and access revocation)._
 
 ### Personal data notice and deletion policy (KVKK)
 
 **Repos:** dolmus-takip
 
 Personal data in scope: full names of owners, co-drivers and people (people.full_name), staff usernames and names, vehicle plates, and the work/cash records linked to them.
+
 Notice: a KVKK information notice tells customers which data is kept, why (daily income, expense, driver share and cash handover tracking), and that records are kept for at least five years.
-Deletion request: the person's name is anonymised in place (people.full_name replaced); the person row, work entries, revisions, cash confirmations, receipts and audit history are not deleted, so reports and totals stay intact.
+
+Deletion request: the person's name is anonymised in place (people.full_name replaced); the person row, work entries, revisions, cash confirmations, receipts and audit history are not deleted, so reports and totals stay intact. Audit history rows written before the anonymisation keep the former name and stay readable to support and admin; nightly verified copies and snapshots also hold it until they rotate out.
+
 Retention: the ≥5-year record retention rule is unchanged; backup/snapshot rotation does not shorten it.
 
-_Product owner accepted the proposed technical path as-is (closes DECISIONS.md F8 + F16: people.full_name anonymisation, financial records are never deleted). The legal wording of the notice text is outside the scope of this document (PRD §10). Conflict with the approved text (value kept unchanged): its rationale still says no anonymisation operation or notice page exists, while the code written for this task implements both — /aydinlatma-metni (public, text from PRIVACY_NOTICE in src/lib/messages.ts, seven sections incl. at-least-five-year retention and anonymisation on a deletion request) linked from /giris and /yonetim/giris, and POST /api/v1/admin/businesses/:businessId/people/:personId/anonymize (admin only; people.full_name replaced in place, anonymized_at set; no row deleted). Earlier admin_audit rows (person.create / person.update before/after, business creation) keep the former full name and stay readable to support and admin through /api/v1/admin/audit and /yonetim/islem-gecmisi; tests/integration/person-anonymize-route.test.ts asserts that the earlier rename row still carries the old name. Nightly verified copies (2 kept) and Lightsail snapshots (7 kept) also hold the former name until they rotate out. The notice's data-controller fields are bracketed placeholders ("[Veri sorumlusunun unvanı]" etc.) to be filled before release. Keep the policy and drop the stale note (stating that earlier audit rows keep the former name), or extend anonymisation to earlier audit rows?_
+Open item before release: the notice's data-controller title, address and application e-mail are bracketed placeholders and must be filled in by the service provider before go-live.
+
+_Product owner accepted the proposed technical path as-is (closes DECISIONS.md F8 + F16: people.full_name anonymisation, financial records are never deleted); the policy is kept unchanged per the product owner's correction. The legal wording of the notice text is outside the scope of this document (PRD §10). Implemented: /aydinlatma-metni (public, text from PRIVACY_NOTICE in src/lib/messages.ts, seven sections) linked from /giris and /yonetim/giris, and POST /api/v1/admin/businesses/:businessId/people/:personId/anonymize (person.anonymize, admin only; people.full_name replaced in place, anonymized_at set; no row deleted). Earlier admin_audit rows (person.create / person.update before/after, business creation) keep the former full name and stay readable through /api/v1/admin/audit and /yonetim/islem-gecmisi (asserted by tests/integration/person-anonymize-route.test.ts); nightly copies (2 kept) and Lightsail snapshots (7 kept) hold it until rotation. PRIVACY_NOTICE section 1 still carries '[Veri sorumlusunun unvanı]', '[Veri sorumlusunun adresi]' and '[Başvuru e-posta adresi]'._
 
 ## ADRs
 

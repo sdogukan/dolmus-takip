@@ -39,8 +39,8 @@ sessizce bir varsayılana düşmez.
 | `npm run start` | `build` çıktısını üretim modunda çalıştırır. |
 | `npm run typecheck` | `tsc --noEmit` — proje genelinde tip kontrolü. |
 | `npm run lint` | ESLint (flat config, `eslint.config.mjs`). |
-| `npm run test:unit` | Vitest birim testleri (`src/**/*.test.ts`) — dış kaynağa (DB/ağ) dokunmaz. |
-| `npm run test:integration` | Vitest entegrasyon testleri (`tests/integration/**`) — gerçek geçici SQLite dosyaları ve gerçek migration ile çalışır; dosyalar arası sıralı yürütülür. |
+| `npm run test:unit` | Vitest birim testleri (`src/**/*.test.ts`) — dış kaynağa (DB/ağ) dokunmaz. Kalite kapısı kaydı yazmaz; `release:build` öncesi kayıt için `npm run quality-gate` kullanın. |
+| `npm run test:integration` | Vitest entegrasyon testleri (`tests/integration/**`) — gerçek geçici SQLite dosyaları ve gerçek migration ile çalışır; dosyalar arası sıralı yürütülür. Kalite kapısı kaydı yazmaz; `release:build` öncesi kayıt için `npm run quality-gate` kullanın. |
 | `npm run quality-gate` | Kalite kapısı: `typecheck` → `lint` → `test:unit` → `test:integration`, ilk hatada durur. Hepsi geçerse ve çalışma ağacı baştan sona temiz, HEAD aynıysa `.quality-gate/<tree>.json` kaydını yazar (gitignore'lu); kirli ağaçta adımlar koşar, kayıt yazılmaz. |
 | `npm run test:release` | Yayın boru hattı meta-testi (`tests/release/**`) — geçici bir klonda `release:build`/`release:verify`'ı uçtan uca dener. Klon, kendi ağacı için yazılmış hazır bir kapı kaydıyla başlar; proje kökündeki kayda bakmaz, kalite kapısını yalnız başarısız birim testli ağaç testinde tam koşar (bu konteynerde ölçülen: kurulum ~2 sn, testler 57,7 / 1,7 / 58,9 / 42,5 sn). `test:integration`'a dahil değildir; CI `quality-gate`'ten sonra ayrı adım olarak koşar. |
 | `npm run test:e2e` | Playwright uçtan uca testleri. **Not:** Tarayıcı ikilileri bu pakette indirilmedi; `npx playwright install` T1.6'da ele alınacaktır. |
@@ -98,6 +98,10 @@ alanlarıyla açıkça (`darwin`/`arm64`) taşır ve `release:verify` farklı bi
 platform/mimari için üretilmiş bir manifesti **açık hatayla reddeder**.
 
 ```bash
+# Yerelde iki geçerli yol (kapı kaydını yalnız bunlar yazar):
+# 1) önce kapı, sonra yayın — release:build kaydı görür, kapıyı yeniden koşmaz
+npm run quality-gate && npm run release:build
+# 2) doğrudan yayın — temiz ağaçta kapıyı kendisi tam koşar ve kaydı yazar
 npm run release:build
 # → dist/dolmus-takip-<kısa-sha>-<platform>-<arch>.tar.gz
 # → dist/dolmus-takip-<kısa-sha>-<platform>-<arch>.manifest.json
@@ -121,7 +125,13 @@ kısmi/sessiz geçiş yoktur):
    çalıştırır; herhangi biri başarısız olursa derlemeye HİÇ girmeden
    `exit 1` ile durur ve kayıt yazılmaz. Kaydı yalnız dört adımın hepsini
    geçen, ağacı baştan sona temiz gören bir koşu yazar (`npm run
-   quality-gate` ya da `release:build`'in kendi tam kapısı). Kayıt bir kaza
+   quality-gate` ya da `release:build`'in temiz ağaçtaki kendi tam kapısı);
+   yerelde geçerli iki yol budur. Ayrı `npm run typecheck`/`lint`/
+   `test:unit`/`test:integration` koşuları kayıt **bırakmaz**: onlardan sonra
+   çağrılan `release:build` kayıt bulamaz ve dört adımı baştan koşar, yani
+   tam kapı iki kez çalışmış olur. Kayıt yoksa `release:build` bunu "kayıt
+   yok" satırının hemen ardından bir `[release:build]` satırıyla hatırlatır.
+   Kayıt bir kaza
    korumasıdır, kurcalamaya karşı koruma değildir: checkout'a yazabilen
    biri kaydı da taklit edebilir. Bu adım yalnız CI'nın adım SIRASINA
    güvenmez — `release:build` doğrudan/elle çağrıldığında da (CI dışında)

@@ -120,6 +120,10 @@ let cloneTree: string;
 
 const GATE_STEP_LINES = qualityGateStepIds().map((id) => `$ npm run ${id}`);
 const GATE_SKIP_LINE = "[release:build] Kalite kapısı yeniden çalıştırılmıyor";
+const NO_RECORD_LINE_PREFIX = "[release:build] Geçerli kalite kapısı kaydı yok";
+const GATE_RECORD_HINT_LINE =
+  "[release:build] Kalite kapısı kaydını yalnız `npm run quality-gate` ya da release:build'in " +
+  `temiz ağaçtaki kendi tam kapısı yazar; ayrı ${qualityGateStepIds().join("/")} koşuları kayıt bırakmaz.`;
 
 function runOrThrow(
   cmd: string,
@@ -258,6 +262,7 @@ describe("release:build / release:verify boru hattı (T6.1, S6.1)", () => {
 
       // --- Klonun ağacı için geçerli kayıt var: kapı yeniden çalışmaz. ---
       expect(build.stdout).toContain(GATE_SKIP_LINE);
+      expect(build.stdout).not.toContain(GATE_RECORD_HINT_LINE);
       for (const line of GATE_STEP_LINES) {
         expect(build.stdout).not.toContain(line);
       }
@@ -431,6 +436,7 @@ describe("release:build / release:verify boru hattı (T6.1, S6.1)", () => {
         `ikinci release:build başarısız olmamalı:\n${secondBuild.stdout}\n${secondBuild.stderr}`,
       ).toBe(0);
       expect(secondBuild.stdout).toContain(GATE_SKIP_LINE);
+      expect(secondBuild.stdout).not.toContain(GATE_RECORD_HINT_LINE);
 
       // --- Kök neden düzeltmesi: dist/ artık YALNIZ bu (ikinci) çalıştırmanın
       // arşiv+manifest çiftini içerir; İLK çalıştırmanın BAYAT dosyaları
@@ -532,10 +538,16 @@ describe("release:build / release:verify boru hattı (T6.1, S6.1)", () => {
         build.status,
         `release:build BAŞARISIZ testle exit 0 vermemeli:\n${build.stdout}\n${build.stderr}`,
       ).toBe(1);
-      expect(build.stdout + build.stderr).toMatch(/[Kk]alite kapısı/);
-      expect(build.stdout + build.stderr).toMatch(/test:unit/);
+      // İpucu satırı da "test:unit" içerdiği için kapının NEREDE durduğu
+      // yalnız runQualityGate'in adım hata mesajından okunur.
+      expect(build.stdout + build.stderr).toContain('Kalite kapısı "test:unit" adımında başarısız oldu');
       // Bu ağaç için kayıt yoktu: kapı tam çalıştı ve başarısız kapı kayıt yazmadı.
       expect(build.stdout).not.toContain(GATE_SKIP_LINE);
+      // Kayıtsız dal: ipucu satırı "kayıt yok" satırının HEMEN ardından basılır.
+      const stdoutLines = build.stdout.split("\n");
+      const noRecordIndex = stdoutLines.findIndex((line) => line.startsWith(NO_RECORD_LINE_PREFIX));
+      expect(noRecordIndex, build.stdout).toBeGreaterThanOrEqual(0);
+      expect(stdoutLines[noRecordIndex + 1]).toBe(GATE_RECORD_HINT_LINE);
       expect(fs.existsSync(failingRecordPath)).toBe(false);
 
       // --- Yarım/eski bir arşiv "başarılı" gibi bırakılmaz: dist/

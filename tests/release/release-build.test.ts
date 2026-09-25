@@ -6,12 +6,13 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, test } from "vitest";
 import {
+  QUALITY_GATE_RECORD_VERSION,
   qualityGateStepIds,
   readRecord,
   recordPathFor,
+  writeRecord,
   type ExpectedRecord,
 } from "../../scripts/lib/quality-gate.ts";
-import { restoreGitViewOfHiddenFiles } from "./git-view-snapshot.ts";
 import { compareVersions, MINIMUM_SQLITE_VERSION } from "../../src/server/data/db";
 
 /**
@@ -32,13 +33,20 @@ import { compareVersions, MINIMUM_SQLITE_VERSION } from "../../src/server/data/d
  * `npm run test:release`. CI onu `quality-gate` adımından sonra ayrı adım
  * olarak koşar (`scripts/ci-steps.json`); hiçbir test atlanmaz.
  *
- * ## Kalite kapısı klonda NEDEN yalnız gerektiğinde koşar (2026-09-25)
+ * ## Klon NEDEN hazır bir kapı kaydıyla (fixture) başlar (2026-09-25)
  *
  * `release:build`, klonun `HEAD^{tree}`'si için geçerli bir `.quality-gate`
  * kaydı bulursa kapıyı yeniden çalıştırmaz (bkz. `scripts/release-build.ts`
- * üst notu). `beforeAll`, proje kökünde klonun ağacı için geçerli bir kayıt
- * varsa (CI'da az önceki `quality-gate` adımının yazdığı) onu klona kopyalar;
- * yoksa klonda `npm run quality-gate`'i BİR kez tam koşar. Böylece:
+ * üst notu). Bu dosya `release:build`/`release:verify` boru hattını test
+ * eder, kalite kapısının kendisini DEĞİL: kapının adımları ve kayıt kuralları
+ * `tests/unit/quality-gate.test.ts`'te, kayıt olmayan ağaçta tam kapı Test
+ * 4'te sınanır. Bu yüzden `beforeAll` klonda kapıyı koşmaz ve proje kökündeki
+ * kayda bakmaz; klonun KENDİ ağacı için `writeRecord` ile bir kayıt yazar
+ * (alanlar `scripts/lib/quality-gate.ts`'ten). Kayıt yalnız bu tek
+ * kullanımlık klonda durur (`/.quality-gate/` gitignore'lu, klon ağacı temiz
+ * kalır) ve `afterAll` ile silinir; gerçek projenin `release:build`'ini
+ * etkilemez. Kurulum kök kayıttan ve konteynerin çalışma ağacı
+ * ayrıntılarından bağımsızdır; her ortamda aynı yolu izler. Sonuç:
  * - Test 1 kaydı kullanır ve kapının atlandığını söyleyen satırı doğrular.
  * - Test 3'ün ikinci commit'i `--allow-empty`'dir: farklı commit (farklı
  *   arşiv adı ve `source_commit`), aynı ağaç, aynı kayıt.
@@ -87,19 +95,21 @@ const projectRoot = path.resolve(
 
 // Görev tanımı: "Bu test uzun sürebilir; vitest testTimeout'u bu dosya
 // için açıkça artır." Ölçüm (2026-09-25, DIJJI çalışma konteyneri, 4 CPU,
-// Node v24.21.0; proje kökünde klonun ağacı için kayıt yoktu, yani kapı
-// klonda tam koştu): dosya toplam 786 s. Testler (`--reporter=json`):
-// Test 1 57,8 s, Test 2 1,7 s, Test 3 57,1 s, Test 4 40,8 s. Geriye kalan
-// ~629 s `beforeAll`'dur; içindeki `node_modules` kopyası ayrıca ölçüldü
-// (1,6 s), yani bu sürenin neredeyse tamamı klondaki `npm run quality-gate`.
-// - SETUP_TIMEOUT_MS 20 dk: ölçülen tam kapı yolunun (~629 s) ~1,9 katı.
-//   Kayıt kopyalanabilen yolda (CI'da beklenen) `beforeAll` saniyeler sürer.
-// - BUILD_TEST_TIMEOUT_MS 5 dk: en uzun test (57,8 s) ~5 katı; daha yavaş bir
-//   runner için pay. Kayıt kullanılmayıp kapı test içinde tam koşsaydı
-//   (~10 dk) bu sınır aşılır — Test 1/3 zaten atlama satırını doğrular.
+// Node v24.21.0):
+// - `beforeAll` adımları ayrı ayrı zamanlandı (3 koşu, `test:release`
+//   koşulmadan): kopya 0,07 s, `git init/add/commit` 0,22 s, `git clone`
+//   0,11 s, `node_modules` kopyası (711 MB) 1,7 s, kayıt yazma + okuma
+//   0,04 s; toplam ~2,2 s. SETUP_TIMEOUT_MS 2 dk: süreyi belirleyen
+//   `node_modules` kopyası, disk önbelleği soğuk daha yavaş bir runner'da
+//   katlarca uzayabilir; kapı artık `beforeAll`'da koşmadığı için 20 dk'lık
+//   eski sınıra gerek yok.
+// - Testler (görev ölçümü): Test 1 57,7 s, Test 2 1,7 s, Test 3 58,9 s,
+//   Test 4 42,5 s. Test 4 kayıtsız ağaçta kapıyı tam koşar (typecheck, lint,
+//   `test:unit`'te durur). BUILD_TEST_TIMEOUT_MS 5 dk: en uzun testin
+//   (58,9 s) ~5 katı; daha yavaş bir runner için pay.
 // CI iş bütçesine (`timeout-minutes: 30`) sığdığı ubuntu-24.04 runner'ında
 // ölçülmedi; buradaki süreler yalnız bu konteynere aittir.
-const SETUP_TIMEOUT_MS = 20 * 60 * 1000;
+const SETUP_TIMEOUT_MS = 2 * 60 * 1000;
 const BUILD_TEST_TIMEOUT_MS = 5 * 60 * 1000;
 const SHA256_HEX = /^[0-9a-f]{64}$/;
 
@@ -167,15 +177,6 @@ beforeAll(() => {
     },
   });
 
-  // 1b) Git'in "değişmedi say" dediği dosyalara (skip-worktree /
-  // assume-unchanged) kopyada git'in hâlini yaz. Disk ile git ayrışıp
-  // `git status` temiz derken kopya diskteki baytları taşırsa klonun ağacı
-  // `HEAD^{tree}`'den ayrılır ve kapı klonda boşuna yeniden koşar; DIJJI
-  // konteyneri kök `CLAUDE.md`'yi tam böyle değiştiriyor (bkz.
-  // `./git-view-snapshot.ts`). Diğer dosyalar, commit edilmemiş
-  // değişiklikler dahil, diskteki hâliyle kalır.
-  restoreGitViewOfHiddenFiles(projectRoot, sourceRepoDir);
-
   // 2) Bu geçici dizinde YENİ, GERÇEK proje deposundan TAMAMEN BAĞIMSIZ
   // bir git deposu kur (dosya üstü not — gerçek `.git`'e HİÇ dokunulmaz).
   runOrThrow("git", ["init", "-q"], sourceRepoDir, "git init (geçici kaynak depo)");
@@ -213,20 +214,22 @@ beforeAll(() => {
     "node_modules kopyalama",
   );
 
-  // 5) Klonun ağacı için kalite kapısı kaydı (dosya üstü not). Doğrulama,
-  // `release:build` ile AYNI değerlerle (şimdiki tree, adım listesi, Node).
+  // 5) Klonun KENDİ ağacı için kalite kapısı kaydı (dosya üstü not) — yalnız
+  // klona yazılır. Doğrulama, `release:build` ile AYNI değerlerle (şimdiki
+  // tree, adım listesi, Node).
   const expected: ExpectedRecord = {
     tree: runOrThrow("git", ["rev-parse", "HEAD^{tree}"], cloneDir, "git rev-parse (klon ağacı)").stdout.trim(),
     steps: qualityGateStepIds(),
     nodeVersion: process.version,
   };
-  if (readRecord(projectRoot, expected).valid) {
-    const cloneRecordPath = recordPathFor(cloneDir, expected.tree);
-    fs.mkdirSync(path.dirname(cloneRecordPath), { recursive: true });
-    fs.copyFileSync(recordPathFor(projectRoot, expected.tree), cloneRecordPath);
-  } else {
-    runOrThrow("npm", ["run", "quality-gate"], cloneDir, "npm run quality-gate (klon)");
-  }
+  writeRecord(cloneDir, {
+    version: QUALITY_GATE_RECORD_VERSION,
+    tree: expected.tree,
+    commit: runOrThrow("git", ["rev-parse", "HEAD"], cloneDir, "git rev-parse (klon HEAD)").stdout.trim(),
+    node_version: process.version,
+    steps: qualityGateStepIds(),
+    passed_at: new Date().toISOString(),
+  });
   const cloneCheck = readRecord(cloneDir, expected);
   if (!cloneCheck.valid) {
     throw new Error(`[release-build.test setup] klonda geçerli kalite kapısı kaydı yok: ${cloneCheck.reason}`);

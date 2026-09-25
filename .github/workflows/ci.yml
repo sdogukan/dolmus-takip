@@ -84,10 +84,11 @@ jobs:
       - name: Kalite kapısı (typecheck/lint/birim/entegrasyon)
         run: npm run quality-gate
 
-      # release:build/release:verify boru hattının uçtan uca meta-testi —
+      # release:build/release:verify boru hattının uçtan uca meta-testi ve
+      # kontrollü yayın aracının (scripts/release-apply.ts) testleri —
       # rutin test:integration'dan ayrı (bkz. vitest.config.mts `release`
       # projesi); burada ayrı adım olarak koşar.
-      - name: Yayın boru hattı testleri (release:build/verify meta-testi)
+      - name: Yayın boru hattı testleri (release:build/verify meta-testi + release-apply aracı)
         run: npm run test:release
 
       - name: Playwright tarayıcısını kur (chromium)

@@ -16,9 +16,12 @@ import { defineConfig } from "vitest/config";
  *   (`fileParallelism: false`) çalıştırılır. QA-PLAN.md §1/§3 —
  *   "Finansal DB testleri yalnız mock veya :memory: üzerinde kabul
  *   edilmez"; bu proje gerçek `better-sqlite3` dosya bağlantısı kullanır.
- * - `release`: `tests/release/**\/*.test.ts` — `release:build`/
- *   `release:verify` boru hattının uçtan uca meta-testi (`npm run
- *   test:release`). Geçici bir klonda `release:build` koşar; klon, kendi
+ * - `release`: `tests/release/**\/*.test.ts` (`npm run test:release`) —
+ *   `release:build`/`release:verify` boru hattının uçtan uca meta-testi
+ *   (`release-build.test.ts`) ve kontrollü yayın aracı
+ *   `scripts/release-apply.ts`'in testleri (`release-apply.test.ts`;
+ *   2026-09-25'te `integration`'dan taşındı, bkz. `docs/DECISIONS.md`).
+ *   Meta-test geçici bir klonda `release:build` koşar; klon, kendi
  *   ağacı için yazılmış hazır bir `.quality-gate` kaydıyla başlar, kalite
  *   kapısı (typecheck/lint/unit/integration) yalnız kayıtsız ağaç testinde
  *   tam koşar (bkz. `scripts/lib/quality-gate.ts`). Rutin

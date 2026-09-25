@@ -61,8 +61,9 @@ jobs:
 
       # typecheck → lint → test:unit → test:integration tek adımda
       # (scripts/lib/quality-gate.ts). Geçerse bu commit'in ağacı için
-      # .quality-gate kaydı yazılır; test:release ve release:build aynı
-      # içerik için kapıyı yeniden çalıştırmaz.
+      # .quality-gate kaydı yazılır; release:build aynı içerik için kapıyı
+      # yeniden çalıştırmaz. test:release bu kayda bakmaz, klonuna kendi
+      # hazır kaydını yazar.
       - name: Kalite kapısı (typecheck/lint/birim/entegrasyon)
         run: npm run quality-gate
 

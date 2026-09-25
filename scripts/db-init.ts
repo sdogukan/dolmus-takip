@@ -1,11 +1,11 @@
 /**
  * DB kurulum komutu — `npm run db:init` (ADIM 2/3, S1.1).
  *
- * Kaynak: ARCHITECTURE.md §8.1 — "Uygulama DB dosyası bulunamazsa sessizce
- * boş DB oluşturarak başlamaz. İlk şema kurulumuna yalnız açık migration/
- * kurulum komutu izin verir." Bu komut o "açık" kurulum yoludur: `DOLMUS_
- * DB_PATH` dizinini (yoksa) oluşturur, ARCHITECTURE.md §3.6 PRAGMA'larını
- * uygulayan `openDatabaseConnection(..., { createIfMissing: true })` ile
+ * Uygulama DB dosyası bulunamazsa sessizce boş DB oluşturarak başlamaz;
+ * ilk şema kurulumuna yalnız açık migration/kurulum komutu izin verir. Bu
+ * komut o "açık" kurulum yoludur: `DOLMUS_DB_PATH` dizinini (yoksa)
+ * oluşturur, bağlantı PRAGMA'larını uygulayan
+ * `openDatabaseConnection(..., { createIfMissing: true })` ile
  * dosyayı açar, ardından `./schema.ts`'ten üretilmiş `./drizzle/*.sql`
  * migration'larını `drizzle-orm/better-sqlite3/migrator` ile uygular.
  *
@@ -16,7 +16,7 @@
  * ADIM 2 sırasında `SELECT id, hash, created_at ... ORDER BY created_at
  * DESC LIMIT 1` + `folderMillis` karşılaştırmasıyla doğrulandı). Bu script
  * ayrıca öncesi/sonrası satır sayısını karşılaştırıp "N yeni migration"
- * veya "zaten güncel" bilgisini yazdırır; STORIES.md S1.1 kabul kriteri
+ * veya "zaten güncel" bilgisini yazdırır; S1.1 kabul kriteri
  * ("mevcut veride migration yeniden çalıştırıldığında tanımlar çoğalmaz")
  * bu davranışa dayanır ve `tests/integration/schema.test.ts` içinde gerçek
  * bir geçici dosyayla ayrıca doğrulanır.

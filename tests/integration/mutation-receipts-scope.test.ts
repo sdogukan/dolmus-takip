@@ -2,8 +2,8 @@
  * mutation_receipts kapsam bağı — entegrasyon testleri, T1.5 ADIM 2/2,
  * S1.5.
  *
- * Görev tanımı iş adımı 2 (birebir): "mutation_receipts kapsam bağı
- * (ARCH §3.4): src/server/usecases/receipts/: scope_key = kalıcı aktör
+ * Görev tanımı iş adımı 2 (birebir): "mutation_receipts kapsam bağı:
+ * src/server/usecases/receipts/: scope_key = kalıcı aktör
  * kimliği (credentialId | platformUserId) + ':' + businessId + ':' +
  * vehicleId; findReceipt(scope, requestId, operation) ve
  * recordReceipt(...) transaction içinde; aynı request_id + aynı
@@ -17,8 +17,8 @@
  * kapsamıdır); burada `recordReceipt`'e verilen `entityId`/`resultVersion`
  * KURGUSAL (ör. "we-1") değerlerdir — asıl kanıtlanan şey makbuzun KENDİ
  * (aramа/yazma/tekrar gönderim/kapsam/yetki) davranışıdır, iş kuralı
- * DEĞİL. QA-PLAN.md §1 — gerçek geçici SQLite dosyası + gerçek migration +
- * seed (mock/`:memory:` YOK).
+ * DEĞİL. Gerçek geçici SQLite dosyası + gerçek migration + seed
+ * (mock/`:memory:` YOK).
  */
 import fs from "node:fs";
 import os from "node:os";
@@ -209,7 +209,7 @@ describe("mutation_receipts kapsam bağı (T1.5 ADIM 2/2) — gerçek geçici SQ
       ).toThrow(/UNIQUE constraint failed|SQLITE_CONSTRAINT/);
     });
 
-    it("araya giren hata makbuz yazımını GERİ ALDIRIR (transaction rollback) — ARCH §3.4 'kayıt+revizyon+makbuz birlikte'", async () => {
+    it("araya giren hata makbuz yazımını GERİ ALDIRIR (transaction rollback) — kayıt+revizyon+makbuz birlikte", async () => {
       const { context } = await createVehicleSession(db, SEED_IDS.credA1Owner);
       const scope = scopeFromVehicleSession(context);
 
@@ -423,7 +423,7 @@ describe("mutation_receipts kapsam bağı (T1.5 ADIM 2/2) — gerçek geçici SQ
       expect((caught as RequestIdReusedError).code).toBe("REQUEST_ID_REUSED");
     });
 
-    it("100 tekrar (aynı anahtar+içerik) TEK makbuz üretir — ARCH §3.4 çift kayıt önleme", async () => {
+    it("100 tekrar (aynı anahtar+içerik) TEK makbuz üretir — çift kayıt önleme", async () => {
       const { context } = await createVehicleSession(db, SEED_IDS.credA1Owner);
       const scope = scopeFromVehicleSession(context);
 
@@ -457,7 +457,7 @@ describe("mutation_receipts kapsam bağı (T1.5 ADIM 2/2) — gerçek geçici SQ
   });
 
   // -------------------------------------------------------------------
-  // Yetki kontrolü makbuz OKUMADA da yapılır (STORIES S1.5 AC7 — arada
+  // Yetki kontrolü makbuz OKUMADA da yapılır (S1.5 AC7 — arada
   // erişimi iptal edilen aktör eski makbuz üzerinden veri OKUYAMAZ).
   // -------------------------------------------------------------------
 

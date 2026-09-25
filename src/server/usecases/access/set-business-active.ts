@@ -8,7 +8,7 @@
  * Görev tanımı — "businesses.active=0 aynı şekilde [vehicles.active=0 ile
  * aynı garanti]."
  *
- * ARCHITECTURE §3.2 — platform_users işletmeye bağlı DEĞİLDİR; bu yüzden
+ * platform_users işletmeye bağlı DEĞİLDİR; bu yüzden
  * işletme pasifliği ekip (platform) oturumlarını ETKİLEMEZ (bkz.
  * `revokeSessionsForBusinessSync` — yalnız `vehicle_credentials.business_id`
  * üzerinden credential id toplar).

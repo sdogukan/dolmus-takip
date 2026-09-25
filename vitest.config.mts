@@ -13,9 +13,9 @@ import { defineConfig } from "vitest/config";
  *   görev tanımının istediği gibi `tests/unit/` altında yaşar.
  * - `integration`: `tests/integration/**\/*.test.ts`, Node ortamı, gerçek
  *   geçici SQLite dosyalarıyla çalıştığı için dosyalar arası sıralı
- *   (`fileParallelism: false`) çalıştırılır. QA-PLAN.md §1/§3 —
- *   "Finansal DB testleri yalnız mock veya :memory: üzerinde kabul
- *   edilmez"; bu proje gerçek `better-sqlite3` dosya bağlantısı kullanır.
+ *   (`fileParallelism: false`) çalıştırılır. Finansal DB testleri yalnız
+ *   mock veya :memory: üzerinde kabul edilmez; bu proje gerçek
+ *   `better-sqlite3` dosya bağlantısı kullanır.
  * - `release`: `tests/release/**\/*.test.ts` (`npm run test:release`) —
  *   `release:build`/`release:verify` boru hattının uçtan uca meta-testi
  *   (`release-build.test.ts`) ve kontrollü yayın aracı

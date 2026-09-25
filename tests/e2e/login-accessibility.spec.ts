@@ -8,7 +8,7 @@ import {
 /**
  * Giriş erişilebilirliği ve zaman aşımı sağlamlığı — T1.6 ADIM 2/2, S1.6.
  *
- * Bu dosya `../../docs/STORIES.md` S1.6'nın YEDİ kabul kriterini
+ * Bu dosya S1.6'nın YEDİ kabul kriterini
  * DOĞRUDAN E2E ile kanıtlar (Chromium — `../../playwright.config.ts`
  * `projects`). Diğer giriş E2E dosyalarıyla (`./vehicle-
  * login.spec.ts`, `./platform-login.spec.ts`) AYNI altyapıyı (gerçek
@@ -86,8 +86,8 @@ function submitButtonOf(page: Page): Locator {
 }
 
 /**
- * Bir DOM düğümünün klavye odağı GÖRÜNÜR mü — DESIGN.md §3 "Durum ve
- * odak": "Klavye odağı görünür." `outline` VEYA `box-shadow`'dan EN AZ
+ * Bir DOM düğümünün klavye odağı GÖRÜNÜR mü — klavye odağı görünür
+ * olmalıdır. `outline` VEYA `box-shadow`'dan EN AZ
  * biri "yok" değilse odak görünür sayılır (bu bileşen `focus-visible:
  * ring-*` — Tailwind'in `box-shadow` tabanlı halka — kullanır; çıplak
  * `outline` KALDIRILMIŞTIR, bu yüzden yalnız `outline` denetlemek YANLIŞ
@@ -140,9 +140,9 @@ for (const variant of VARIANTS) {
     test("%200 yakınlaştırma benzetiminde (640×1136, deviceScaleFactor 2) temel giriş yapılabilir", async ({
       browser,
     }) => {
-      // 640 fiziksel px / deviceScaleFactor 2 = 320 CSS px — DESIGN §3
-      // "Font büyütme ve %200 yakınlaştırmada ana işlemler erişilebilir
-      // kalır." kuralının benzetimi.
+      // 640 fiziksel px / deviceScaleFactor 2 = 320 CSS px — "font büyütme
+      // ve %200 yakınlaştırmada ana işlemler erişilebilir kalır" kuralının
+      // benzetimi.
       const context = await browser.newContext({
         viewport: { width: 640, height: 1136 },
         deviceScaleFactor: 2,
@@ -186,7 +186,7 @@ for (const variant of VARIANTS) {
       await expect(submitButton).toBeFocused();
       await assertActiveElementHasVisibleFocus(page);
 
-      // Asıl ürün gereksinimi (DESIGN §3 "Klavye odağı görünür") motordan
+      // Asıl ürün gereksinimi ("klavye odağı görünür") motordan
       // BAĞIMSIZDIR: düğmeler HANGİ mekanizmayla odaklanırsa odaklansın
       // (Tab, ekran okuyucu rotoru, Full Keyboard Access) odak GÖRÜNÜR
       // olmalı — bu, programatik `.focus()` ile AYRICA ve doğrudan
@@ -339,8 +339,7 @@ for (const variant of VARIANTS) {
 
       expect(identifierBox?.height ?? 0).toBeGreaterThanOrEqual(48);
       expect(passwordBox?.height ?? 0).toBeGreaterThanOrEqual(48);
-      // DESIGN §3 — "Dokunulan küçük bağlantı/simge alanı da 48×48 px
-      // hedeflenir."
+      // Dokunulan küçük bağlantı/simge alanı da 48×48 px hedeflenir.
       expect(toggleBox?.height ?? 0).toBeGreaterThanOrEqual(48);
       expect(submitBox?.height ?? 0).toBeGreaterThanOrEqual(56);
     });

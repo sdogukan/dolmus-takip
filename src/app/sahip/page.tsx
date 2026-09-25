@@ -9,7 +9,7 @@ import { OwnerSummary } from "../_components/owner-summary";
 import { VehiclePageHeader } from "../_components/vehicle-page-header";
 
 /**
- * /sahip — mal sahibi özeti (DESIGN §2.5 "Sahip özeti"). Yönlendirmeler:
+ * /sahip — mal sahibi özeti. Yönlendirmeler:
  * oturum yok → /giris, ekip → /yonetim, şoför → /sofor. K2 — "Sahip oturumu
  * yalnız giriş yapılan aracı kapsar": araç seçici YOK.
  */
@@ -25,8 +25,8 @@ export default async function SahipPage() {
   const { context } = session;
 
   if (context.kind !== "vehicle") {
-    // Ekip (platform) oturumu — DESIGN §1 "geçerli oturum varsa ilgili
-    // ana ekrana yönlenir" (T1.3 ADIM 2/2, görev tanımı c).
+    // Ekip (platform) oturumu — geçerli oturum varsa ilgili ana ekrana
+    // yönlenir (T1.3 ADIM 2/2, görev tanımı c).
     redirect("/yonetim");
   }
   if (context.role === "driver") {

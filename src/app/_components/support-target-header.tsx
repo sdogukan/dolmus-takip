@@ -1,9 +1,9 @@
 "use client";
 
 /**
- * Destek hedefi başlığı — DESIGN §2.9 "Destek hedefi (işletme, araç, sahip)
- * üstte sabit; hedef değiştirmek mevcut işi bırakır; kaydedilmemiş form
- * varsa 'Değişiklikleri bırakıp çık?' onayı." İşlemi yapan GERÇEK ekip
+ * Destek hedefi başlığı — destek hedefi (işletme, araç, sahip) üstte
+ * sabittir; hedef değiştirmek mevcut işi bırakır; kaydedilmemiş form varsa
+ * "Değişiklikleri bırakıp çık?" onayı istenir. İşlemi yapan GERÇEK ekip
  * kullanıcısı (kullanıcı adı + rol) burada da görünür.
  *
  * "Hedefi değiştir": kirli form yoksa doğrudan `/yonetim`; varsa

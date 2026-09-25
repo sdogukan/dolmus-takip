@@ -32,11 +32,11 @@ body {
   font-family: var(--font-body);
   font-size: var(--font-size-body);
   line-height: var(--line-height-body);
-  /* T1.6, S1.6 — DESIGN §2.1 "Türkçe karakterler ve uzun metinler
-   * kesilmez." Türkçe uzun kelimeler (ör. "İşletmeler", uzun soyadları)
-   * dar 320 px görünümde taşma/yatay kaydırma üretmeden satır sonunda
-   * kırılır; kelimenin ortasından KESİLMEZ (`overflow-wrap: break-word`
-   * yalnız gerektiğinde, tek harflere BÖLMEZ — `word-break: break-all`
+  /* T1.6, S1.6 — Türkçe karakterler ve uzun metinler kesilmez. Türkçe
+   * uzun kelimeler (ör. "İşletmeler", uzun soyadları) dar 320 px
+   * görünümde taşma/yatay kaydırma üretmeden satır sonunda kırılır;
+   * kelimenin ortasından KESİLMEZ (`overflow-wrap: break-word` yalnız
+   * gerektiğinde, tek harflere BÖLMEZ — `word-break: break-all`
    * KULLANILMAZ). */
   overflow-wrap: break-word;
 }

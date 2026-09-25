@@ -5,8 +5,8 @@
  * scopeSafeObject; role/personId vb. yasak). Plaka normalizasyonu
  * src/lib/plate.ts + biçim doğrulama → 422 alan hatası. Aktif işletme +
  * aktif araç şartı. İki rol credential'ı (owner, driver) Argon2id ile
- * doğrulanır; rol İSTEMCİDEN ALINMAZ, hangi hash eşleşirse o rol. ARCH §6
- * 'Kullanıcı/plaka tahmini': bilinmeyen plaka, pasif araç/işletme ve
+ * doğrulanır; rol İSTEMCİDEN ALINMAZ, hangi hash eşleşirse o rol.
+ * Kullanıcı/plaka tahmini: bilinmeyen plaka, pasif araç/işletme ve
  * yanlış parola AYNI genel yanıtı verir (401 INVALID_CREDENTIALS, mesaj
  * 'Plaka veya şifre yanlış.'); erken rol ifşası yok; bilinmeyen/pasif
  * plakada kontrollü dummy hash yolu (sabit bir Argon2id hash'ine karşı
@@ -29,7 +29,7 @@
  * 2. Hız sınırı denetimi (429 RATE_LIMITED) — `../../auth/rate-limit.ts`
  *    `checkVehicleLoginRateLimit`; DB sorgusu veya Argon2 doğrulaması
  *    HENÜZ ÇALIŞTIRILMADAN, zaten aşılmış bir sınır varsa erken çıkış
- *    (ARCH §6 "Hash yükü"nün önündeki ucuz/bellek-içi ilk kapı).
+ *    (hash yükü sınırının önündeki ucuz/bellek-içi ilk kapı).
  * 3. Araç + işletme aktiflik sorgusu ve (aktifse) credential satırları.
  * 4. Argon2 doğrulaması — HER ZAMAN `../../auth/hash-queue.ts`
  *    `runInHashQueue` ÜZERİNDEN (429 HASH_QUEUE_FULL ihtimali burada
@@ -101,10 +101,10 @@ function fieldErrorsFromZodIssues(error: z.ZodError): Record<string, string> {
 }
 
 // ---------------------------------------------------------------------------
-// Dummy hash — ARCH §6 "Kullanıcı/plaka tahmini" (dosya üstü not).
+// Dummy hash — kullanıcı/plaka tahmini savunması (dosya üstü not).
 // `node scripts/generate-dummy-hash` gibi bir CLI'a gerek yoktur; bu
 // değer BİR KEZ (seed'in kullandığı AYNI Argon2id parametreleriyle,
-// m=19456/t=2/p=1 — DECISIONS.md K9) üretilip buraya SABİTLENMİŞTİR.
+// m=19456/t=2/p=1 — K9) üretilip buraya SABİTLENMİŞTİR.
 // `argon2.verify(digest, password)` parametreleri `digest`'in KENDİSİNDEN
 // okur (node-argon2 kaynağı — `verify(digest, password, options?)`); bu
 // yüzden GERÇEK bir owner/driver doğrulamasıyla AYNI CPU maliyetini
@@ -135,7 +135,7 @@ export async function verifyPasswordOrDummy(
 
 // ---------------------------------------------------------------------------
 // DB okumaları — yalnız SELECT (yazma yok); tek satırlık sorgular, kısa
-// transaction gerektirmez (ARCHITECTURE §3.4 kuralı yalnız YAZMALAR
+// transaction gerektirmez (kısa transaction kuralı yalnız YAZMALAR
 // içindir).
 // ---------------------------------------------------------------------------
 
@@ -278,8 +278,8 @@ export async function vehicleLogin(
 
   try {
     if (!isUsableVehicle) {
-      // Bilinmeyen plaka VEYA pasif araç/işletme — ARCH §6 "Kullanıcı/
-      // plaka tahmini": kontrollü dummy hash yolu. Gerçek "iki rol
+      // Bilinmeyen plaka VEYA pasif araç/işletme — kullanıcı/plaka
+      // tahmini savunması: kontrollü dummy hash yolu. Gerçek "iki rol
       // denemesi" (owner+driver) ile AYNI hash-yükü/zamanlama profilini
       // korumak için TAM OLARAK 2 dummy doğrulama çalıştırılır.
       await verifyPasswordOrDummy(undefined, password, clock);
@@ -352,7 +352,7 @@ export async function vehicleLogin(
       // sıfırlama yarışı: parola BAŞARIYLA eşleşti ama araç/işletme ya da
       // credential_version, oturum INSERT'i anında (`../session/
       // create-vehicle-session.ts`in atomik yeniden denetimi) artık
-      // değişmiş. ARCH §6 "Kullanıcı/plaka tahmini" ilkesiyle AYNI genel
+      // değişmiş. Kullanıcı/plaka tahmini ilkesiyle AYNI genel
       // yanıt (hangi durumun gerçekleştiği istemciye ASLA sızdırılmaz);
       // bu, YANLIŞ PAROLA değildir, bu yüzden hız sınırı sayacı
       // ARTIRILMAZ (yalnız GERÇEK başarısız denemeler sayılır).

@@ -31,7 +31,7 @@
  *
  * Test parolası/gerçek SSH bilgisi YOKTUR; bu script sunucunun stdout/
  * stderr'ini yalnız HATA durumunda (teşhis için) yazdırır — uygulama
- * kodu zaten parola/hash/token loglamaz (ARCHITECTURE §6).
+ * kodu zaten parola/hash/token loglamaz.
  */
 import { spawn, spawnSync } from "node:child_process";
 import fs from "node:fs";
@@ -86,8 +86,8 @@ function assertMatchingPlatform(manifest: Manifest): void {
     fail(
       `Bu manifest "${manifest.platform}-${manifest.arch}" hedefi için ` +
         `üretildi; bu makine "${process.platform}-${process.arch}". ` +
-        "Native better-sqlite3/argon2 ikilikleri platforma özgüdür " +
-        "(ARCHITECTURE.md §8.4) — farklı mimaride release:verify " +
+        "Native better-sqlite3/argon2 ikilikleri platforma özgüdür; " +
+        "farklı mimaride release:verify " +
         "çalıştırılamaz.",
     );
   }

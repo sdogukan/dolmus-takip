@@ -716,7 +716,7 @@ describe("scripts/release-apply.ts deploy", () => {
       expect(currentRelease()).toBe(MIG);
     }, SLOW);
 
-    it("current yoksa (ilk kurulum SERVER-SETUP §3.4'tür)", async () => {
+    it("current yoksa (ilk kurulum bu betikle yapılmaz)", async () => {
       fs.rmSync(currentLink);
       expectRefused(await deploy(MIG), "current_missing");
       expect(calls()).toEqual([]);

@@ -36,8 +36,7 @@ import { resolveSession } from "../../src/server/usecases/session/resolve-sessio
  * `createDb()` bağlantısını kullanır, `getAppDb()`'yi DEĞİL, bu yüzden bu
  * tip uyumsuzluğunu YAKALAYAMAZDI).
  *
- * QA-PLAN.md §1 — gerçek geçici SQLite + migration + seed; mock/`:memory:`
- * yok.
+ * Gerçek geçici SQLite + migration + seed; mock/`:memory:` yok.
  */
 
 const projectRoot = path.resolve(

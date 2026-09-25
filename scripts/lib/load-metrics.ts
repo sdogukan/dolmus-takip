@@ -19,7 +19,7 @@ import { calculateWorkEntryAmounts, type WorkKind } from "../../src/lib/work-cal
 // Hedefler ve sınırlar
 // ---------------------------------------------------------------------------
 
-/** QA-PLAN §3 / ARCHITECTURE §9 — normal karışık yük başlangıç hedefleri. */
+/** Normal karışık yük başlangıç hedefleri. */
 export const LOAD_TARGETS = {
   kayitP95Ms: 2000,
   raporP95Ms: 3000,
@@ -27,7 +27,7 @@ export const LOAD_TARGETS = {
   unexpectedRateLimit: 0.01,
 } as const;
 
-/** Kabul kanıtı için en az sürdürülen yük (ARCHITECTURE §9: en az 30 dk). */
+/** Kabul kanıtı için en az sürdürülen yük (en az 30 dk). */
 export const MIN_ACCEPTANCE_SUSTAIN_SECONDS = 30 * 60;
 
 /** Her senaryo 100 kullanıcı/istek ile ölçülür (S6.6 AC3). */

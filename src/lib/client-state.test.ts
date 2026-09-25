@@ -80,7 +80,7 @@ describe("clientStateScopePrefix / clientStateKey", () => {
   });
 });
 
-describe("saveClientState / readClientState — TTL 24 saat (DECISIONS F6)", () => {
+describe("saveClientState / readClientState — TTL 24 saat (F6)", () => {
   it("kaydedilen değer TTL içinde AYNI kapsam+ad ile okunur", () => {
     const storage = new InMemoryStorage();
     saveClientState(storage, vehicleScope, "draft", { requestId: "r1" });

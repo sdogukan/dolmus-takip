@@ -1,7 +1,7 @@
 /**
  * GET/POST /api/v1/admin/businesses ve GET/PATCH .../[businessId] — T2.1.
  *
- * QA-PLAN.md §1 — gerçek geçici SQLite dosyası + gerçek migration + seed
+ * Gerçek geçici SQLite dosyası + gerçek migration + seed
  * (mock/`:memory:` YOK). Acceptance'ın kapsadığı senaryolar: 201 + tek
  * transaction'da business+people+business_owners+audit+receipt; aynı
  * requestId/aynı gövde replay; aynı requestId/farklı gövde 409; araç

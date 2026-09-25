@@ -1,8 +1,8 @@
 /**
  * updateBusiness — T2.1, `PATCH /api/v1/admin/businesses/[businessId]`.
  *
- * Tek BEGIN IMMEDIATE transaction içinde: sürüm denetimi (ARCH §3.4 —
- * "koşullu UPDATE ... version"), sahip atama (yalnız sahipsiz işletmeye),
+ * Tek BEGIN IMMEDIATE transaction içinde: sürüm denetimi (`version`
+ * üzerinde koşullu UPDATE), sahip atama (yalnız sahipsiz işletmeye),
  * sahip adı düzeltme (people.version ile ayrı sürüm denetimi), aktiflik
  * değişimi (pasifleşince oturum iptali) ve admin_audit/mutation_receipts
  * birlikte yazılır.

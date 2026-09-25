@@ -4,7 +4,7 @@
  * Ekip hesabı açma formu (istemci bileşeni) — S2.6.
  *
  * `../../isletmeler/yeni/new-business-form.tsx` İLE AYNI tekrar-gönderim
- * kuralları (ARCH §3.4): `requestId` içerik değişmedikçe sabit, sonucu
+ * kuralları: `requestId` içerik değişmedikçe sabit, sonucu
  * belirsiz gönderimde alanlar dondurulur ve AYNI istek tekrar edilir.
  * Şifre GİZLİ alandır: taslağa/localStorage'a ASLA yazılmaz, yalnız React
  * durumunda tutulur (`../../araclar/[id]/password-reset-section.tsx` ile

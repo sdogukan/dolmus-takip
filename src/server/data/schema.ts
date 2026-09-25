@@ -1,11 +1,10 @@
 /**
  * Drizzle şeması (ADIM 2/3, S1.1).
  *
- * Kaynak: ARCHITECTURE.md §3.2 (tablolar), §3.1 (ortak kurallar), §3.3
- * (hesap/durum kuralları — K3/K5/K6 karar kayıtlarıyla birlikte), §3.4
- * (transaction/tekrar gönderim/sürüm), §3.5 (indeksler), §6 (oturum/kimlik
- * sütunları). Tam alıntılar ilgili tabloların üstünde tekrarlanır; burada
- * yalnız §3.1'deki ortak kurallar özetlenir:
+ * Kapsam: tablolar, ortak kurallar, hesap/durum kuralları (K3/K5/K6 karar
+ * kayıtlarıyla birlikte), transaction/tekrar gönderim/sürüm, indeksler,
+ * oturum/kimlik sütunları. Her tablonun kuralı kendi üstünde yazılıdır;
+ * burada yalnız ortak kurallar özetlenir:
  *
  * - "Kimlikler uygulamada üretilen UUID'lerdir." → `id` sütunları DB'de
  *   varsayılan (autoincrement/`uuid()` gibi) üretmez; uygulama katmanı
@@ -23,46 +22,45 @@
  *   anahtarı hedefleyen bir çocuk varsa eklenir (vehicle_credentials,
  *   cash_confirmations, admin_audit gibi "yaprak" tablolara gerekmez).
  * - "Gerekli foreign key alanları NULL olamaz." → zorunlu ilişkiler NOT
- *   NULL; yalnız §3.2'nin kendisi "gerektiğinde" diyen alanlar (admin_audit
+ *   NULL; yalnız tanımı "gerektiğinde" diyen alanlar (admin_audit
  *   business_id/vehicle_id, "varsa on_behalf_of_kind/person_id") nullable.
  * - Para INTEGER kuruş, süre INTEGER dakika, work_date TEXT YYYY-MM-DD,
  *   zamanlar TEXT ISO UTC (Europe/Istanbul dönüşümü yalnız ekranda/rapor
  *   hesabında yapılır, DB'de saklanmaz).
  *
- * "Actor alanları" (§3.2, tablo altındaki paragraf): work_entry_revisions,
- * cash_confirmations ve admin_audit'in ortak aktör izleme sütun kümesi.
- * Birebir alıntı: "Actor alanları: actor_kind, actor_session_id (gizli
- * token olmayan iz kimliği), actor_role, araç credential kimliği veya
- * gerçek platform_user_id, varsa on_behalf_of_kind/person_id. Çalışmayı
- * yapan person_id ayrı alandır. Oturum temizliği geçmişteki aktör izini
- * silmez; audit kaydı kısa ömürlü sessions satırına silinmeye bağlı
- * değildir." Bu yüzden `actor_session_id` sessions(id)'e FK DEĞİLDİR
- * (session silinse de iz kalır); yalnız bir metin iz kimliğidir.
+ * Actor alanları: work_entry_revisions, cash_confirmations ve
+ * admin_audit'in ortak aktör izleme sütun kümesi — actor_kind,
+ * actor_session_id (gizli token olmayan iz kimliği), actor_role, araç
+ * credential kimliği veya gerçek platform_user_id, varsa
+ * on_behalf_of_kind/person_id. Çalışmayı yapan person_id ayrı alandır.
+ * Oturum temizliği geçmişteki aktör izini silmez; audit kaydı kısa ömürlü
+ * sessions satırına silinmeye bağlı değildir. Bu yüzden `actor_session_id`
+ * sessions(id)'e FK DEĞİLDİR (session silinse de iz kalır); yalnız bir
+ * metin iz kimliğidir.
  *
  * CHECK kısıtları iki kaynaktan gelir:
  * 1. Görev tanımının açıkça istediği "status/role/kind alanları" — bunlar
- *    doğrudan §3.2'deki rol/tür/durum değer kümeleridir (ör. "role owner
- *    veya driver", "status pending, confirmed veya not_required").
- * 2. Zaten bağlayıcı olan başka bir kesin kural (K3/K5/§3.3/§3.4) —
- *    "varsayımda bulunma" değil, doğrudan alıntılanan bir karardır. Her
- *    CHECK'in üstünde hangi cümleye dayandığı belirtilir.
+ *    doğrudan tablo tanımlarındaki rol/tür/durum değer kümeleridir (ör.
+ *    "role owner veya driver", "status pending, confirmed veya
+ *    not_required").
+ * 2. Zaten bağlayıcı olan başka bir kesin kural (K3/K5, hesap/durum ve
+ *    transaction kuralları) — "varsayımda bulunma" değil, açık bir
+ *    karardır. Her CHECK'in üstünde hangi kurala dayandığı belirtilir.
  *
  * `platform_role`/`actor_role` için 'admin'/'support' ve `actor_kind` için
  * 'vehicle_credential'/'platform_user' gibi somut İngilizce sabit değerler
- * ARCHITECTURE'da yalnız Türkçe adlandırılır ("platform yöneticisi",
- * "destek", "araç credential kimliği veya platform_user_id"); belgede
- * birebir sabit metin (enum literal) verilmez. Bu isimlendirme mühendislik
- * kararıdır (bkz. TASKS.md T2.6); gerçek ekip yetki ekranını uygularken bu
- * sabitleri kullanacak veya (dokümantasyonla çelişmeden) yeniden
- * adlandıracaktır — ikisi de aynı migration setiyle uyumludur.
+ * bir mühendislik kararıdır; kavramların Türkçe adları "platform
+ * yöneticisi", "destek" ve "araç credential kimliği veya platform_user_id"
+ * olup birebir sabit metin (enum literal) tanımlanmamıştır (bkz. T2.6).
+ * Gerçek ekip yetki ekranı uygulanırken bu sabitler kullanılacak veya
+ * yeniden adlandırılacaktır — ikisi de aynı migration setiyle uyumludur.
  *
- * "araç bilgileri" (vehicles §3.2 satırı) ARCHITECTURE'da somutlaştırılmaz;
- * somut alan adları yalnız TASKS.md T2.2 ("plaka, marka/model, yıl,
- * hat/durak, not") ve DESIGN.md §2.9 ("plaka, marka/model/yıl, hat/durak
- * notu, aktiflik") içinde geçer. S1.1 bu iki belgeye atıf yapmasa da,
- * ARCHITECTURE'ın "TÜM alanlar" gereğini karşılamak için bu somut adlar
- * kullanılmıştır (bkz. TASKS.md T2.2 — ekran/alan adı netleşince gerekirse
- * yalnız kolon adı/etiket değişir, ilişkisel model değişmez).
+ * "araç bilgileri" somut alan adları T2.2 ("plaka, marka/model, yıl,
+ * hat/durak, not") ve ekran tasarımından ("plaka, marka/model/yıl,
+ * hat/durak notu, aktiflik") alınmıştır; vehicles tablosunun "TÜM alanlar"
+ * gereğini karşılamak için bu somut adlar kullanılmıştır (bkz. T2.2 —
+ * ekran/alan adı netleşince gerekirse yalnız kolon adı/etiket değişir,
+ * ilişkisel model değişmez).
  *
  * API doğrulaması (varsayım değil): `drizzle-orm/sqlite-core` public
  * export'ları — `sqliteTable`, `text`, `integer`, `check`, `unique`,
@@ -97,44 +95,45 @@ import {
 // zorunluluk aşağıdaki `check(...)` kısıtlarıyla DB'de uygulanır).
 // ---------------------------------------------------------------------------
 
-/** vehicle_credentials.role — "role owner veya driver" (§3.2). */
+/** vehicle_credentials.role — "role owner veya driver". */
 const VEHICLE_ROLES = ["owner", "driver"] as const;
 
 /**
- * platform_users.platform_role — ARCHITECTURE yalnız "platform yöneticisi"
- * ve "destek" (ekip hesabının yönetici olmayan genel yetkisi) ayrımını adlar
- * (§2 yetki matrisi son satırı: "Ekip hesabı/yetkisi yönetme | ... | Yalnız
- * platform yöneticisi"). Somut sabit metin doküманda yok; bkz. dosya üstü not.
+ * platform_users.platform_role — yalnız "platform yöneticisi" ve "destek"
+ * (ekip hesabının yönetici olmayan genel yetkisi) ayrımı vardır (yetki
+ * matrisi son satırı: "Ekip hesabı/yetkisi yönetme | ... | Yalnız platform
+ * yöneticisi"). Somut sabit metin mühendislik kararıdır; bkz. dosya üstü not.
  */
 const PLATFORM_ROLES = ["admin", "support"] as const;
 
 /**
  * actor_role — mutasyonu fiilen yapan oturumun rolü: araç rolü (owner/
- * driver) veya platform rolü (admin/support). §3.2 "actor_role" alanı bu
- * dört değerden birini taşır (araç oturumu veya ekip oturumu — "İki aktör
- * türünden tam biri", §3.2 sessions satırı).
+ * driver) veya platform rolü (admin/support). "actor_role" alanı bu dört
+ * değerden birini taşır (araç oturumu veya ekip oturumu — sessions
+ * tablosunun "İki aktör türünden tam biri" kuralı).
  */
 const ACTOR_ROLES = [...VEHICLE_ROLES, ...PLATFORM_ROLES] as const;
 
 /**
  * actor_kind — aktörün hangi kimlik tablosundan geldiği: "araç credential
- * kimliği veya gerçek platform_user_id" (§3.2 actor alanları paragrafı).
+ * kimliği veya gerçek platform_user_id" (dosya üstündeki actor alanları
+ * notu).
  */
 const ACTOR_KINDS = ["vehicle_credential", "platform_user"] as const;
 
 /**
- * work_entries.work_kind — §3.3: "owner kaydında kişi aracın sahibidir...
+ * work_entries.work_kind — "owner kaydında kişi aracın sahibidir...
  * driver kaydında aktif kişi/araç ataması aranır."
  */
 const WORK_KINDS = ["owner", "driver"] as const;
 
 /**
- * work_entries.status — §3.2: "status pending, confirmed veya not_required".
+ * work_entries.status — "status pending, confirmed veya not_required".
  */
 const WORK_ENTRY_STATUSES = ["pending", "confirmed", "not_required"] as const;
 
 // ---------------------------------------------------------------------------
-// businesses — "İşletme sınırı" (§3.2). Kök tablo; kendi business_id'si yok.
+// businesses — "İşletme sınırı". Kök tablo; kendi business_id'si yok.
 // ---------------------------------------------------------------------------
 
 export const businesses = sqliteTable("businesses", {
@@ -143,7 +142,7 @@ export const businesses = sqliteTable("businesses", {
   active: integer("active", { mode: "boolean" }).notNull().default(true),
   createdAt: text("created_at").notNull(),
   // T2.1 — admin işletme/sahip yönetimi PATCH'inin iyimser eşzamanlılık
-  // sürümü (ARCHITECTURE §3.4 — "koşullu UPDATE ... version"). Var olan
+  // sürümü (`version` üzerinde koşullu UPDATE). Var olan
   // `businesses` tablosuna eklenir; migration bu yüzden yalnız `ALTER
   // TABLE ADD COLUMN` olmalıdır (bkz. drizzle/000X migration dosyasının
   // üst notu) — bu yüzden burada KASITLI olarak `people`/`vehicles`
@@ -160,7 +159,7 @@ export const businesses = sqliteTable("businesses", {
 
 // ---------------------------------------------------------------------------
 // people — "Şoför ve sahibin sabit kişi kimliği; giriş hesabı değildir."
-// (§3.2). "Ebeveyn" tablo: vehicles.owner_person_id ve vehicle_drivers.
+// "Ebeveyn" tablo: vehicles.owner_person_id ve vehicle_drivers.
 // person_id bu tabloyu (business_id, id) ile birleşik referanslar.
 // ---------------------------------------------------------------------------
 
@@ -181,8 +180,8 @@ export const people = sqliteTable(
   },
   (t) => [
     primaryKey({ columns: [t.id] }),
-    // §3.1 — "Ebeveynlerde UNIQUE(business_id, id)": vehicles/vehicle_drivers
-    // buradan birleşik FK ile referans verecek.
+    // Birleşik FK kuralı — "Ebeveynlerde UNIQUE(business_id, id)":
+    // vehicles/vehicle_drivers buradan birleşik FK ile referans verecek.
     unique("people_business_id_id_uk").on(t.businessId, t.id),
     check("people_version_positive_check", sql`${t.version} >= 1`),
   ],
@@ -207,7 +206,7 @@ export const businessOwners = sqliteTable(
   },
   (t) => [
     // "sahip aynı işletmedeki kişidir" — vehicles.owner_person_id ile AYNI
-    // birleşik FK deseni (§3.1): başka işletmenin kişisi sahip olarak
+    // birleşik FK deseni: başka işletmenin kişisi sahip olarak
     // YAZILAMAZ (DB düzeyinde reddi, API doğrulaması bunun İKİNCİ
     // savunma hattıdır — bkz. usecases/admin-businesses).
     foreignKey({
@@ -220,7 +219,7 @@ export const businessOwners = sqliteTable(
 
 // ---------------------------------------------------------------------------
 // vehicles — "Plaka platform genelinde UNIQUE; sahip aynı işletmedeki
-// kişidir." (§3.2). "araç bilgileri" somut alanları için dosya üstü not.
+// kişidir." "araç bilgileri" somut alanları için dosya üstü not.
 // ---------------------------------------------------------------------------
 
 export const vehicles = sqliteTable(
@@ -232,7 +231,7 @@ export const vehicles = sqliteTable(
     id: text("id").notNull(),
     plateNormalized: text("plate_normalized").notNull().unique(),
     ownerPersonId: text("owner_person_id").notNull(),
-    // "araç bilgileri" — TASKS.md T2.2 / DESIGN.md §2.9 somut alan adları
+    // "araç bilgileri" — T2.2 / ekran tasarımı somut alan adları
     // (dosya üstü not). MVP'de hepsi isteğe bağlı; sunucu doğrulaması
     // T2.2'de eklenir, bu adım yalnız kolonu açar.
     brandModel: text("brand_model"),
@@ -244,10 +243,11 @@ export const vehicles = sqliteTable(
   },
   (t) => [
     primaryKey({ columns: [t.id] }),
-    // §3.1 — vehicle_drivers/vehicle_credentials/work_entries/admin_audit
-    // bu tabloyu (business_id, id) ile birleşik referanslar.
+    // Birleşik FK kuralı — vehicle_drivers/vehicle_credentials/
+    // work_entries/admin_audit bu tabloyu (business_id, id) ile birleşik
+    // referanslar.
     unique("vehicles_business_id_id_uk").on(t.businessId, t.id),
-    // "sahip aynı işletmedeki kişidir" (§3.2) — owner_person_id, aynı
+    // "sahip aynı işletmedeki kişidir" — owner_person_id, aynı
     // business_id altındaki bir people satırına birleşik FK ile bağlanır;
     // başka işletmenin kişisi sahip olarak yazılamaz (DB düzeyinde reddi).
     foreignKey({
@@ -261,9 +261,10 @@ export const vehicles = sqliteTable(
 
 // ---------------------------------------------------------------------------
 // vehicle_drivers — "Üçlü UNIQUE; geçmiş ilişki silinmez; sahibin kendi
-// sürüşü bu atama değildir." (§3.2). §3.2'de ayrı bir `id` alanı listelenmez;
-// birleşik anahtarın kendisi PRIMARY KEY'dir (aynı zamanda §3.5'teki
-// "vehicle_drivers(business_id, vehicle_id, person_id) UNIQUE" kısıtıdır).
+// sürüşü bu atama değildir." Ayrı bir `id` alanı yoktur; birleşik
+// anahtarın kendisi PRIMARY KEY'dir (aynı zamanda
+// "vehicle_drivers(business_id, vehicle_id, person_id) UNIQUE" indeks
+// kısıtıdır).
 // ---------------------------------------------------------------------------
 
 export const vehicleDrivers = sqliteTable(
@@ -292,7 +293,7 @@ export const vehicleDrivers = sqliteTable(
 );
 
 // ---------------------------------------------------------------------------
-// vehicle_credentials — "Araç/rol UNIQUE; role owner veya driver." (§3.2).
+// vehicle_credentials — "Araç/rol UNIQUE; role owner veya driver."
 // sessions.credential_id buraya `id` üzerinden (tek sütun) FK verir; başka
 // hiçbir tablo bunu (business_id, id) ile birleşik referanslamadığından
 // ayrıca UNIQUE(business_id, id) eklenmez (dosya üstü not, kural 1).
@@ -326,10 +327,10 @@ export const vehicleCredentials = sqliteTable(
 
 // ---------------------------------------------------------------------------
 // platform_users — "Kişisel ekip kimliği; müşteri kişi kaydından ayrı."
-// (§3.2). İşletmeye bağlı değildir (business_id yok) — ekip hesapları
-// işletme sınırı dışında, hedef işletme/araç her destek isteğinde ayrıca
-// doğrulanır (§2 "Platform desteğinde hedef işletme/araç hem ekranda hem
-// sunucuda doğrulanır").
+// İşletmeye bağlı değildir (business_id yok) — ekip hesapları işletme
+// sınırı dışında, hedef işletme/araç her destek isteğinde ayrıca
+// doğrulanır (platform desteğinde hedef işletme/araç hem ekranda hem
+// sunucuda doğrulanır).
 // ---------------------------------------------------------------------------
 
 export const platformUsers = sqliteTable(
@@ -363,10 +364,10 @@ export const platformUsers = sqliteTable(
 
 // ---------------------------------------------------------------------------
 // sessions — "İki aktör türünden tam biri; araç oturumunda işletme/araç
-// rolü credential ilişkisinden alınır." (§3.2). Teknik tablo; business_id
-// YOK (§3.2'nin kendi sütun listesinde de yok) — kapsam credential_id/
-// platform_user_id üzerinden sunucuda çözülür (§3.2 "Oturum ve makbuzlar
-// teknik tablolardır").
+// rolü credential ilişkisinden alınır." Teknik tablo; business_id YOK
+// (tanımlı sütun listesinde de yok) — kapsam credential_id/
+// platform_user_id üzerinden sunucuda çözülür (oturum ve makbuzlar
+// teknik tablolardır).
 // ---------------------------------------------------------------------------
 
 export const sessions = sqliteTable(
@@ -392,15 +393,16 @@ export const sessions = sqliteTable(
         (${t.credentialId} IS NULL AND ${t.platformUserId} IS NOT NULL)
       )`,
     ),
-    // §3.5 — "sessions(token_hash) UNIQUE; sessions(expires_at)". token_hash
-    // zaten `.unique()` ile kolonda tanımlı; expires_at için ayrı indeks:
+    // İndeksler — "sessions(token_hash) UNIQUE; sessions(expires_at)".
+    // token_hash zaten `.unique()` ile kolonda tanımlı; expires_at için ayrı
+    // indeks:
     index("idx_sessions_expires_at").on(t.expiresAt),
   ],
 );
 
 // ---------------------------------------------------------------------------
 // work_entries — "Güncel kaynak kayıt; status pending, confirmed veya
-// not_required." (§3.2). Para/süre/tarih kuralları §3.1/§3.3/K3/K5/K6.
+// not_required." Para/süre/tarih kuralları: ortak kurallar + K3/K5/K6.
 // ---------------------------------------------------------------------------
 
 export const workEntries = sqliteTable(
@@ -411,9 +413,9 @@ export const workEntries = sqliteTable(
     vehicleId: text("vehicle_id").notNull(),
     personId: text("person_id").notNull(),
     workKind: text("work_kind", { enum: WORK_KINDS }).notNull(),
-    // "kullanıcı çalışma tarihi YYYY-MM-DD olarak saklanır" (§3.1).
+    // "kullanıcı çalışma tarihi YYYY-MM-DD olarak saklanır".
     workDate: text("work_date").notNull(),
-    // "İşlem zamanları UTC" (§3.1) — ISO 8601 UTC metin.
+    // "İşlem zamanları UTC" — ISO 8601 UTC metin.
     startsAt: text("starts_at").notNull(),
     endsAt: text("ends_at").notNull(),
     durationMinutes: integer("duration_minutes").notNull(),
@@ -423,7 +425,7 @@ export const workEntries = sqliteTable(
     // (other_expense_note)."
     otherExpenseCents: integer("other_expense_cents").notNull(),
     otherExpenseNote: text("other_expense_note"),
-    // §3.3 hesap kuralı v1 — "share_bps = 2000 veya 0."
+    // Hesap kuralı v1 — "share_bps = 2000 veya 0."
     shareBps: integer("share_bps").notNull(),
     shareCents: integer("share_cents").notNull(),
     // K5 — negatif kalabilir, sıfıra çekilmez; bu yüzden CHECK >= 0 YOK.
@@ -434,8 +436,8 @@ export const workEntries = sqliteTable(
   },
   (t) => [
     primaryKey({ columns: [t.id] }),
-    // §3.1 — work_entry_revisions bu tabloyu (business_id, id) ile
-    // birleşik referanslar.
+    // Birleşik FK kuralı — work_entry_revisions bu tabloyu
+    // (business_id, id) ile birleşik referanslar.
     unique("work_entries_business_id_id_uk").on(t.businessId, t.id),
     foreignKey({
       name: "work_entries_vehicle_fk",
@@ -460,8 +462,9 @@ export const workEntries = sqliteTable(
       "work_entries_duration_minutes_range_check",
       sql`${t.durationMinutes} > 0 AND ${t.durationMinutes} <= 1440`,
     ),
-    // §3.3 — "Girdiler negatif olamaz" (hasılat/mazot/diğer masraf birer
-    // girdidir; kalan ise kasıtlı olarak negatif kalabilir, bkz. yukarısı).
+    // Hesap kuralı — "Girdiler negatif olamaz" (hasılat/mazot/diğer masraf
+    // birer girdidir; kalan ise kasıtlı olarak negatif kalabilir, bkz.
+    // yukarısı).
     check("work_entries_gross_cents_nonnegative_check", sql`${t.grossCents} >= 0`),
     check("work_entries_fuel_cents_nonnegative_check", sql`${t.fuelCents} >= 0`),
     check(
@@ -469,7 +472,7 @@ export const workEntries = sqliteTable(
       sql`${t.otherExpenseCents} >= 0`,
     ),
     check("work_entries_share_cents_nonnegative_check", sql`${t.shareCents} >= 0`),
-    // §3.3 hesap kuralı v1 — "share_bps = 2000 veya 0."
+    // Hesap kuralı v1 — "share_bps = 2000 veya 0."
     check(
       "work_entries_share_bps_check",
       sql`${t.shareBps} = 0 OR ${t.shareBps} = 2000`,
@@ -479,7 +482,7 @@ export const workEntries = sqliteTable(
       sql`${t.calculationVersion} >= 1`,
     ),
     check("work_entries_version_positive_check", sql`${t.version} >= 1`),
-    // §3.5 indeksleri (aynen):
+    // İndeksler:
     index("idx_work_entries_vehicle_period").on(
       t.businessId,
       t.vehicleId,
@@ -504,7 +507,7 @@ export const workEntries = sqliteTable(
 
 // ---------------------------------------------------------------------------
 // Ortak "actor" sütunları — work_entry_revisions, cash_confirmations,
-// admin_audit için (dosya üstü not, §3.2 actor alanları paragrafı).
+// admin_audit için (dosya üstündeki actor alanları notu).
 // `vehicleCredentials`/`platformUsers` bu noktada zaten tanımlı olduğundan
 // referanslar doğrudan (callback'siz) kurulabilir.
 // ---------------------------------------------------------------------------
@@ -525,8 +528,8 @@ function actorTrackingColumns() {
     onBehalfOfKind: text("on_behalf_of_kind", { enum: VEHICLE_ROLES }),
     // Düzeltme turu 1 — audit bulgusu (guvenlik/mimari): yalnız aşağıdaki
     // birleşik FK'lere (ör. `..._on_behalf_of_person_fk`, businessId +
-    // onBehalfOfPersonId) güvenmek admin_audit için yetersizdi. §3.2
-    // admin_audit.business_id'yi "gerektiğinde" nullable sayıyor; SQLite'ta
+    // onBehalfOfPersonId) güvenmek admin_audit için yetersizdi.
+    // admin_audit.business_id "gerektiğinde" nullable'dır; SQLite'ta
     // birleşik bir FK'nin herhangi bir çocuk sütunu NULL ise kısıtın
     // tamamı denetlenmeden geçer (SQLite foreign key kuralları — bir
     // ebeveyn anahtar sütunu NULL olan çocuk satırlar için FK "satisfied"
@@ -586,7 +589,7 @@ function onBehalfOfConsistencyCheck(
  * (düzeltme turu 1 — mimari bulgusu: bu üç CHECK work_entry_revisions,
  * cash_confirmations ve admin_audit'te birebir aynı SQL metniyle ayrı ayrı
  * yazılmıştı; `actorKindExclusivityCheck`/`onBehalfOfConsistencyCheck` ile
- * aynı desene taşındı). Değer kümeleri §3.2'den: "role owner veya driver"
+ * aynı desene taşındı). Değer kümeleri: "role owner veya driver"
  * (araç), platform yöneticisi/destek (ekip) → `ACTOR_ROLES`; actor_kind
  * için `ACTOR_KINDS`; on_behalf_of_kind için `VEHICLE_ROLES` (yalnız
  * doldurulmuşsa). Davranış değişmez, yalnız üç `check(...)` çağrısını tek
@@ -616,8 +619,8 @@ function actorEnumChecks(
 
 // ---------------------------------------------------------------------------
 // work_entry_revisions — "İşletme/kayıt/sürüm UNIQUE; her başarılı
-// değişikliğin tam değer görüntüsü; UPDATE/DELETE yok." (§3.2). §3.2'de
-// ayrı `id` listelenmez; (business_id, entry_id, version) PRIMARY KEY'dir.
+// değişikliğin tam değer görüntüsü; UPDATE/DELETE yok." Ayrı `id` yoktur;
+// (business_id, entry_id, version) PRIMARY KEY'dir.
 // ---------------------------------------------------------------------------
 
 export const workEntryRevisions = sqliteTable(
@@ -666,7 +669,7 @@ export const workEntryRevisions = sqliteTable(
 
 // ---------------------------------------------------------------------------
 // cash_confirmations — "(business_id, entry_id, entry_version) UNIQUE ve
-// ilgili revizyona FK; UPDATE/DELETE yok." (§3.2).
+// ilgili revizyona FK; UPDATE/DELETE yok."
 // ---------------------------------------------------------------------------
 
 export const cashConfirmations = sqliteTable(
@@ -725,7 +728,7 @@ export const cashConfirmations = sqliteTable(
 
 // ---------------------------------------------------------------------------
 // mutation_receipts — "(scope_key, request_id) UNIQUE; tekrar gönderimde
-// aynı işlem sonucunu bulur." (§3.2). §3.2'de ayrı `id` listelenmez.
+// aynı işlem sonucunu bulur." Ayrı `id` yoktur.
 // ---------------------------------------------------------------------------
 
 export const mutationReceipts = sqliteTable(
@@ -745,9 +748,9 @@ export const mutationReceipts = sqliteTable(
 
 // ---------------------------------------------------------------------------
 // admin_audit — "Kişi/araç/kimlik ve ekip yönetiminin geçmişi; gizli
-// değerler dışlanır." (§3.2). "business_id/vehicle_id gerektiğinde" —
-// ekip hesabı yönetimi gibi işletmeye bağlı olmayan işlemlerde ikisi de
-// NULL kalabilir (§3.1 "Gerekli foreign key alanları NULL olamaz" burada
+// değerler dışlanır." "business_id/vehicle_id gerektiğinde" — ekip hesabı
+// yönetimi gibi işletmeye bağlı olmayan işlemlerde ikisi de NULL
+// kalabilir (ortak kural "Gerekli foreign key alanları NULL olamaz" burada
 // ihlal edilmez çünkü bu alanlar açıkça "gerektiğinde" diye şartlı).
 // ---------------------------------------------------------------------------
 
@@ -810,16 +813,17 @@ export const adminAudit = sqliteTable(
     // Bu CHECK, vehicle_id veya on_behalf_of_person_id doluyken
     // business_id'yi de zorunlu kılarak birleşik FK'leri devreye sokar:
     // business_id NULL kalabilen tek durum ikisi de NULL olduğunda (ör.
-    // ekip hesabı yönetimi gibi işletmeye bağlı olmayan işlemler, §3.2
-    // "business_id/vehicle_id gerektiğinde") kalır; §3.1 "Bunlar yanlış
-    // işletmeye ilişki kurulmasını engeller" garantisi bu tabloda da
-    // tutulur.
+    // ekip hesabı yönetimi gibi işletmeye bağlı olmayan işlemler,
+    // "business_id/vehicle_id gerektiğinde") kalır; birleşik FK'lerin
+    // "yanlış işletmeye ilişki kurulmasını engeller" garantisi bu tabloda
+    // da tutulur.
     check(
       "admin_audit_business_id_required_for_scoped_refs_check",
       sql`(${t.vehicleId} IS NULL OR ${t.businessId} IS NOT NULL)
         AND (${t.onBehalfOfPersonId} IS NULL OR ${t.businessId} IS NOT NULL)`,
     ),
-    // §3.5 — "admin_audit(business_id, occurred_at, id) | Destek işlem geçmişi".
+    // İndeks — admin_audit(business_id, occurred_at, id): destek işlem
+    // geçmişi.
     index("idx_admin_audit_business_period").on(t.businessId, t.occurredAt, t.id),
   ],
 );

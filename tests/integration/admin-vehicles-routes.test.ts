@@ -1,7 +1,7 @@
 /**
  * GET/POST /api/v1/admin/vehicles ve GET/PATCH .../[vehicleId] — T2.2.
  *
- * QA-PLAN.md §1 — gerçek geçici SQLite dosyası + gerçek migration + seed
+ * Gerçek geçici SQLite dosyası + gerçek migration + seed
  * (mock/`:memory:` YOK). Acceptance'ın kapsadığı senaryolar: 201 + tek
  * transaction'da vehicles+2×vehicle_credentials+audit+receipt; aynı
  * requestId replay (ikinci araç ÜRETMEZ); aynı requestId FARKLI

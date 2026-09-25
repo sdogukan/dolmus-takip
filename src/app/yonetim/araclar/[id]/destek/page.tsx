@@ -13,7 +13,7 @@ import { TeamPageHeader } from "../../../../_components/team-page-header";
 import { UnsavedChangesProvider } from "../../../../_components/unsaved-changes";
 
 /**
- * /yonetim/araclar/[id]/destek — destek alanı (DESIGN §2.9). `../page.tsx`
+ * /yonetim/araclar/[id]/destek — destek alanı. `../page.tsx`
  * İLE AYNI oturum/rol denetimi (araç oturumu → /sahip|/sofor, oturum yok →
  * /yonetim/giris, bilinmeyen araç → 404). Hedef (işletme, araç, sahip)
  * URL'deki araç kimliğinden SUNUCUDA türetilir; sorgu parametresinden işletme

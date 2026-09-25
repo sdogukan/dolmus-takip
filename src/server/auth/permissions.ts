@@ -1,16 +1,16 @@
 /**
  * Yetki matrisi — T1.5 ADIM 1/2, S1.5.
  *
- * Kaynak — ARCHITECTURE.md §2 "Yetki matrisi" tablosu (birebir):
+ * Kaynak — yetki matrisi tablosu:
  *
  * | İşlem | Ortak şoför oturumu | Sahip oturumu | Platform ekibi |
  * |---|---|---|---|
  * | Şoför listesinden seçip çalışma oluşturma | Giriş yapılan araç | Yetkili
  *   araçta şoför adına | Seçili işletme/araç adına |
  * | Sahibin kendi sürüşünü oluşturma | Hayır | Evet | Sahip adına |
- * | Kayıt/teslim durumunu görme | §10'daki geçmiş kapsamı | Yetkili araç
+ * | Kayıt/teslim durumunu görme | Kısıtlı geçmiş kapsamı | Yetkili araç
  *   kapsamı | Destek hedefi kapsamında |
- * | Onaysız kaydı düzeltme | §10'da açık | Evet | Evet |
+ * | Onaysız kaydı düzeltme | Koşullu açık | Evet | Evet |
  * | Teslimi onaylama, onaylı kaydı düzeltme | Hayır | Evet | Sahip adına,
  *   ekip iziyle |
  * | Şoför ekleme/düzeltme/pasifleştirme | Hayır | Yetkili araç ataması ve
@@ -43,27 +43,25 @@
  * iznin ADI'na sahip mi?) bırakır; asıl kapsam/koşul filtresi (hangi
  * SATIRLARIN görüneceği/düzenlenebileceği) T3/T3.5/T4'ün veri erişim
  * katmanında (bkz. `../data/scoped.ts`'in gelecekteki work_entries
- * genişlemesi) uygulanacaktır. Bu, dokümanla ÇELİŞEN bir eksiklik DEĞİL,
+ * genişlemesi) uygulanacaktır. Bu, matrisle ÇELİŞEN bir eksiklik DEĞİL,
  * görev tanımının KENDİSİNİN çizdiği sınırdır (bkz. bu paketin
  * open_issues'ı — "deferred" olarak işaretlenmiştir).
  *
  * KALDIRILDI (düzeltme turu 3 — denetim bulgusu, `ac` merceği): önceki bir
  * sürüm burada `vehicle.read_current` adlı 17. bir izin ve onu kullanan
  * `GET /api/v1/vehicles/current` ucunu tanımlıyordu. Denetim doğruladı ki
- * (`grep -n "vehicles/current" docs/ARCHITECTURE.md` boş döner) bu izin/uç
- * ne ARCHITECTURE.md §2 yetki matrisinin ne de §4 API endpoint tablosunun
- * hiçbir satırına karşılık gelir, ne de docs/DECISIONS.md'de ürün sahibi
- * tarafından ayrıca onaylanmış bir K-kararıdır. DESIGN §2.2'nin "Plaka
- * sabittir" ifadesi de bunun T3.x ekranında SABİT bir başlık alanı
- * olduğunu, ayrı bir okuma ucu GEREKTİRMEDİĞİNİ gösterir. TASKS.md T1.5'in
- * kendi sınırı da açıktır: "Yeni E2–E5 endpoint'leri ... henüz varmış gibi
- * sunulmaz" — bu uç E1–E5'in hiçbirine ait değildi, yalnız
- * `withProtectedRoute`'un `target: "vehicle"` dalını CANLI bir HTTP isteği
- * ile "kanıtlamak" için icat edilmişti. Docs/*.md salt okunur olduğundan
- * (bu paket için) ne bu ucu dokümana eklemek ne de ürün sahibinden gerçek
- * bir onay almak bu ADIM'ın yetkisindedir; en profesyonel düzeltme bu
- * dokümante edilmemiş yüzeyi KALDIRMAKTIR. `target: "vehicle"` deseninin
- * kendisi zaten `../../tests/integration/scope-authorization.test.ts`
+ * bu izin/uç ne yetki matrisinin ne de API endpoint tablosunun hiçbir
+ * satırına karşılık gelir, ne de ürün sahibi tarafından ayrıca onaylanmış
+ * bir K-kararıdır. Plaka T3.x ekranında SABİT bir başlık alanıdır; ayrı bir
+ * okuma ucu GEREKTİRMEZ. T1.5'in kendi sınırı da açıktır: "Yeni E2–E5
+ * endpoint'leri ... henüz varmış gibi sunulmaz" — bu uç E1–E5'in hiçbirine
+ * ait değildi, yalnız `withProtectedRoute`'un `target: "vehicle"` dalını
+ * CANLI bir HTTP isteği ile "kanıtlamak" için icat edilmişti. Docs/*.md
+ * salt okunur olduğundan (bu paket için) ne bu ucu belgelemek ne de ürün
+ * sahibinden gerçek bir onay almak bu ADIM'ın yetkisindedir; en
+ * profesyonel düzeltme bu belgelenmemiş yüzeyi KALDIRMAKTIR.
+ * `target: "vehicle"` deseninin kendisi zaten
+ * `../../tests/integration/scope-authorization.test.ts`
  * (`readAssignment`/`writeAssignment`, gerçek E2.4-benzeri sentetik
  * handler'lar) ve `../../tests/integration/protected-route.test.ts`
  * (aynı sentetik-handler deseniyle `target:"vehicle"` için 401/403/404/422

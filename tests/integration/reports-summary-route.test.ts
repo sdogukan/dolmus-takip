@@ -1,8 +1,8 @@
 /**
  * GET /api/v1/reports/summary: sahip özeti. Gerçek geçici SQLite dosyası + gerçek
- * migration + seed (mock/`:memory:` YOK). Araç başlığı (plaka + sahip adı), PRD örnek
- * toplamları, onay sonrası alınan tutar, /reports/vehicles ile aynı toplamlar,
- * kapsam (query'den araç/işletme seçilemez) ve yetki sınırları.
+ * migration + seed (mock/`:memory:` YOK). Araç başlığı (plaka + sahip adı), örnek
+ * senaryo toplamları, onay sonrası alınan tutar, /reports/vehicles ile aynı
+ * toplamlar, kapsam (query'den araç/işletme seçilemez) ve yetki sınırları.
  */
 import fs from "node:fs";
 import os from "node:os";
@@ -176,7 +176,7 @@ describe("sahip özeti", () => {
   });
 
   describe("başlık ve toplamlar", () => {
-    it("sahip: plaka, sahip adı, dönem ve PRD örnek toplamları; onay öncesi 0, 6.000 onayı sonrası 600000", async () => {
+    it("sahip: plaka, sahip adı, dönem ve örnek senaryo toplamları; onay öncesi 0, 6.000 onayı sonrası 600000", async () => {
       const id = await seed(driver, driverBody("d-1"));
       await seed(owner, ownerBody("o-1"));
       const before = await monthReport();

@@ -1,9 +1,8 @@
 /**
  * Kontrollü restore — `node scripts/db-restore.ts <verify|install|report>`
- * (T6.5, S6.5; OPS.md §4 "Kontrollü restore", ARCHITECTURE "Flow: Daily
- * backup, restore and release").
+ * (T6.5, S6.5).
  *
- * DB komutları root olarak çalıştırılmaz (SERVER-SETUP §2): her komut uid 0
+ * DB komutları root olarak çalıştırılmaz: her komut uid 0
  * ise reddeder; sunucuda `sudo -u dolmus-takip` ile, kopyanın uyumlu olduğu
  * release dizininden (`/opt/dolmus-takip/releases/<release_id>`) çalışır.
  *
@@ -47,7 +46,7 @@
  *
  * - `DOLMUS_DB_PATH`: canlı DB (`install`, `report`).
  * - `DOLMUS_PRESERVED_DIR`, `DOLMUS_MAINTENANCE_FILE`, `DOLMUS_OPS_LOCK`,
- *   `DOLMUS_OPS_LOCK_WAIT` (sn): varsayılanları SERVER-SETUP §2 yollarıdır ve
+ *   `DOLMUS_OPS_LOCK_WAIT` (sn): varsayılanları sunucu kurulumunun yollarıdır ve
  *   900 sn; yalnız test/deneme ortamı için değiştirilir.
  * - `DOLMUS_OPS_LOCK_FD`: kilidi zaten tutan yayın aracından devralınan
  *   tanıtıcı (`scripts/release-apply.ts rollback --code-and-db`); bkz.

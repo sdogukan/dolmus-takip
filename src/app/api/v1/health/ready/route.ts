@@ -2,9 +2,9 @@
  * Readiness kontrolü: DB açılabiliyor, migration'lar uygulanmış ve küçük bir
  * uygulama tablosu okunabiliyor mu?
  *
- * ARCHITECTURE.md §4 ve §8.2 — `../live/route.ts` DB'ye dokunmaz; bu uç
- * yalnız localhost'a açık (Caddy `/api/v1/health/*` yolunu dışarıya 404
- * verir) sistem sağlık denetiminin DB hazırlığını sorduğu ayrı uçtur.
+ * `../live/route.ts` DB'ye dokunmaz; bu uç yalnız localhost'a açık (Caddy
+ * `/api/v1/health/*` yolunu dışarıya 404 verir) sistem sağlık denetiminin
+ * DB hazırlığını sorduğu ayrı uçtur.
  * `PRAGMA integrity_check` veya tam tarama YAPMAZ: tek, sınırlı bir okuma.
  *
  * Okuma HAM istemciden (`db.$client`) ve bağlı değer OLMADAN yapılır:

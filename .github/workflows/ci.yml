@@ -1,14 +1,12 @@
 # T6.1 ADIM 2/2, S6.1 — hedefle uyumlu derleme/kontroller.
 #
-# Kaynaklar (birebir): docs/TECH-STACK.md §9 — "GitHub Actions ile hedef
-# Linux/CPU/Node uyumlu üretim derlemesi ve test; SSH üzerinden sürümlü
-# çıktı ile manuel tetiklenen kontrollü yayın. Production'a her push'ta
-# otomatik yayın yoktur. Özel repoda Actions dakika ve artifact depolama
-# kotaları sınırlıdır." docs/ARCHITECTURE.md §8.4 — "GitHub Actions, hedef
+# GitHub Actions ile hedef Linux/CPU/Node uyumlu üretim derlemesi ve test;
+# SSH üzerinden sürümlü çıktı ile manuel tetiklenen kontrollü yayın.
+# Production'a her push'ta otomatik yayın yoktur. Özel repoda Actions
+# dakika ve artifact depolama kotaları sınırlıdır. GitHub Actions, hedef
 # Ubuntu/Linux CPU mimarisi ve Node sürümüyle uyumlu üretim çıktısını
-# hazırlar. better-sqlite3 ve Argon2 native modülleri hedefte sınanır."
-# docs/STORIES.md S6.1 AC1–AC7 (bkz. o dosya — bütün kabul kriterleri
-# bağlayıcıdır).
+# hazırlar; better-sqlite3 ve Argon2 native modülleri hedefte sınanır.
+# S6.1 AC1–AC7 kabul kriterlerinin tümü bağlayıcıdır.
 #
 # Bu iş akışı yalnız DOĞRULAMA yapar (test/derleme/yayın çıktısı üretimi +
 # artifact); GERÇEK sunucuya SSH ile yayın YOKTUR (S6.1 AC7, T6.2/T6.5
@@ -21,8 +19,8 @@ on:
   pull_request:
 
 # Aynı dal/PR referansı için önceki koşuyu iptal eder — Actions dakika
-# bütçesi sınırlıdır (docs/TECH-STACK.md §9); art arda push'larda eski,
-# artık anlamsız koşular kaynak tüketmeye devam etmez.
+# bütçesi sınırlıdır; art arda push'larda eski, artık anlamsız koşular
+# kaynak tüketmeye devam etmez.
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
@@ -39,18 +37,17 @@ permissions:
 jobs:
   verify:
     name: Doğrulama (typecheck/lint/test/build/yayın çıktısı)
-    # docs/TECH-STACK.md §5 — "Ubuntu LTS seçildi"; docs/ARCHITECTURE.md
-    # §8.4 — hedef Ubuntu/Linux CPU mimarisi. `ubuntu-24.04` GitHub'ın
-    # sabit (rolling olmayan) LTS runner imajıdır; better-sqlite3/argon2
-    # native ikilikleri bu imajda derlenip arşivlenir.
+    # Hedef sunucu için Ubuntu LTS seçildi (Ubuntu/Linux CPU mimarisi).
+    # `ubuntu-24.04` GitHub'ın sabit (rolling olmayan) LTS runner imajıdır;
+    # better-sqlite3/argon2 native ikilikleri bu imajda derlenip arşivlenir.
     runs-on: ubuntu-24.04
-    # Actions dakika bütçesi sınırlıdır (docs/TECH-STACK.md §9) — takılı
-    # kalan bir adım (ör. Playwright webServer'ın hiç hazır olmaması)
-    # koşuyu sınırsız süre işgal ETMEZ.
+    # Actions dakika bütçesi sınırlıdır — takılı kalan bir adım (ör.
+    # Playwright webServer'ın hiç hazır olmaması) koşuyu sınırsız süre
+    # işgal ETMEZ.
     timeout-minutes: 30
     env:
-      # docs/ARCHITECTURE.md §2 üretim topolojisi ile AYNI şema/host
-      # deseni (bkz. playwright.config.ts E2E_APP_ORIGIN üst notu);
+      # Üretim topolojisi ile AYNI şema/host deseni (bkz.
+      # playwright.config.ts E2E_APP_ORIGIN üst notu);
       # gerçek bir alan adı/sertifika GEREKTİRMEZ, yalnız "aynı köken"
       # denetiminin (src/server/auth/app-origin.ts) geçmesi için.
       APP_ORIGIN: http://127.0.0.1:3100

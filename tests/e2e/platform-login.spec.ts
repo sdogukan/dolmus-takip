@@ -17,7 +17,7 @@ import { PLATFORM_ROLE_LABELS } from "../../src/lib/messages";
  * TEKRAR YAZILMAZ) — yeni bir `webServer`/config eklenmez
  * (`../../playwright.config.ts` `projects`).
  *
- * S1.3 kabul kriterleri (STORIES.md) ile eşleme (`ac_coverage`'da tekrar
+ * S1.3 kabul kriterleri ile eşleme (`ac_coverage`'da tekrar
  * özetlenir):
  * - AC3 (aktif hesap açar, kimlik ekranda görünür) → "admin girişi",
  *   "support girişi".
@@ -65,7 +65,7 @@ test.describe("Ekip girişi (/yonetim/giris)", () => {
   });
 
   test("pasif hesap → genel hata, form korunur", async ({ page }) => {
-    // STORIES.md S1.3 AC4 — "Geçersiz giriş kullanıcı adının varlığını
+    // S1.3 AC4 — "Geçersiz giriş kullanıcı adının varlığını
     // ifşa etmeden genel hata verir." Pasif hesap doğru şifreyle bile
     // AYNI genel mesajı üretir (bkz. `../../src/server/usecases/auth/
     // platform-login.ts` "isUsableUser" — pasiflik dummy-hash yoluna
@@ -128,7 +128,7 @@ test.describe("Ekip girişi (/yonetim/giris)", () => {
     const sessionCookie = cookies.find((cookie) => cookie.name === "dolmus_session");
     expect(sessionCookie).toBeTruthy();
     expect(sessionCookie?.httpOnly).toBe(true);
-    // ARCHITECTURE §6 "Oturum" — token URL/localStorage'a yazılmaz.
+    // Oturum token'ı URL/localStorage'a yazılmaz.
     const localStorageKeys = await page.evaluate(() => Object.keys(window.localStorage));
     for (const key of localStorageKeys) {
       const value = await page.evaluate((k) => window.localStorage.getItem(k), key);

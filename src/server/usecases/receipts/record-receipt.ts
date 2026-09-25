@@ -1,9 +1,9 @@
 /**
  * recordReceipt(db, scope, params, clock?) — T1.5 ADIM 2/2, S1.5.
  *
- * Görev tanımı — "recordReceipt(...) transaction içinde". ARCHITECTURE.md
- * §3.4 adım 5 — "Güncel kayıt, revizyon, gerekiyorsa onay, destek izi ve
- * makbuz BİRLİKTE yazılır." Bu fonksiyon yalnız MAKBUZ satırını yazar;
+ * Görev tanımı — "recordReceipt(...) transaction içinde". Yazma akışının
+ * 5. adımı: güncel kayıt, revizyon, gerekiyorsa onay, destek izi ve makbuz
+ * BİRLİKTE yazılır. Bu fonksiyon yalnız MAKBUZ satırını yazar;
  * kayıt/revizyon/onay yazımı (T3.4+) ÇAĞIRANIN işidir — hepsi AYNI
  * `withImmediateTransaction` bloğunda, bu çağrıyla birlikte, tek commit
  * olarak yürütülmelidir (bkz. `./find-receipt.ts` üst notu — bu ikisi
@@ -19,12 +19,12 @@
  * "aynı (scope_key, request_id) ikinci kez recordReceipt çağrılırsa..."):
  * bu fonksiyon KENDİSİ `findReceipt` ÇAĞIRMAZ / bir "zaten var mı" ön
  * kontrolü YAPMAZ — çağıran AYNI transaction içinde ÖNCE `findReceipt`'in
- * `undefined` döndüğünü doğrulamış olmalıdır (§3.4 akışının kendisi bu
+ * `undefined` döndüğünü doğrulamış olmalıdır (yazma akışının kendisi bu
  * sırayı zaten dayatır: "aynı kapsam/anahtar/işlem/içerik eski sonuç
  * kimliğini döndürür" — yani ÖNCE aranır, YOKSA yazılır). Bu sıra
  * atlanıp aynı `(scope_key, request_id)` için ikinci kez çağrılırsa,
  * `mutation_receipts`'in KENDİ `(scope_key, request_id)` PRIMARY KEY
- * kısıtı (§3.2) INSERT'i SQLite düzeyinde reddeder (ham `SqliteError`,
+ * kısıtı INSERT'i SQLite düzeyinde reddeder (ham `SqliteError`,
  * `SQLITE_CONSTRAINT_PRIMARYKEY`) — bu, YANLIŞ KULLANIMI SESSİZCE
  * YUTMAZ, açık bir programlama hatası sinyali olarak KALIR.
  */

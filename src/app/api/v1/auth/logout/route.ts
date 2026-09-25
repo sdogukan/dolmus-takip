@@ -3,14 +3,14 @@
  * sürüm: `../../../../../server/auth/guard.ts` `requireWrite`'a taşındı),
  * S1.4.
  *
- * ARCHITECTURE.md §4 — "POST | /auth/logout | Mevcut oturumu iptal |
- * Oturum". Görev tanımı (b) — "requireWrite(request) yardımcısı ...
+ * POST /auth/logout mevcut oturumu iptal eder; oturum gerektirir. Görev
+ * tanımı (b) — "requireWrite(request) yardımcısı ...
  * birleştirir; logout dahil tüm yazma uçları kullanır." Bu yüzden logout
  * ARTIK diğer her yazma ucu gibi ÖNCE geçerli oturum + aynı-kaynak +
  * doğru CSRF header + `application/json` + gövde boyutu sınırı ister
  * (bkz. `guard.ts` üst notundaki "DAVRANIŞ DEĞİŞİKLİĞİ" bölümü — ADIM
  * 1/2'nin "token eksik/geçersizse de 200" idempotent tasarımı, bu ADIM'ın
- * merkezi denetim gereğiyle SÜPÜRÜLDÜ; STORIES.md S1.4'ün 7 kabul
+ * merkezi denetim gereğiyle SÜPÜRÜLDÜ; S1.4'ün 7 kabul
  * kriterinden hiçbiri o eski davranışı ZORUNLU KILMIYORDU).
  *
  * S1.4 AC7 — "Geçersiz kaynak/tokenla yazma isteği veri DEĞİŞTİRMEZ (test:

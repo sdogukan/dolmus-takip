@@ -2,9 +2,9 @@
  * Makbuz (mutation_receipts) kullanım durumu hataları — T1.5 ADIM 2/2,
  * S1.5.
  *
- * ARCHITECTURE.md §3.4 — "Aynı kapsam/anahtar/işlem/içerik eski sonuç
- * kimliğini döndürür; içerik farklıysa 409 verir." ve API endpoint listesi
- * (§4) — "sürüm/anahtar çatışması 409". `RequestIdReusedError.status`/
+ * Tekrar gönderim kuralı: aynı kapsam/anahtar/işlem/içerik eski sonuç
+ * kimliğini döndürür; içerik farklıysa 409 verir. API endpoint listesinde
+ * de sürüm/anahtar çatışması 409'dur. `RequestIdReusedError.status`/
  * `.code`, `../../data/scoped.ts` `ScopeTargetInactiveError`'ın AYNI
  * "kendi durum kodunu taşıyan hata sınıfı" desenini izler — çağıran route
  * handler (ileride T3.4) bunu YAKALAYIP `../../http/errors.ts`

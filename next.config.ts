@@ -29,13 +29,12 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   output: "standalone",
   poweredByHeader: false,
-  // ARCHITECTURE.md §2/§8 — better-sqlite3 ve argon2 native dosyaları
-  // standalone çıktısına dahil edilmeli; yayın makinesi bu dosyalar
-  // olmadan çalışamaz (F4 kararı, DECISIONS.md). T1.4 — `drizzle/**`
-  // (migration SQL + `meta/_journal.json`) da eklendi: uygulama açılışı
-  // (`src/instrumentation.ts` → `server/data/app-db.ts`) bu klasörü
-  // `assertMigrationsApplied` ile okur; olmadan standalone süreç migration
-  // kapısını hiç geçemez.
+  // better-sqlite3 ve argon2 native dosyaları standalone çıktısına dahil
+  // edilmeli; yayın makinesi bu dosyalar olmadan çalışamaz (F4 kararı).
+  // T1.4 — `drizzle/**` (migration SQL + `meta/_journal.json`) da eklendi:
+  // uygulama açılışı (`src/instrumentation.ts` → `server/data/app-db.ts`) bu
+  // klasörü `assertMigrationsApplied` ile okur; olmadan standalone süreç
+  // migration kapısını hiç geçemez.
   //
   // T6.1 — `node_modules/drizzle-orm/**` de eklendi: Next'in kendi webpack
   // tracer'ı yalnız GERÇEKTEN import edilen `drizzle-orm` alt yollarını

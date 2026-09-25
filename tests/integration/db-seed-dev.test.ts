@@ -22,10 +22,9 @@ import {
 /**
  * `db:seed-dev` entegrasyon testleri (S1.1 ADIM 3/3).
  *
- * QA-PLAN.md §1 — "Finansal DB testleri yalnız mock veya :memory: üzerinde
- * kabul edilmez." Her test kendi geçici gerçek SQLite dosyasını açar, gerçek
- * migration'ı uygular ve gerçek `argon2` paketiyle (mock YOK) hash/verify
- * dener.
+ * Finansal DB testleri yalnız mock veya :memory: üzerinde kabul edilmez.
+ * Her test kendi geçici gerçek SQLite dosyasını açar, gerçek migration'ı
+ * uygular ve gerçek `argon2` paketiyle (mock YOK) hash/verify dener.
  *
  * Görev tanımının bu adımdaki üç kapısı:
  * 1. "seed iki kez → satır sayıları aynı" — bkz. "çoğaltmaz" describe'ı.
@@ -58,7 +57,7 @@ describe("seedDevData (S1.1 ADIM 3)", () => {
     fs.rmSync(dir, { recursive: true, force: true });
   });
 
-  it("QA-PLAN.md §2 ortak veri setinin beklenen satır sayılarını üretir", async () => {
+  it("ortak veri setinin beklenen satır sayılarını üretir", async () => {
     const counts = await seedDevData(sqlite);
     // 2 işletme (A, B).
     expect(counts.businesses).toBe(2);
@@ -89,7 +88,7 @@ describe("seedDevData (S1.1 ADIM 3)", () => {
     expect(rawBusinessCount.count).toBe(first.businesses);
   });
 
-  it("aynı araçta aynı adlı iki ayrı kişi ID'si üretir (QA-PLAN §2)", async () => {
+  it("aynı araçta aynı adlı iki ayrı kişi ID'si üretir", async () => {
     await seedDevData(sqlite);
     const rows = sqlite
       .prepare(

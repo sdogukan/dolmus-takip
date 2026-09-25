@@ -4,10 +4,10 @@
  * (`scripts/db-backup.ts` gerçek saati yalnız `DOLMUS_BACKUP_NOW` yoksa
  * `new Date()` ile verir, testler sabit bir an verir).
  *
- * Kaynak — ARCHITECTURE.md "Flow: Daily backup" ve OPS.md §4: Europe/Istanbul
- * 02:30 hazırlık, 02:55 hazır kopya son saati, ~03:00 Lightsail snapshot;
- * "Hazır kopyayı snapshot penceresinde değiştirme" — bu yüzden 02:55–04:00
- * arası HİÇBİR kopya yayımlanmaz. "Yerelde son 2 doğrulanmış kopya".
+ * Zamanlama (Europe/Istanbul): 02:30 hazırlık, 02:55 hazır kopya son saati,
+ * ~03:00 Lightsail snapshot. Hazır kopya snapshot penceresinde
+ * değiştirilmez — bu yüzden 02:55–04:00 arası HİÇBİR kopya yayımlanmaz.
+ * Yerelde son 2 doğrulanmış kopya tutulur.
  *
  * `src/lib/work-time.ts`'in İstanbul yardımcıları BİLEREK kullanılmaz: o dosya
  * `./messages`'ı uzantısız import eder ve düz `node` (bundler'sız) bunu

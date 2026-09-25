@@ -5,9 +5,9 @@ import { compareVersions } from "./db";
  * `compareVersions` saf mantık birim testi (DB'ye dokunmaz). Gerçek
  * bağlantıya karşı sürüm kapısının kendisi (geçme/reddetme yolları)
  * `tests/integration/schema.test.ts`'te gerçek `SELECT sqlite_version()`
- * ile sınanır — QA-PLAN.md §1: "Finansal DB testleri yalnız mock veya
- * :memory: üzerinde kabul edilmez"; bu dosya yalnız string karşılaştırma
- * saflığını test eder, DB testi değildir.
+ * ile sınanır (finansal DB testleri yalnız mock veya :memory: üzerinde
+ * kabul edilmez); bu dosya yalnız string karşılaştırma saflığını test
+ * eder, DB testi değildir.
  */
 describe("compareVersions", () => {
   it("büyük sürümü küçükten büyük sayar", () => {

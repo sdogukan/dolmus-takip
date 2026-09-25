@@ -3,8 +3,8 @@
  *
  * KÖK NEDEN (denetim bulgusu, düzeltme turu 1 — "blocker"/"high"/"mimari"):
  * `guard.ts`'in ÖNCEKİ `selfOrigin()` uygulaması `new URL(request.url).origin`
- * kullanıyordu. ARCHITECTURE.md §2 üretim topolojisinde ("Next.js uygulaması
- * ... Yalnız 127.0.0.1:3000"; Caddy dışarıya HTTPS sunar) bu asla doğru
+ * kullanıyordu. Üretim topolojisinde (Next.js uygulaması yalnız
+ * 127.0.0.1:3000'i dinler; Caddy dışarıya HTTPS sunar) bu asla doğru
  * DEĞİLDİR: Next'in KENDİSİ, Route Handler'a verdiği `Request.url`'i
  * istemcinin gerçekte gönderdiği `Host`/`Origin`'den DEĞİL, sunucunun kendi
  * dinleme adresinden üretir. Kanıt — bu repodaki `next@16.3.5` paketinin
@@ -21,7 +21,7 @@
  *     (`base-server.js:352`), bu yüzden İLK dal her zaman kullanılır.
  *   - `node_modules/next/dist/build/utils.js:1124-1125` — standalone
  *     `server.js` şablonu: `hostname = process.env.HOSTNAME || '0.0.0.0'`.
- *     ARCHITECTURE §2 gereği systemd bunu `127.0.0.1` verecek şekilde
+ *     Üretim topolojisi gereği systemd bunu `127.0.0.1` verecek şekilde
  *     başlatacaktır; sonuç Route Handler'daki `request.url`'in origin'i
  *     HER ZAMAN `http://127.0.0.1:<port>` olur — tarayıcının gerçekten
  *     gönderdiği (`https://<genel alan adı>`) Origin header'ıyla ASLA

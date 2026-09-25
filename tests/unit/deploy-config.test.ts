@@ -228,7 +228,7 @@ describe("deploy/systemd/dolmus-takip.service", () => {
     ]);
   });
 
-  test("yeniden başlatma değerleri ARCHITECTURE §8.2 ile aynı", () => {
+  test("yeniden başlatma: on-failure, 10 sn bekleme, 900 sn'de en fazla 3", () => {
     expect(lines).toContain("Restart=on-failure");
     expect(lines).toContain("RestartSec=10s");
     expect(lines).toContain("StartLimitIntervalSec=900");

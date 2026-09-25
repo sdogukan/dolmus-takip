@@ -1,10 +1,10 @@
 /**
  * POST /api/v1/auth/platform-login — T1.3 ADIM 1/2, S1.3, görev tanımı (b).
  *
- * ARCHITECTURE.md §1.1 — "Ekibin ilk yönetici hesabı kurulumda, sunucunun
- * yerel yönetim komutuyla oluşturulur; herkese açık yönetici kayıt
- * endpoint'i bulunmaz." Bu uç kayıt DEĞİL, GİRİŞ ucudur (hesabın kendisi
- * `scripts/platform-admin.ts` ile önceden oluşturulmuş olmalıdır).
+ * Ekibin ilk yönetici hesabı kurulumda, sunucunun yerel yönetim komutuyla
+ * oluşturulur; herkese açık yönetici kayıt endpoint'i bulunmaz. Bu uç kayıt
+ * DEĞİL, GİRİŞ ucudur (hesabın kendisi `scripts/platform-admin.ts` ile
+ * önceden oluşturulmuş olmalıdır).
  *
  * Görev tanımı (b, birebir): "POST /api/v1/auth/platform-login
  * (requireAnonymousWrite; girişte aynı tarayıcıdaki eski oturum iptal)."
@@ -19,11 +19,10 @@
  *     login/route.ts`'in EXPORT ettiği `revokePriorSessionCookieIfAny`
  *     DOĞRUDAN kullanılır, kod tekrarı yok; bu fonksiyon oturumun
  *     KİNDİNDEN [araç/ekip] bağımsızdır) + yeni `Set-Cookie`, (4) usecase
- *     sonucunun ARCHITECTURE §4 hata sözleşmesine çevrilmesi.
+ *     sonucunun API hata sözleşmesine çevrilmesi.
  *
- * Durum kodu: ARCHITECTURE §4 — "Oluşturma 201" (yeni bir `sessions`
- * satırı üretir) — `../vehicle-login/route.ts`'in AYNI yorumu burada da
- * geçerlidir.
+ * Durum kodu: 201 (oluşturma — yeni bir `sessions` satırı üretir) —
+ * `../vehicle-login/route.ts`'in AYNI yorumu burada da geçerlidir.
  *
  * "Araç credential'ı ekip girişini AÇMAZ" — `platformLogin` yalnız
  * `platform_users` tablosunu sorgular (bkz. usecase'in üst notu); bu route
@@ -56,7 +55,7 @@ import { revokePriorSessionCookieIfAny } from "../vehicle-login/route";
  * `revokePriorSessionCookieIfAny(...)`'nin `revokeSession` UPDATE'i —
  * `requireAnonymousWrite`'ın KENDİ içindeki DB-hazır-değil denetiminin
  * KAPSAMI DIŞINDADIR. Canlı bir SQLITE_BUSY/SQLITE_LOCKED bu iki noktadan
- * biri sırasında oluşursa, yakalanmadan Next'in ARCH §4 zarfı OLMAYAN genel
+ * biri sırasında oluşursa, yakalanmadan Next'in API hata zarfı OLMAYAN genel
  * 500'üne düşerdi. Log etiketi `[auth/platform-login]` DIŞINDA
  * `vehicleLoginTransientLockResponse` ile birebir aynıdır; her route
  * kendi doğru log etiketini taşıması için (mevcut kod tabanının

@@ -8,12 +8,12 @@
  *
  * `resolveSession` (bkz. `../session/resolve-session.ts`) `role`'ü HER
  * çağrıda `platform_users.platform_role`'den TAZE okur ve `SessionContext`
- * İÇİNE gömmez (DB'de `sessions` tablosunda rol sütunu YOK — §3.2). Bu
+ * İÇİNE gömmez (DB'de `sessions` tablosunda rol sütunu YOK). Bu
  * yüzden, `bumpCredentialVersion`/`setVehicleActive`'in aksine, rol
  * değişikliği HİÇBİR revoke/sürüm artışı GEREKTİRMEZ: var olan oturum
  * (aynı token) bir sonraki istekte zaten GÜNCEL rolü görür — "eski oturum
  * eski hakkı kullanamaz" burada "oturumun KENDİSİ iptal olur" değil,
- * "oturum ARTIK GÜNCEL rolle çalışır" anlamındadır (STORIES metniyle
+ * "oturum ARTIK GÜNCEL rolle çalışır" anlamındadır (story metniyle
  * birebir uyumlu: "sonraki istekte güncel yetki uygulanır", oturumun
  * iptalinden SÖZ EDİLMEZ).
  *
@@ -29,7 +29,7 @@ import { platformUsers } from "../../data/schema";
 import type { SessionRole } from "../session/types";
 
 /** `platform_users.platform_role` CHECK kısıtının izin verdiği iki değer
- * (§3.2 CHECK: "IN ('admin', 'support')"); `SessionRole` birleşik tipinden
+ * (CHECK: "IN ('admin', 'support')"); `SessionRole` birleşik tipinden
  * daraltılır — ayrı bir literal kümesi TEKRAR TANIMLANMAZ. */
 export type PlatformRole = Extract<SessionRole, "admin" | "support">;
 

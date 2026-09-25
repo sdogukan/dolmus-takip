@@ -3,7 +3,7 @@
  *
  * Görev tanımı: "Birim testleri: matrisin HER hücresi (4 aktör × tüm
  * izinler) tablo testiyle." Bu dosya `PERMISSION_MATRIX`'in ÜRETTİĞİ
- * sonuçla, ARCHITECTURE.md §2 + görev tanımının verdiği matrisden BAĞIMSIZ
+ * sonuçla, görev tanımının verdiği yetki matrisinden BAĞIMSIZ
  * (kademeli türetime GÜVENMEDEN) elle yazılmış bir "beklenen tablo"yu
  * karşılaştırır — `permissions.ts`'in kendi `OWNER_PERMISSIONS = [
  * ...DRIVER_PERMISSIONS, ...]` gibi bir yazım hatasını (ör. yanlışlıkla
@@ -21,7 +21,7 @@ import {
 import type { StaffScope, VehicleScope } from "./scope";
 
 /**
- * Beklenen matris — ARCHITECTURE §2 + TASKS.md T1.5 görev tanımından
+ * Beklenen matris — yetki matrisi + T1.5 görev tanımından
  * BİREBİR, "true/false" tablo biçiminde. Her satır 17 iznin TAMAMINI
  * (PERMISSIONS'ın sırasıyla) taşır; eksik bırakılan bir izin de bir
  * yazım/kopyalama hatasını TypeScript'in kendisi (Record<Permission,
@@ -139,7 +139,7 @@ describe("PERMISSION_MATRIX — 4 aktör × 17 izin, TAM tablo (düzeltme turu 3
     }
   });
 
-  it("driver ⊂ owner ⊂ support ⊂ admin (kademeli kapsama — ARCH §2 'hepsi + ...')", () => {
+  it("driver ⊂ owner ⊂ support ⊂ admin (kademeli kapsama — 'hepsi + ...')", () => {
     const driverSet = new Set(permissionsForActor("driver"));
     const ownerSet = new Set(permissionsForActor("owner"));
     const supportSet = new Set(permissionsForActor("support"));
@@ -207,7 +207,7 @@ describe("authorize(scope, permission, target?) — T1.5", () => {
     });
   });
 
-  it("şoför sahip/ekip yönetimi ve para onayı yetkisi ALAMAZ (STORIES S1.5 AC3)", () => {
+  it("şoför sahip/ekip yönetimi ve para onayı yetkisi ALAMAZ (S1.5 AC3)", () => {
     expect(authorize(vehicleDriverScope, "driver.manage").ok).toBe(false);
     expect(authorize(vehicleDriverScope, "work_entry.confirm").ok).toBe(false);
     expect(authorize(vehicleDriverScope, "work_entry.correct_confirmed").ok).toBe(
@@ -216,7 +216,7 @@ describe("authorize(scope, permission, target?) — T1.5", () => {
     expect(authorize(vehicleDriverScope, "business.manage").ok).toBe(false);
   });
 
-  it("sıradan ekip (support) kullanıcı/platform yönetimi yetkisi ALAMAZ (STORIES S1.5 AC3)", () => {
+  it("sıradan ekip (support) kullanıcı/platform yönetimi yetkisi ALAMAZ (S1.5 AC3)", () => {
     expect(authorize(staffSupportScope, "platform_user.manage").ok).toBe(false);
   });
 });

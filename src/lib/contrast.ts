@@ -3,23 +3,22 @@
  * "metin/zemin kontrastı ≥ 4.5:1 — token çiftleri için kontrast hesabını
  * src/lib/contrast.ts + birim testiyle kanıtla."
  *
- * DESIGN.md §3 "Renk paleti": "Normal yazıda en az 4,5:1 kontrast
- * hedeflenir ([WCAG kontrast açıklaması]
+ * Renk paleti hedefi: normal yazıda en az 4,5:1 kontrast hedeflenir
+ * ([WCAG kontrast açıklaması]
  * (https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum.html)).
  * Seçilen ana düğmenin beyaz yazısı yaklaşık 6,70:1; ana metin/beyaz
  * 17,85:1; durum metni/kendi açık zemini en az 5,91:1'dir. Bunlar renk
  * hesabıdır; çalışan ekran için erişilebilirlik doğrulamasının yerine
- * geçmez."
+ * geçmez.
  *
- * Bu dosya DESIGN'ın verdiği bu sayıları KANITLAR (bkz. `./contrast.
- * test.ts`) — DB/ağ/React YOK, yalnız iki hex renk arasındaki WCAG bağıl
- * parlaklık (relative luminance) ve kontrast oranını hesaplayan saf bir
- * fonksiyon kümesidir. Renk token'larının KENDİSİ (`../app/globals.css`
- * `:root` değişkenleri, DESIGN.md §4'teki değerlerle BİREBİR) bu dosyaya
- * KOPYALANMAZ — burada yalnız o token'ları hesaba katan, herhangi iki hex
- * değeri kabul eden genel bir yardımcı bulunur; DESIGN §3'ün somut token
- * çiftleri `./contrast.test.ts`te globals.css'teki gerçek değerlerle
- * doğrudan sınanır (tek kaynak: `../app/globals.css`).
+ * Bu dosya bu kontrast sayılarını KANITLAR (bkz. `./contrast.test.ts`) —
+ * DB/ağ/React YOK, yalnız iki hex renk arasındaki WCAG bağıl parlaklık
+ * (relative luminance) ve kontrast oranını hesaplayan saf bir fonksiyon
+ * kümesidir. Renk token'larının KENDİSİ (`../app/globals.css` `:root`
+ * değişkenleri) bu dosyaya KOPYALANMAZ — burada yalnız o token'ları hesaba
+ * katan, herhangi iki hex değeri kabul eden genel bir yardımcı bulunur;
+ * paletin somut token çiftleri `./contrast.test.ts`te globals.css'teki
+ * gerçek değerlerle doğrudan sınanır (tek kaynak: `../app/globals.css`).
  */
 
 type RgbChannels = readonly [number, number, number];
@@ -67,7 +66,7 @@ export function contrastRatio(hexA: string, hexB: string): number {
   return (lighter + 0.05) / (darker + 0.05);
 }
 
-/** DESIGN §3 — "Normal yazıda en az 4,5:1 kontrast hedeflenir." */
+/** Normal yazıda en az 4,5:1 kontrast hedeflenir (WCAG AA). */
 export const MIN_NORMAL_TEXT_CONTRAST = 4.5;
 
 /**

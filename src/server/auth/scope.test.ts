@@ -2,8 +2,8 @@
  * scope.ts birim testleri (DB erişimi OLMAYAN saf kısımlar) — T1.5 ADIM
  * 1/2, S1.5. DB'ye ihtiyaç duyan `resolveStaffVehicleScopeFromHeader`/
  * `resolveAdminScope` gerçek geçici SQLite ile
- * `tests/integration/scope-resolution.test.ts`'te sınanır (QA-PLAN.md §1 —
- * "Finansal DB testleri yalnız mock veya :memory: üzerinde kabul edilmez";
+ * `tests/integration/scope-resolution.test.ts`'te sınanır (finansal DB
+ * testleri yalnız mock veya :memory: üzerinde kabul edilmez;
  * bu kural mali OLMASA da aynı "gerçek DB" ilkesi tutarlılık için burada
  * da izlenir).
  */
@@ -86,7 +86,7 @@ describe("scopeFromVehicleSession — T1.5 (araç oturumu → Scope, DB'siz saf 
   });
 });
 
-describe("scopeSafeObject — istemciden gelen role/personId/businessId/ownerId ASLA kapsamı genişletmez (STORIES S1.5 AC2)", () => {
+describe("scopeSafeObject — istemciden gelen role/personId/businessId/ownerId ASLA kapsamı genişletmez (S1.5 AC2)", () => {
   it("FORBIDDEN_CLIENT_SCOPE_FIELDS tam olarak görev tanımının verdiği dört alandır", () => {
     expect([...FORBIDDEN_CLIENT_SCOPE_FIELDS].sort()).toEqual(
       ["businessId", "ownerId", "personId", "role"].sort(),
@@ -125,7 +125,7 @@ describe("scopeSafeObject — istemciden gelen role/personId/businessId/ownerId 
   });
 });
 
-describe("computeScopeKey — DECISIONS.md T1.4 notu / görev tanımı (T1.5)", () => {
+describe("computeScopeKey — T1.4 notu / görev tanımı (T1.5)", () => {
   function expectedKey(kind: string, id: string, vehicleId: string): string {
     return crypto
       .createHash("sha256")

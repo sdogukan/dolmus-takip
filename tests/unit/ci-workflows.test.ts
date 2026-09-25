@@ -206,7 +206,7 @@ describe(".github/workflows dosyaları (T6.1 ADIM 2/2, S6.1)", () => {
     expect(ciLocal).toMatch(/ci-steps\.json/);
   });
 
-  test("README.md: Actions dakika/artifact kotası notu var (docs/TECH-STACK.md §9)", () => {
+  test("README.md: Actions dakika/artifact kotası notu var", () => {
     const readme = fs.readFileSync(path.join(projectRoot, "README.md"), "utf8");
     expect(readme).toMatch(/dakika/i);
     expect(readme).toMatch(/artifact/i);
@@ -214,7 +214,7 @@ describe(".github/workflows dosyaları (T6.1 ADIM 2/2, S6.1)", () => {
   });
 });
 
-describe("deploy.yml — otomatik yayın (DECISIONS 2026-09-26)", () => {
+describe("deploy.yml — otomatik yayın", () => {
   test("yalnız main'e push'un CI koşusu yeşil bitince çalışır", () => {
     const deploy = readWorkflow("deploy.yml");
     expect(extractTriggerBlock(deploy)).toMatch(/workflow_run:/);

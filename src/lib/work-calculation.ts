@@ -1,5 +1,5 @@
 /**
- * Şoför payı ve kalan (kural v1, ARCHITECTURE §3.3) — SAF, kayan nokta YOK.
+ * Şoför payı ve kalan (kural v1) — SAF, kayan nokta YOK.
  *
  * - pay = floor((hasılat * bps + 5000) / 10000); hasılat ÜZERİNDEN, giderler
  *   düşülmeden. Şoför 2000 bps, sahip 0.

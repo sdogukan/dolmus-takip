@@ -1,7 +1,7 @@
 /**
  * Araç plakasını görüntü biçiminde okuma — T1.2 ADIM 2/2, S1.2.
  *
- * DESIGN.md §2.2/§2.5 üst başlığı ("35 ABC 123 ...") için `/sofor` ve
+ * Ekran üst başlığı ("35 ABC 123 ...") için `/sofor` ve
  * `/sahip` server component'lerinin ortak ihtiyacıdır. `GET /api/v1/
  * session` (`../../app/api/v1/session/route.ts`) DA bu yardımcıyı çağırır
  * (düzeltme turu 1, denetim bulgusu — önceden AYNI sorgu+biçimlendirmeyi

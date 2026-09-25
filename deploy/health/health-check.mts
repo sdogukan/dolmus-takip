@@ -1,14 +1,13 @@
 /**
- * Sağlık görevi (ARCHITECTURE §8.2): dolmus-takip-health.timer her 30 sn'de
+ * Sağlık görevi: dolmus-takip-health.timer her 30 sn'de
  * bir kez çalıştırır. Yalnız `node:` yerleşikleri; /opt/dolmus-takip/current
  * veya uygulamanın node_modules'una bağlı DEĞİL. Root olarak çalışır, dış
  * komutlar `execFile` ile argüman dizisiyle çağrılır.
  *
  * HAZIRLANDI, gerçek sunucuda DENENMEDİ (manuel kurulumda denenecek).
- * docs/SERVER-SETUP.md.
  *
  * Paralel koşma engeli birim dosyasındaki `flock -n` sarmalayıcısıdır.
- * Elle çalıştırma da aynı sarmalayıcıyla yapılır (docs/OPS.md §5-B).
+ * Elle çalıştırma da aynı sarmalayıcıyla yapılır.
  * Kilit kaldırma ve systemd start sınırı sıfırlama BU GÖREVDE YOKTUR.
  */
 import { execFile } from "node:child_process";

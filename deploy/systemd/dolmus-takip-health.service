@@ -1,7 +1,7 @@
 # Dolmuş Takip sağlık görevi — /etc/systemd/system/dolmus-takip-health.service
-# HAZIRLANDI, gerçek sunucuda DENENMEDİ (manuel kurulumda denenecek). docs/SERVER-SETUP.md.
-# ARCHITECTURE §8.2: dolmus-takip-health.timer tetikler (30 sn); kendi başına
-# etkinleştirilmez ([Install] yok).
+# HAZIRLANDI, gerçek sunucuda DENENMEDİ (manuel kurulumda denenecek).
+# dolmus-takip-health.timer tetikler (30 sn); kendi başına etkinleştirilmez
+# ([Install] yok).
 [Unit]
 Description=Dolmus Takip saglik gorevi (live/ready, sinirli kurtarma)
 # Bu görevin kendisi başlatma sınırına takılmasın; her koşu ayrı bir oneshot.

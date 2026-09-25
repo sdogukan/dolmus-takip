@@ -1,15 +1,14 @@
 /**
  * Yayın çıktısı ve manifest — `npm run release:build` (T6.1 ADIM 1/2, S6.1).
  *
- * Kaynaklar (birebir): ARCHITECTURE.md §3.6 "Sürüm kapısı" — "Kullanılan
- * better-sqlite3 içindeki gerçek SQLite sürümü SELECT sqlite_version() ile
- * kayıt altına alınır ... Yalnız npm paket sürümüne bakmak yeterli
- * değildir." ARCHITECTURE.md §8.4 — "GitHub Actions, hedef Ubuntu/Linux CPU
- * mimarisi ve Node sürümüyle uyumlu üretim çıktısını hazırlar ... Tam paket
- * sürümleri lockfile'da sabitlenir." DECISIONS.md F4 — `output: "standalone"`
- * + `outputFileTracingIncludes` (better-sqlite3, argon2, artık drizzle-orm —
- * bkz. `../next.config.ts` üst notu). STORIES.md S6.1 AC4 — "Daha sonra
- * farklı içerikle aynı sürüm gibi değiştirilmez."
+ * Sürüm kapısı: kullanılan better-sqlite3 içindeki gerçek SQLite sürümü
+ * `SELECT sqlite_version()` ile kayıt altına alınır; yalnız npm paket
+ * sürümüne bakmak yeterli değildir. GitHub Actions, hedef Ubuntu/Linux CPU
+ * mimarisi ve Node sürümüyle uyumlu üretim çıktısını hazırlar; tam paket
+ * sürümleri lockfile'da sabitlenir. F4 — `output: "standalone"` +
+ * `outputFileTracingIncludes` (better-sqlite3, argon2, artık drizzle-orm —
+ * bkz. `../next.config.ts` üst notu). S6.1 AC4 — "Daha sonra farklı
+ * içerikle aynı sürüm gibi değiştirilmez."
  *
  * ## Bu script NEDEN çalışma ağacını kirliyse HEMEN durur (AC4, `--allow-
  * dirty` bayrağı YOK)
@@ -39,14 +38,14 @@
  * paketin geliştirme notları).
  *
  * Next'in KENDİ ürettiği `.next/standalone/package.json` (trimlenmiş,
- * yalnız ad/sürüm/scripts/dependencies) STORIES.md S6.1 AC4'ün istediği
+ * yalnız ad/sürüm/scripts/dependencies) S6.1 AC4'ün istediği
  * "package.json sürüm bilgisi"ni zaten karşılar; ayrıca kopyalanmaz.
  *
  * ## Kalite kapısı NEDEN bu script'in KENDİSİNDE var (S6.1 düzeltme turu
  * 3, blocker — yalnız `ci.yml`/`ci-steps.json` adım SIRASINA güvenmek
  * yetmez)
  *
- * STORIES.md S6.1 AC3 birebir: "Derleme, tip kontrolü ve o sürüme kadar
+ * S6.1 AC3 birebir: "Derleme, tip kontrolü ve o sürüme kadar
  * eklenmiş iş kuralı/yetki/veri testleri geçmeden yayınlanabilir çıktı
  * üretilmez." Bu koşul yalnız "CI'da adımlar bu sırada tanımlı" anlamına
  * gelmez — script KENDİSİ doğrudan (`npm run release:build`, README'nin
@@ -305,7 +304,7 @@ function assertNativeModulesLoad(): void {
   }
 }
 
-/** ARCHITECTURE §3.6 sürüm kapısı — GERÇEKTEN çalışan native modülün
+/** SQLite sürüm kapısı — GERÇEKTEN çalışan native modülün
  * `SELECT sqlite_version()` sonucu, yalnız npm paket numarası DEĞİL. */
 function readAndAssertSqliteVersion(): string {
   const result = runInStandalone(
@@ -321,7 +320,7 @@ function readAndAssertSqliteVersion(): string {
   if (compareVersions(version, MINIMUM_SQLITE_VERSION) < 0) {
     fail(
       `Standalone SQLite sürümü çok eski: "${version}" < gerekli en düşük ` +
-        `"${MINIMUM_SQLITE_VERSION}" (ARCHITECTURE.md §3.6).`,
+        `"${MINIMUM_SQLITE_VERSION}".`,
     );
   }
   return version;

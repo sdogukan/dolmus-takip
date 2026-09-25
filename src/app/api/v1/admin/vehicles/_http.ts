@@ -25,7 +25,7 @@ export { parseJsonBody };
 
 /**
  * `createVehicle`/`updateVehicle`'ın FIRLATABİLECEĞİ bilinen hata
- * sınıflarını ARCHITECTURE §4 zarfına çevirir. Bilinmeyen bir hata için
+ * sınıflarını API hata zarfına çevirir. Bilinmeyen bir hata için
  * `undefined` döner — çağıran bunu YENİDEN fırlatır (programlama hatası,
  * genel 500).
  */

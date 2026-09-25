@@ -11,13 +11,13 @@
  * /admin/* uçları için hedef path ID'lerinden gelir. Scope { businessId,
  * vehicleId?, actor: 'support'|'admin', platformUserId, onBehalfOf: true }."
  *
- * ARCHITECTURE.md §2 — "Platform desteğinde hedef işletme/araç hem ekranda
- * hem sunucuda doğrulanır." ve §4 — "Araç rolü scope'u oturumdan çıkarır;
- * URL'deki ID tek başına erişim hakkı vermez. Staff kapsamı sunucunun
- * doğruladığı açık business/vehicle hedefidir."
+ * Platform desteğinde hedef işletme/araç hem ekranda hem sunucuda
+ * doğrulanır. Araç rolü scope'u oturumdan çıkarır; URL'deki ID tek başına
+ * erişim hakkı vermez. Staff kapsamı sunucunun doğruladığı açık
+ * business/vehicle hedefidir.
  *
  * Bu dosya HENÜZ VAR OLMAYAN E2–E5 endpoint'lerini (work-entries, drivers,
- * reports, admin/*) YAZMAZ (TASKS.md T1.5 — "Yeni E2–E5 endpoint'leri aynı
+ * reports, admin/*) YAZMAZ (T1.5 — "Yeni E2–E5 endpoint'leri aynı
  * denetimi ve kapsam testlerini kullanır; henüz varmış gibi sunulmaz.").
  * Yalnız o endpoint'lerin GEREKSİNECEĞİ, doğrudan test edilebilir çekirdek
  * kapsam-çözümleme fonksiyonlarını sağlar.
@@ -33,8 +33,8 @@ import type { SessionContext, SessionRole } from "../usecases/session/types";
 // Scope tipleri.
 // ---------------------------------------------------------------------------
 
-/** Görev tanımının kullandığı dört aktör adı — ARCHITECTURE §2 yetki matrisi
- * satırlarıyla birebir (bkz. `./permissions.ts` üst notu). */
+/** Görev tanımının kullandığı dört aktör adı — yetki matrisi satırlarıyla
+ * birebir (bkz. `./permissions.ts` üst notu). */
 export type Actor = "owner" | "driver" | "support" | "admin";
 
 interface ScopeBase {
@@ -188,7 +188,7 @@ export function scopeFromVehicleSession(context: SessionContext): VehicleScope {
 // ---------------------------------------------------------------------------
 
 /**
- * STORIES.md S1.5 AC2 — "İstemciden gelen işletme, rol veya kişi alanı
+ * S1.5 AC2 — "İstemciden gelen işletme, rol veya kişi alanı
  * erişim kapsamını genişletmez." Görev tanımı (permissions.ts paragrafı,
  * birebir): "İstemciden gelen role/personId/businessId/ownerId alanları
  * ASLA kapsamı genişletmez (zod şemaları bu alanları reddeder veya yok
@@ -218,8 +218,7 @@ export class ForbiddenClientScopeFieldError extends Error {
   constructor(field: string) {
     super(
       `Şema yasaklı bir kapsam alanı içeriyor: "${field}". Bu alan ` +
-        "istemciden ASLA kabul edilmez (bkz. TASKS.md T1.5 / STORIES.md " +
-        "S1.5 AC2).",
+        "istemciden ASLA kabul edilmez (T1.5 / S1.5 AC2).",
     );
     this.name = "ForbiddenClientScopeFieldError";
   }
@@ -296,13 +295,12 @@ function assertStaffSession(
  * (bkz. `scopeFromVehicleSession`), bu fonksiyona hiç ihtiyaç duymaz.
  *
  * Durum kodu kararları (görev tanımının birebir yazmadığı, buradan
- * TÜRETİLEN mühendislik kararları — ARCHITECTURE §4'ün üç kategorisine
+ * TÜRETİLEN mühendislik kararları — API hata sözleşmesinin üç kategorisine
  * (401 oturum yok / 403 işlem yetkisi yok / 404 kapsam dışı nesne)
  * dayanır; bu ayrım aşağıdaki `recheckScopeInTransaction`'ın (bkz.
  * `../data/scoped.ts`) görev tanımının BİREBİR verdiği "401/403" ikilisiyle
- * TUTARLI tutulmuştur — kanıt için o dosyanın üst notuna bakın; docs/
- * DECISIONS.md'de AYRICA kayıtlı DEĞİLDİR, bu ADIM'ın open_issues'ında
- * işaretlenmiştir):
+ * TUTARLI tutulmuştur — kanıt için o dosyanın üst notuna bakın; yalnız bu
+ * ADIM'ın open_issues'ında işaretlenmiştir):
  * - Header hiç YOKSA veya boşsa → 422 (istemcinin eksik/hatalı isteği;
  *   bir "nesne" henüz ADLANMADIĞI için 404 anlamsız, bir "yetki" sorusu da
  *   değil).
@@ -418,7 +416,7 @@ export interface AdminScopeTarget {
  * `TARGET_INACTIVE_FOR_WRITE` ile reddeder; bu fonksiyon böyle bir `mode`
  * parametresi ALMAZ ve businesses/vehicles.active bayrağına HİÇ BAKMAZ.**
  * Bu bir eksiklik/unutma DEĞİLDİR (denetim bulgusu, düzeltme turu 3,
- * `guvenlik` merceği — doğrulandı ve BİLİNÇLİ KORUNDU): ARCH §2 yetki
+ * `guvenlik` merceği — doğrulandı ve BİLİNÇLİ KORUNDU): yetki
  * matrisinin staff'a verdiği "İşletme/araç açma" işlemi TAM OLARAK bu
  * fonksiyonun ürettiği Scope üzerinden PATCH edilecek (T2.1/T2.2, henüz
  * yazılmadı) TEK meşru "pasif → aktif" (reaktivasyon) senaryosudur. Eğer bu
@@ -496,11 +494,11 @@ export async function resolveAdminScope(
 }
 
 // ---------------------------------------------------------------------------
-// scopeKey — DECISIONS.md T1.4 notu: "GET /session istemciye sessionId/
+// scopeKey — T1.4 notu: "GET /session istemciye sessionId/
 // credentialId/platformUserId VERMEZ ... T1.5'te yanıta gizli olmayan opak
 // `scopeKey` eklenir." `credentialId`/`platformUserId` GET /session
 // yanıtında YOKTUR (düzeltme turu 1 — bkz. `../../app/api/v1/session/
-// route.ts` üst notu); bu opak `scopeKey`, DECISIONS'ın kararlaştırdığı
+// route.ts` üst notu); bu opak `scopeKey`, bu notla kararlaştırılan
 // TEK client-state anahtarıdır — `../../lib/client-state.ts` bunu
 // doğrudan kullanır.
 // ---------------------------------------------------------------------------
@@ -529,18 +527,18 @@ export async function resolveAdminScope(
  * yer, T3.4/T3.6'da `../../lib/client-state.ts`'in staff destek akışında
  * KULLANILDIĞI an: aynı destek oturumu iki farklı müşteri aracını PEŞ PEŞE
  * hedeflerse, bu iki hedefin `scopeKey`'i (GET /session'dan) AYNI kalır —
- * DECISIONS.md F6'nın "anahtar = kimlik + araç" tam bileşimi staff için
+ * F6'nın "anahtar = kimlik + araç" tam bileşimi staff için
  * yalnız KULLANIM ANINDA (T3.4/T3.6'nın UI'ının o an bildiği hedef araçla,
  * `` `${scopeKey}:${targetVehicleId}` `` gibi bir birleştirmeyle) TAMAMLANIR;
  * bu birleştirmenin KENDİSİ ve "T1.6+/T3.x görev tanımına not düşülmesi"
- * docs/TASKS.md'ye YENİ bir madde eklemeyi gerektirir — bu görevin (T1.5,
+ * görev listesine YENİ bir madde eklemeyi gerektirir — bu görevin (T1.5,
  * düzeltme turu 2) docs/*.md'yi salt okunur tutma kuralı gereği burada
  * YAPILMAZ; ürün sahibi T3.4/T3.6'ya başlarken bu yorumu okuyup açık bir
- * DECISIONS.md kararına dönüştürebilir. STORIES.md S1.5'in yedi kabul
- * kriterinden HİÇBİRİ GET /session'ın scopeKey'ini hedefe göre DEĞİŞTİRMESİNİ
- * ZORUNLU KILMAZ (hepsi sunucu YETKİ denetimiyle ilgilidir, istemci
- * localStorage anahtarlamasıyla DEĞİL); bu yüzden bu ADIM'ın (T1.5)
- * kendisi EKSİK sayılmaz.
+ * karara dönüştürebilir. S1.5'in yedi kabul kriterinden HİÇBİRİ GET
+ * /session'ın scopeKey'ini hedefe göre DEĞİŞTİRMESİNİ ZORUNLU KILMAZ
+ * (hepsi sunucu YETKİ denetimiyle ilgilidir, istemci localStorage
+ * anahtarlamasıyla DEĞİL); bu yüzden bu ADIM'ın (T1.5) kendisi EKSİK
+ * sayılmaz.
  */
 export function computeScopeKey(context: SessionContext): string {
   const id =

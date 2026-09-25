@@ -18,10 +18,10 @@ import {
 /**
  * Şema + migration entegrasyon testleri (S1.1 ADIM 2/3).
  *
- * QA-PLAN.md §1 — "Finansal DB testleri yalnız mock veya :memory: üzerinde
- * kabul edilmez." Her test kendi geçici gerçek SQLite dosyasını açar,
- * gerçek `drizzle-orm/better-sqlite3/migrator` ile ARCHITECTURE.md
- * §3.2'deki tabloları kurar ve gerçek SQL ile (mock YOK) kısıtları dener.
+ * Finansal DB testleri yalnız mock veya :memory: üzerinde kabul edilmez.
+ * Her test kendi geçici gerçek SQLite dosyasını açar, gerçek
+ * `drizzle-orm/better-sqlite3/migrator` ile şema tablolarını kurar ve
+ * gerçek SQL ile (mock YOK) kısıtları dener.
  *
  * Kapsanan görev gereksinimleri (S1.1 ADIM 2 kapı listesi):
  * - PRAGMA'lar (foreign_keys/WAL/synchronous/busy_timeout) — ayrıca
@@ -94,7 +94,7 @@ describe("schema migration (S1.1 ADIM 2)", () => {
     return sqlite;
   }
 
-  it("ilk kurulumda ARCHITECTURE.md §3.2'deki tüm tabloları oluşturur", () => {
+  it("ilk kurulumda beklenen tüm tabloları oluşturur", () => {
     const sqlite = openAndMigrate();
     try {
       const names = sqlite
@@ -121,7 +121,7 @@ describe("schema migration (S1.1 ADIM 2)", () => {
     }
   });
 
-  it("migration iki kez çalışınca tablo/indeks sayısı çoğalmaz (STORIES S1.1)", () => {
+  it("migration iki kez çalışınca tablo/indeks sayısı çoğalmaz (S1.1)", () => {
     const first = openAndMigrate();
     const tablesAfterFirst = countByType(first, "table");
     const indexesAfterFirst = countByType(first, "index");
@@ -246,7 +246,7 @@ describe("schema migration (S1.1 ADIM 2)", () => {
     });
   });
 
-  describe("SQLite sürüm kapısı (ARCHITECTURE.md §3.6)", () => {
+  describe("SQLite sürüm kapısı", () => {
     it("gerçek bağlantı çalışan sürümün altındaki bir eşiği geçer", () => {
       const sqlite = openAndMigrate();
       try {
@@ -611,7 +611,7 @@ describe("schema migration (S1.1 ADIM 2)", () => {
         );
     }
 
-    it("PRD/K3 örneği: aynı gün 08:00–17:30 → 570 dakika kabul edilir (pozitif kontrol)", () => {
+    it("K3 örneği: aynı gün 08:00–17:30 → 570 dakika kabul edilir (pozitif kontrol)", () => {
       expect(() => insertWorkEntry()).not.toThrow();
     });
 
@@ -639,13 +639,13 @@ describe("schema migration (S1.1 ADIM 2)", () => {
       );
     });
 
-    it("§3.3 hesap kuralı v1 — share_bps yalnız 0 veya 2000 olabilir", () => {
+    it("hesap kuralı v1 — share_bps yalnız 0 veya 2000 olabilir", () => {
       expect(() => insertWorkEntry({ shareBps: 1000 })).toThrow(
         /CHECK constraint failed/,
       );
     });
 
-    it("girdi tutarları negatif olamaz (§3.3)", () => {
+    it("girdi tutarları negatif olamaz", () => {
       expect(() => insertWorkEntry({ grossCents: -1 })).toThrow(
         /CHECK constraint failed/,
       );
@@ -753,7 +753,7 @@ describe("schema migration (S1.1 ADIM 2)", () => {
     });
   });
 
-  describe("sessions actor exclusivity CHECK (§3.2 — İki aktör türünden tam biri)", () => {
+  describe("sessions actor exclusivity CHECK (iki aktör türünden tam biri)", () => {
     let sqlite: SqliteConnection;
 
     beforeEach(() => {
@@ -814,7 +814,7 @@ describe("schema migration (S1.1 ADIM 2)", () => {
   });
 
   describe("admin_audit.on_behalf_of_person_id — business_id NULL iken FK (düzeltme turu 1)", () => {
-    // Audit bulgusu: admin_audit.business_id §3.2 gereği nullable
+    // Audit bulgusu: admin_audit.business_id şema gereği nullable
     // ("gerektiğinde"). SQLite'ta birleşik bir FK'nin (business_id,
     // on_behalf_of_person_id) herhangi bir çocuk sütunu NULL ise kısıt
     // denetlenmeden geçer (https://www.sqlite.org/foreignkeys.html).
@@ -1057,8 +1057,8 @@ describe("schema migration (S1.1 ADIM 2)", () => {
     // CHECK'i, vehicle_id veya on_behalf_of_person_id doluyken business_id'yi
     // de zorunlu kılıyor; böylece bu iki alan doluyken birleşik FK'ler asla
     // NULL business_id yüzünden atlanamıyor. business_id NULL kalabilen tek
-    // durum ikisi de NULL olduğu, işletmeye bağlı olmayan işlemler (§3.2
-    // "business_id/vehicle_id gerektiğinde", ör. ekip hesabı yönetimi).
+    // durum ikisi de NULL olduğu, işletmeye bağlı olmayan işlemler
+    // (business_id/vehicle_id "gerektiğinde", ör. ekip hesabı yönetimi).
     let sqlite: SqliteConnection;
     let bizA: string;
     let ownerA: string;

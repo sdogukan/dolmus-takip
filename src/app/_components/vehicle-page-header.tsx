@@ -1,7 +1,7 @@
 /**
  * `/sofor` ve `/sahip` ortak üst başlığı (server component) — T1.2 ADIM
- * 2/2, S1.2, görev tanımı (2): "DESIGN §2.2/§2.5 üst başlığı: plaka
- * (görüntü biçimi) ve 'Çıkış' düğmesi." DESIGN.md §2.2/§2.5 wireframe'i:
+ * 2/2, S1.2, görev tanımı (2): şoför ve sahip ekranlarının üst başlığı —
+ * plaka (görüntü biçimi) ve "Çıkış" düğmesi. Tel çerçeve:
  * "35 ABC 123          Çıkış".
  */
 import { LogoutButton } from "./logout-button";

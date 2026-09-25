@@ -1,5 +1,5 @@
 /**
- * Ortak işletim kilidi (`/var/lib/dolmus-takip/ops.lock`, SERVER-SETUP §2):
+ * Ortak işletim kilidi (`/var/lib/dolmus-takip/ops.lock`):
  * günlük yedek, kontrollü restore (`scripts/db-restore.ts install`) ve yayın
  * (`scripts/release-apply.ts`) AYNI dosyayı `flock` ile kilitler.
  *

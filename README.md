@@ -3,8 +3,7 @@
 Dolmuş/minibüs işletmeleri için tek Node.js/Next.js uygulaması; yerel SQLite
 (Drizzle/better-sqlite3) üzerinde çalışır. Bu belge yalnız **geliştirme
 ortamını** kurar; hedef üretim çıktısı ve gerçek sunucu kurulumu M6 (E6)
-paketlerinde tamamlanır (bkz. `docs/ARCHITECTURE.md` §8, `docs/TASKS.md`
-T6.1+).
+paketlerinde (T6.1+) tamamlanır.
 
 ## Gereksinimler
 
@@ -12,7 +11,7 @@ T6.1+).
 - **npm** — bağımlılıklar `package-lock.json` ile kilitlenmiştir; başka bir
   paket yöneticisi (yarn/pnpm) kullanılmaz.
 
-Kesin sürümler ve gerekçeleri için `docs/DECISIONS.md` K9'a bakın
+Kesin sürümler ve gerekçeleri için `docs/tech-stack.md`'ye bakın
 (`better-sqlite3`, `argon2`, `drizzle-orm` gibi native/kritik bağımlılıklar
 dahil).
 
@@ -57,8 +56,8 @@ sessizce bir varsayılana düşmez.
   varsayılanı: `./data/dev.sqlite`). `data/` dizini `.gitignore` ile
   hariçtir — **kod ile kalıcı veri ayrıdır**: `git pull`, `npm install`,
   derleme veya kod geri alma işlemleri bu dosyayı asla silmez/değiştirmez.
-- Uygulama eksik bir veritabanı dosyasını **sessizce oluşturmaz**
-  (`docs/ARCHITECTURE.md` §8.1). İlk kuruluma yalnız açık `npm run db:init`
+- Uygulama eksik bir veritabanı dosyasını **sessizce oluşturmaz**.
+  İlk kuruluma yalnız açık `npm run db:init`
   komutu izin verir; dosya zaten varsa aynı komut yalnız bekleyen
   migration'ları uygular ve tanımları çoğaltmaz.
 - `npm run db:seed-dev`, `db:init`'in kurduğu şemanın üzerine QA planındaki
@@ -68,11 +67,10 @@ sessizce bir varsayılana düşmez.
   çalışmayı reddeder ve veritabanı dosyasına hiç dokunmaz. Kullandığı test
   şifreleri `.env.example` içinde belgelenir ve **gerçek kurulumda
   kullanılmaz**.
-- Gerçek üretim dosya yerleşimi (`/var/lib/dolmus-takip/...`), Caddy/systemd
-  yapılandırması (`deploy/`) ve ilk kurulum/sürüm değiştirme komutları
-  `docs/SERVER-SETUP.md` içinde hazırlanmıştır; **gerçek sunucuda
-  denenmemiştir** (manuel kurulumda denenecek). Yedekleme ve geri yükleme
-  `docs/ARCHITECTURE.md` §8 ve M6 paketlerinin kapsamındadır.
+- Gerçek üretim dosya yerleşimi (`/var/lib/dolmus-takip/...`) ve
+  Caddy/systemd yapılandırması (`deploy/`) hazırlanmıştır; **gerçek
+  sunucuda denenmemiştir** (manuel kurulumda denenecek). Yedekleme ve geri
+  yükleme M6 paketlerinin kapsamındadır.
 
 ## Üretim çıktısı (standalone) notu
 
@@ -83,12 +81,12 @@ bağımsız çalışabilen küçük bir Node çıktısı (`.next/standalone`) ü
 üretim makinesi bu native bağımlılıklar olmadan çalışamaz. Hedef
 Linux/Ubuntu makinede native modüllerin **o mimaride yeniden derlenmesi**
 (macOS `node_modules`'ın doğrudan kopyalanmaması) ve gerçek servis kurulumu
-`docs/ARCHITECTURE.md` §8.4 ve M6 paketlerinin işidir; bu adım yalnız
+M6 paketlerinin işidir; bu adım yalnız
 derleme yapılandırmasını hazırlar.
 
 ## Yayın çıktısı (`release:build` / `release:verify`)
 
-`docs/STORIES.md` S6.1 ve `docs/TASKS.md` T6.1 — hedefle uyumlu, tekrar
+S6.1 / T6.1 — hedefle uyumlu, tekrar
 üretilebilir bir üretim çıktısı ve bütünlük manifesti. Bu iki komut yerelde
 de çalıştırılabilir; **aynı zamanda** aşağıdaki "GitHub Actions" bölümünde
 anlatılan `ci.yml` ve `release.yml` iş akışlarının birer adımıdır — hedef
@@ -147,7 +145,7 @@ kısmi/sessiz geçiş yoktur):
    şema kurulumu (`node scripts/db-init.ts`) çalıştırılabilsin diye.
 5. Standalone'un **kendi** `node_modules`'undan `require('better-sqlite3')`
    ve `require('argon2')`'yi dener; ardından `SELECT sqlite_version()`
-   sonucunu `docs/ARCHITECTURE.md` §3.6'daki asgari sürümle (`3.51.3`)
+   sonucunu asgari SQLite sürümüyle (`3.51.3`)
    karşılaştırır — yalnız npm paket numarasına güvenmez.
 6. `drizzle/**` ve migration journal'ının standalone çıktısında var
    olduğunu doğrular.
@@ -179,9 +177,9 @@ testlerini de (`tests/release/release-apply.test.ts`) koşar; bu dosya
 
 ## GitHub Actions (`.github/workflows/`)
 
-`docs/STORIES.md` S6.1 AC1/AC3/AC7 ve `docs/TECH-STACK.md` §9 —
-"production'a her push'ta otomatik yayın yoktur" ve "Actions dakika/
-artifact kotaları sınırlıdır" gereği iki ayrı iş akışı vardır:
+S6.1 AC1/AC3/AC7 — "production'a her push'ta otomatik yayın yoktur" ve
+"Actions dakika/artifact kotaları sınırlıdır" gereği iki ayrı iş akışı
+vardır:
 
 - **`ci.yml`** — her push'ta (tüm dallar) ve her pull request'te tetiklenir;
   `ubuntu-24.04` üzerinde yukarıdaki tüm komutları (`quality-gate`
@@ -199,13 +197,12 @@ artifact kotaları sınırlıdır" gereği iki ayrı iş akışı vardır:
 - **`release.yml`** — YALNIZ elle (`workflow_dispatch`, `ref` girdisi) ile
   tetiklenir; `ci.yml` ile AYNI doğrulama zincirini çalıştırıp yayın
   çıktısını 30 gün saklar. **Gerçek sunucuya dağıtım (deploy) adımı
-  YOKTUR** — yayın SSH ile `docs/TASKS.md` T6.2/T6.5 (`docs/RELEASE.md`)
-  kapsamında ayrıca, manuel yapılır; bu depoda henüz tanımlı bir secret
+  YOKTUR** — yayın SSH ile T6.2/T6.5 kapsamında ayrıca, manuel yapılır; bu depoda henüz tanımlı bir secret
   yoktur.
 
 **Özel repoda GitHub Actions dakika ve artifact kotası sınırlıdır;
 `timeout-minutes` (30 dk) ve `retention-days` (7/14/30 gün) ile
-sınırlandırıldı** (`docs/TECH-STACK.md` §9) — sınırsız ücretsiz kullanım
+sınırlandırıldı** — sınırsız ücretsiz kullanım
 varsayılmaz.
 
 `tests/unit/ci-workflows.test.ts`, bu iki dosyanın varlığını, tetikleyici/
@@ -215,7 +212,7 @@ doğrular; yeni bir `yaml` ayrıştırma paketi EKLENMEDİ.
 
 ## Test stratejisi (özet)
 
-`docs/QA-PLAN.md` §1 kuralı: mali/DB testleri yalnız gerçek geçici SQLite
+Kural: mali/DB testleri yalnız gerçek geçici SQLite
 dosyası ve gerçek migration ile yapılır; mock veya `:memory:` üzerinde
 kabul edilmez. Bu yüzden `test:integration` testleri paralel çalışmaz
 (`vitest.config.mts` — `fileParallelism: false`) ve her test kendi geçici

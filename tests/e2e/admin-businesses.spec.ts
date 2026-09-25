@@ -169,9 +169,9 @@ test.describe("İşletme detayı (/yonetim/isletmeler/:id)", () => {
     );
 
     // Bu sekme HÂLÂ version 1'i bildiğinden, kendi düzenlemesi 409 alır.
-    // "Adı kaydet" hem işletme adı hem sahip adı formunda vardır (DESIGN §3
-    // "her formda tek baskın işlem") — İLK'i (işletme adı formu, DOM'da
-    // önce gelir) hedeflenir.
+    // "Adı kaydet" hem işletme adı hem sahip adı formunda vardır (her formda
+    // tek baskın işlem) — İLK'i (işletme adı formu, DOM'da önce gelir)
+    // hedeflenir.
     await page.getByLabel("Ad", { exact: true }).fill("Bu Sekmeden Değişiklik");
     await page.getByRole("button", { name: "Adı kaydet" }).first().click();
 

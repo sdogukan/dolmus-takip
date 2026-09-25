@@ -10,8 +10,8 @@ import { parseActiveFilter } from "../../lib/admin-search";
 import { AdminSearch } from "./admin-search";
 
 /**
- * /yonetim — ekip ana ekranı (DESIGN.md §1 "Ekip | İşletme / araç bulma
- * | /yonetim", §2.9 back office ilkesi): "+ İşletme aç", işlem geçmişi
+ * /yonetim — ekip ana ekranı (işletme / araç bulma; back office ilkesi):
+ * "+ İşletme aç", işlem geçmişi
  * bağlantısı ve `AdminSearch` (URL'deki `q`/`active` ile başlar; liste
  * istemcide `GET /api/v1/admin/businesses|vehicles` ile okunur).
  */

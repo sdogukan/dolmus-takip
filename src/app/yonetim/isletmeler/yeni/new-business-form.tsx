@@ -3,8 +3,7 @@
 /**
  * Yeni işletme + mal sahibi oluşturma formu (istemci bileşeni) — T2.1, S2.1.
  *
- * ARCHITECTURE §3.4 (tekrar gönderim/eşzamanlı düzenleme kuralları) BİREBİR
- * burada uygulanır:
+ * Tekrar gönderim/eşzamanlı düzenleme kuralları BİREBİR burada uygulanır:
  * - "Her mutasyon istemciden rastgele request_id alır. Aynı form yeniden
  *   gönderilirken bu anahtar korunur." → `requestId` bir kez üretilir,
  *   içerik DEĞİŞMEDİĞİ sürece AYNI kalır (draft ile birlikte `src/lib/
@@ -21,9 +20,9 @@
  *   YENİLENİR (`regenerateRequestIdOnNextChange`); ambiguous/submitting
  *   sırasında zaten alanlar salt-okunur olduğundan bu dal tetiklenmez.
  *
- * DESIGN §2.10 satırları — "Gönderim sonrası bağlantı koptu" ("Kaydın
- * sonucu kontrol ediliyor.") ile "Gönderilmediği bilinen bağlantı hatası"
- * ("Bağlantı yok. Henüz kaydedilmedi.") AYRIMI `navigator.onLine` ile
+ * İki bağlantı durumu — "Gönderim sonrası bağlantı koptu" ("Kaydın sonucu
+ * kontrol ediliyor.") ile "Gönderilmediği bilinen bağlantı hatası"
+ * ("Bağlantı yok. Henüz kaydedilmedi.") — AYRIMI `navigator.onLine` ile
  * yapılır: tarayıcı GERÇEKTEN çevrimdışıysa istek hiç ATILMAZ (kesin
  * "gönderilmedi" — form DÜZENLENEBİLİR kalır, aynı requestId korunur);
  * çevrimiçiyken `fetch` reddederse (bağlantı gönderim SIRASINDA koptu,
@@ -166,7 +165,7 @@ export function NewBusinessForm({
     }
     if (!navigator.onLine) {
       // Kesin "gönderilmedi" — form düzenlenebilir kalır, aynı requestId
-      // korunur (DESIGN §2.10 "Gönderilmediği bilinen bağlantı hatası").
+      // korunur ("Gönderilmediği bilinen bağlantı hatası" durumu).
       setFormError("Bağlantı yok. Henüz kaydedilmedi.");
       return;
     }

@@ -112,7 +112,7 @@ function normalizeUsernameForRateLimit(username: string): string {
 
 // ---------------------------------------------------------------------------
 // DB okuması — yalnız SELECT (yazma yok); tek satırlık sorgu, kısa
-// transaction gerektirmez (ARCHITECTURE §3.4 kuralı yalnız YAZMALAR
+// transaction gerektirmez (kısa transaction kuralı yalnız YAZMALAR
 // içindir).
 // ---------------------------------------------------------------------------
 
@@ -223,8 +223,8 @@ export async function platformLogin(
 
   try {
     if (!isUsableUser) {
-      // Bilinmeyen kullanıcı adı VEYA pasif hesap — ARCH §6 "Kullanıcı/
-      // plaka tahmini"nin ekip girişindeki karşılığı: kontrollü dummy hash
+      // Bilinmeyen kullanıcı adı VEYA pasif hesap — kullanıcı/plaka
+      // tahmini savunmasının ekip girişindeki karşılığı: kontrollü dummy hash
       // yolu (`./vehicle-login.ts`'İN AYNI sabiti/yardımcısı — kod tekrarı
       // yok). Araç girişinden FARKLI olarak burada TEK bir credential
       // (owner/driver ikilisi değil, tek password_hash) olduğundan yalnız

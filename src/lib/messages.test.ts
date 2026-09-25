@@ -40,7 +40,7 @@ describe("messages", () => {
     );
   });
 
-  it("DESIGN §2.10 tablosundaki sabit ekran metinleri birebir taşınır", () => {
+  it("ortak durumların sabit ekran metinleri birebir taşınır", () => {
     expect(COMMON_SCREEN_MESSAGES.loading).toBe("Kayıtlar yükleniyor…");
     expect(COMMON_SCREEN_MESSAGES.trulyEmptyPeriod).toBe("Bu dönemde kayıt yok.");
     expect(COMMON_SCREEN_MESSAGES.saving).toBe("Kaydediliyor…");
@@ -68,7 +68,7 @@ describe("messages", () => {
     );
   });
 
-  it("T1.2 — INVALID_CREDENTIALS/RATE_LIMITED/HASH_QUEUE_FULL STORIES/ARCH birebir metinlerini taşır", () => {
+  it("T1.2 — INVALID_CREDENTIALS/RATE_LIMITED/HASH_QUEUE_FULL sabit metinleri birebir taşır", () => {
     expect(getErrorMessage("INVALID_CREDENTIALS")).toBe(
       "Plaka veya şifre yanlış.",
     );

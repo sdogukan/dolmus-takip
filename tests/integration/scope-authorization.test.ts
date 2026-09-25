@@ -19,7 +19,7 @@
  * (h) 401/403/404 ayrımı ve hata gövdesinin başka müşteri içeriği/gizli
  *     kimlik içermemesi.
  *
- * E2–E5 endpoint'leri henüz YOK (TASKS.md T1.5 — "henüz varmış gibi
+ * E2–E5 endpoint'leri henüz YOK (T1.5 — "henüz varmış gibi
  * sunulmaz"). (a)/(b)/(d)/(e) `../../src/server/http/handler.ts`
  * `withProtectedRoute` ile sarılmış KÜÇÜK sentetik "gelecekteki T2.4
  * `PUT /vehicles/:id/drivers/:personId`/`POST /drivers` benzeri"
@@ -31,7 +31,7 @@
  * DAHA ALÇAK seviyede (doğrudan kullanım durumu fonksiyonu/ham SQL)
  * çalışır — bkz. ilgili describe bloklarının üst notu.
  *
- * QA-PLAN.md §1 — gerçek geçici SQLite dosyası + gerçek migration + seed
+ * Gerçek geçici SQLite dosyası + gerçek migration + seed
  * (mock/`:memory:` YOK).
  */
 import fs from "node:fs";
@@ -112,9 +112,9 @@ function writeRequest(
 
 /**
  * "GET .../drivers/:personId" benzeri — oturumun/staff hedefinin KENDİ
- * aracındaki BİR atamayı `personId`'ye göre okur. ARCHITECTURE §4 — "Araç
- * rolü scope'u oturumdan çıkarır; URL'deki ID tek başına erişim hakkı
- * VERMEZ": `:personId` URL'den (route param) gelir ama HANGİ ARACA
+ * aracındaki BİR atamayı `personId`'ye göre okur. Araç rolü scope'u
+ * oturumdan çıkarır; URL'deki ID tek başına erişim hakkı VERMEZ:
+ * `:personId` URL'den (route param) gelir ama HANGİ ARACA
  * bakılacağı asla URL'den değil, `ctx.scope.vehicleId`'den gelir.
  */
 const readAssignment = withProtectedRoute({

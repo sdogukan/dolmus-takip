@@ -4,19 +4,18 @@ import { defineConfig, devices } from "@playwright/test";
 
 /**
  * Playwright uçtan uca test yapılandırması — T1.2 ADIM 2/2 + T1.2 EK
- * DÜZELTME (S1.2, docs/DECISIONS.md "T1.2 uygulama kararları").
+ * DÜZELTME (S1.2, "T1.2 uygulama kararları").
  *
- * QA-PLAN.md §1 — "Uçtan uca | Playwright ...; gerçek Node backend ve
- * üretim derlemesi | Giriş → kayıt → teslim → düzeltme → rapor; gerçek
- * HTTP, cookie, oturum ve test DB'si." Tarayıcı projesi yalnız Chromium'dur
- * — WebKit 2026-09-24 kullanıcı kararıyla kaldırıldı (docs/DECISIONS.md
- * "E2E yalnız Chromium"). Bu ADIM yalnız GİRİŞ
- * zincirini (`./tests/e2e/vehicle-login.spec.ts`) kapsar; sonraki E2/E3+
- * paketleri aynı altyapıyı genişletir.
+ * Uçtan uca katman Playwright'tır: gerçek Node backend ve üretim derlemesi
+ * üzerinde giriş → kayıt → teslim → düzeltme → rapor; gerçek HTTP, cookie,
+ * oturum ve test DB'si. Tarayıcı projesi yalnız Chromium'dur — WebKit
+ * 2026-09-24 kullanıcı kararıyla kaldırıldı ("E2E yalnız Chromium"). Bu
+ * ADIM yalnız GİRİŞ zincirini (`./tests/e2e/vehicle-login.spec.ts`) kapsar;
+ * sonraki E2/E3+ paketleri aynı altyapıyı genişletir.
  *
  * ## Gerçek standalone sunucu (`node .next/standalone/server.js`)
  *
- * `next.config.ts` `output: "standalone"` ayarlıyor (DECISIONS.md F4).
+ * `next.config.ts` `output: "standalone"` ayarlıyor (F4).
  * `next start` bununla ÇALIŞMAZ (Next'in kendi uyarısı: "next start does
  * not work with output: standalone configuration. Use node .next/
  * standalone/server.js instead") — bu yüzden webServer artık standalone
@@ -58,7 +57,7 @@ import { defineConfig, devices } from "@playwright/test";
  * URL-hazır bekleyişi zaman aşımına uğrar.
  */
 
-/** ARCHITECTURE.md §2 — "Next.js uygulaması ... Yalnız 127.0.0.1:3000."
+/** Üretimde Next.js uygulaması yalnız 127.0.0.1:3000'de dinler.
  * Geliştiricinin `npm run dev`'i (varsayılan 3000) ile ÇAKIŞMAMASI için
  * E2E ayrı bir portta (3100) çalışır; `127.0.0.1` (KASITLI OLARAK
  * "localhost" DEĞİL) kullanılır çünkü `APP_ORIGIN`'in "aynı kaynak"
@@ -69,7 +68,7 @@ const E2E_PORT = 3100;
 const E2E_APP_ORIGIN = `http://127.0.0.1:${E2E_PORT}`;
 
 /** "Ayrı geçici test DB'si" — `os.tmpdir()` altında, geliştiricinin
- * gerçek `./data/dev.sqlite`'ından (DECISIONS.md/`.env.example`)
+ * gerçek `./data/dev.sqlite`'ından (`.env.example`)
  * TAMAMEN AYRI bir dosya. `./tests/e2e/global-setup.ts` her koşuda bu
  * dosyayı silip yeniden oluşturur (fresh state). */
 const E2E_DB_PATH = path.join(os.tmpdir(), "dolmus-takip-e2e", "test.sqlite");
@@ -136,8 +135,8 @@ export default defineConfig({
   },
   // Tek paylaşılan arka uç süreci (`webServer`) ve bellek içi, TEK
   // süreçlik hız sınırı/hash kuyruğu durumu (`../src/server/auth/
-  // rate-limit.ts`, `../src/server/auth/hash-queue.ts` — ARCH §2 "İlk
-  // sürümde tek Node uygulama süreci") paylaşılır; testler arası
+  // rate-limit.ts`, `../src/server/auth/hash-queue.ts` — ilk sürümde tek
+  // Node uygulama süreci vardır) paylaşılır; testler arası
   // öngörülemez etkileşimi (ör. bir testin başarısız girişinin başka bir
   // testin hız sınırı sayacını etkilemesi) önlemek için bu ilk E2E
   // paketinde paralel çalıştırma KAPALI tutulur. Spec sayısı arttıkça
@@ -165,12 +164,11 @@ export default defineConfig({
     // `env` altında AYRICA NODE_ENV VERİLMEZ (standalone'un kendi ataması
     // zaten geçersiz kılar, karışıklığı önlemek için burada tekrarlanmaz).
     command: `NODE_ENV=test node tests/e2e/global-setup.ts && node .next/standalone/server.js`,
-    // ARCHITECTURE.md §8.2 / bu dosyanın health/live rotası — DB'ye HİÇ
-    // dokunmaz (yalnız sürecin ayakta olduğunu doğrular); bu yüzden "DB
-    // hazır mı" değil "süreç gerçekten dinliyor mu" sorusuna net bir
-    // 200 ile cevap verir (kök `/` bir redirect [307] üretir, bu da
-    // Playwright'ın kabul ettiği kodlardan biridir ama health/live daha
-    // az "örtük" bir sinyaldir).
+    // health/live rotası DB'ye HİÇ dokunmaz (yalnız sürecin ayakta
+    // olduğunu doğrular); bu yüzden "DB hazır mı" değil "süreç gerçekten
+    // dinliyor mu" sorusuna net bir 200 ile cevap verir (kök `/` bir
+    // redirect [307] üretir, bu da Playwright'ın kabul ettiği kodlardan
+    // biridir ama health/live daha az "örtük" bir sinyaldir).
     url: `${E2E_APP_ORIGIN}/api/v1/health/live`,
     reuseExistingServer: !process.env.CI,
     timeout: 60_000,
@@ -187,7 +185,7 @@ export default defineConfig({
       PORT: String(E2E_PORT),
       // Next'in standalone `server.js`'i `HOSTNAME`'i (`../src/server/
       // auth/app-origin.ts` üst notundaki next/dist/build/utils.js kanıtı)
-      // dinleme adresi için kullanır; ARCHITECTURE §2 üretim topolojisiyle
+      // dinleme adresi için kullanır; üretim topolojisiyle
       // (Caddy arkasında yalnız 127.0.0.1) AYNI değer burada da kullanılır.
       // TRUSTED_PROXY BİLEREK tanımsız bırakılır (görev tanımı) — bu E2E
       // paketi bir ters vekil ARKASINDA koşmaz.

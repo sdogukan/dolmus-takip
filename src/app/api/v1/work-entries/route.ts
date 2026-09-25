@@ -1,7 +1,7 @@
 /**
  * POST /api/v1/work-entries — T3.4.
  *
- * ARCHITECTURE §4 — günlük çalışma kaydı oluşturma. `target: "vehicle"`:
+ * Günlük çalışma kaydı oluşturma. `target: "vehicle"`:
  * şoför/sahip oturumu kendi aracını, ekip `X-Target-Vehicle` ile hedef aracı
  * çözer. Kayıt türüne göre asıl izin (`work_entry.create_owner`/`_driver`)
  * `prepareWorkEntryCreate` içinde denetlenir; rota izni tabandır (şoför izni,

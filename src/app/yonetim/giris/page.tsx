@@ -8,12 +8,12 @@ import {
 } from "../../../lib/messages";
 
 /**
- * /yonetim/giris — ekip girişi (DESIGN.md §1 "Giriş gerektirmeyen
- * sayfalar", §2.1 "Ekip varyantı"). T1.3 ADIM 2/2, S1.3, görev tanımı (a).
+ * /yonetim/giris — ekip girişi (giriş gerektirmeyen sayfa, giriş formunun
+ * ekip varyantı). T1.3 ADIM 2/2, S1.3, görev tanımı (a).
  *
- * DESIGN §2.1 "Ekip varyantı" — "Aynı yerleşimde 'Ekip girişi', 'Kullanıcı
- * adı' ve 'Şifre' bulunur. Kişisel ekip hesabı kullanılır; araç şifreleri
- * burada geçmez." "Aynı yerleşim" ortak `../../_components/login-form.tsx`
+ * Ekip varyantı: aynı yerleşimde "Ekip girişi", "Kullanıcı adı" ve "Şifre"
+ * bulunur; kişisel ekip hesabı kullanılır, araç şifreleri burada geçmez.
+ * "Aynı yerleşim" ortak `../../_components/login-form.tsx`
  * bileşeninin BİREBİR kendisiyle (16px kenar boşluğu, en fazla 480px form,
  * alan adları her zaman görünür, Göster/Gizle, "Giriş yapılıyor…", hata
  * `role="alert"`) sağlanır — kod tekrarı YOK.
@@ -26,7 +26,7 @@ import {
  * görünür olmasını şart koşar; S1.6 AC1 hikâyenin kapsamını "Araç ve ekip
  * girişleri" olarak tanımlar ve AC7 bunu araç ekranıyla SINIRLAMAZ (S1.2
  * AC4'ün plakaya özgü kuralının AKSİNE). Önceki sürümün bu metni yalnız
- * araç girişinde göstermesi docs/DECISIONS.md'de kayıtlı bir karara
+ * araç girişinde göstermesi kayıtlı bir karara
  * DAYANMIYORDU; bu yüzden metin de (tek kaynak `../../../lib/
  * messages.ts` `LOGIN_HELP_TEXT`'ten, ikinci bir kopya YAZILMADAN) burada
  * gösterilir. Görev tanımı bu varyant için bir alt başlık İSTEMEZ; bu
@@ -80,9 +80,9 @@ export default async function YonetimGirisPage({
         invalidCredentialsMessage={PLATFORM_LOGIN_RESULT_MESSAGES.invalidCredentials}
         rateLimitedMessage={PLATFORM_LOGIN_RESULT_MESSAGES.rateLimited}
         hashQueueFullMessage={PLATFORM_LOGIN_RESULT_MESSAGES.hashQueueFull}
-        // DESIGN §1 "Ekip girişi | /yonetim/giris | Kişisel ekip kullanıcı
-        // adı ve şifresi" ve görev tanımı (a) "başarıda /yonetim'e
-        // yönlendirme" — admin/support ARASINDA FARK YOKTUR (araç
+        // Ekip girişi (kişisel ekip kullanıcı adı ve şifresi) ve görev
+        // tanımı (a) "başarıda /yonetim'e yönlendirme" — admin/support
+        // ARASINDA FARK YOKTUR (araç
         // girişinin owner/driver ayrımının AKSİNE); rol etiketi
         // `/yonetim`'in KENDİ üst başlığında gösterilir (bkz. `../page.tsx`).
         defaultRedirectPath="/yonetim"

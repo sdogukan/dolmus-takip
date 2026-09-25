@@ -2,7 +2,7 @@
  * Mutasyon gövdesi için kararlı (deterministic) SHA-256 özeti — T2.1.
  *
  * `../receipts/resolve-receipt.ts`in "aynı requestId + aynı requestHash →
- * replay; farklı hash → 409" karşılaştırması için kullanılır (ARCH §3.4).
+ * replay; farklı hash → 409" karşılaştırması için kullanılır.
  * Çağıran YALNIZ makbuzun kapsadığı (kullanıcı tarafından değiştirilebilir)
  * alanları BURAYA verir — `requestId`'nin kendisi asla dahil edilmez (o
  * zaten makbuzun birincil anahtar bileşenidir).

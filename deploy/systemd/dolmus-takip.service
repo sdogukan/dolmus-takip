@@ -1,14 +1,14 @@
 # Dolmuş Takip uygulama servisi — /etc/systemd/system/dolmus-takip.service
-# HAZIRLANDI, gerçek sunucuda DENENMEDİ (manuel kurulumda denenecek). docs/SERVER-SETUP.md.
+# HAZIRLANDI, gerçek sunucuda DENENMEDİ (manuel kurulumda denenecek).
 [Unit]
 Description=Dolmus Takip (Next.js standalone)
 After=network.target
-# ARCHITECTURE §8.2: sınıra ulaşınca ekip müdahalesi gerekir.
+# Sınıra ulaşınca ekip müdahalesi gerekir.
 StartLimitIntervalSec=900
 StartLimitBurst=3
-# ARCHITECTURE §8.2: kalıcı kurtarma kilidi varken uygulama BAŞLAMAZ (reboot
+# Kalıcı kurtarma kilidi varken uygulama BAŞLAMAZ (reboot
 # sonrası da). Assert (Condition değil): başlatma sessizce atlanmaz, journal'a
-# "Assertion failed" yazılır. Kilidi yalnız ekip kaldırır (docs/OPS.md §5-B).
+# "Assertion failed" yazılır. Kilidi yalnız ekip kaldırır.
 AssertPathExists=!/var/lib/dolmus-takip/health/recovery.lock
 
 [Service]

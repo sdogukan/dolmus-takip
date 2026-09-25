@@ -13,10 +13,9 @@
  * "zaten geçersiz bir oturumu iptal etmeye çalışmak" durumunu güvenle ele
  * almasını sağlar (bkz. `src/app/api/v1/auth/logout/route.ts`).
  *
- * ARCHITECTURE §3.2 — "platform_users ... İşletmeye bağlı değildir"; bu
- * yüzden `revokeSessionsForBusiness` yalnız o işletmenin araç
- * credential'larına bağlı oturumları iptal eder, ekip (platform) oturumlarına
- * DOKUNMAZ.
+ * platform_users işletmeye bağlı değildir; bu yüzden
+ * `revokeSessionsForBusiness` yalnız o işletmenin araç credential'larına
+ * bağlı oturumları iptal eder, ekip (platform) oturumlarına DOKUNMAZ.
  *
  * ---------------------------------------------------------------------
  * Sync çekirdekler (T1.4 ADIM 2/2, S1.4) — `../access/*` bu dosyanın

@@ -20,8 +20,8 @@ import { VehicleDetailForm } from "./vehicle-detail-form";
  *
  * `../../isletmeler/[id]/page.tsx` (işletme detayı) İLE AYNI desen:
  * `getVehicleDetail` (`../../../../server/usecases/admin-vehicles/
- * queries.ts`) DOĞRUDAN çağrılır (ARCH §2 "kendi HTTP API'sine gereksiz
- * döngü yok"); mutasyonlar (`VehicleDetailForm` içindeki PATCH) İSE gerçek
+ * queries.ts`) DOĞRUDAN çağrılır (kendi HTTP API'sine gereksiz döngü
+ * yok); mutasyonlar (`VehicleDetailForm` içindeki PATCH) İSE gerçek
  * `fetch("/api/v1/admin/vehicles/:id")` kullanır. Bu sayfa `resolveAdminScope`
  * ÇAĞIRMAZ — işletme detay sayfasıyla AYNI gerekçe: staff rolü (support/
  * admin) herhangi bir işletme/aracı görebilir (`resolveAdminScope`'un

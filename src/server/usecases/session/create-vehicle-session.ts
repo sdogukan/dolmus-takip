@@ -4,11 +4,10 @@
  * Görev tanımı: bu kullanım durumu, T1.2/T1.3'ün (bu paketin KAPSAMI
  * DIŞINDA — "Bu paketin GİRİŞ endpoint'leri YAZILMAZ") parola doğrulaması
  * BAŞARILI olduktan SONRA çağrılacağı varsayılan tek adımdır: yeni bir
- * sunucu oturumu üretir. ARCHITECTURE §6 "Yenileme ve iptal" — "Her giriş
- * yeni token üretir."
+ * sunucu oturumu üretir. Her giriş yeni token üretir.
  *
  * `issued_version` burada credential'ın O ANKİ `credential_version`'ıdır
- * (§3.2 sessions.issued_version = "ilgili credential_version"); parola
+ * (sessions.issued_version = ilgili credential_version); parola
  * sıfırlaması bu sürümü artırdığında `resolveSession` eski oturumları
  * SESSION_REVOKED ile reddeder (bkz. `./errors.ts` üstündeki not).
  *

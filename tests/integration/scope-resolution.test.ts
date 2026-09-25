@@ -5,10 +5,10 @@
  * Görev tanımı iş adımı 3: "Aynı işletmede farklı araçlar ve farklı
  * işletmeler içeren doğrudan endpoint testlerini oluştur; 401/403/404
  * ayrımını ve bilgi sızdırmayan hata yanıtını doğrula." E2–E5 endpoint'leri
- * bu ADIM'da YAZILMADIĞINDAN (TASKS.md T1.5 — "henüz varmış gibi
+ * bu ADIM'da YAZILMADIĞINDAN (T1.5 — "henüz varmış gibi
  * sunulmaz"), bu dosya aynı denetimi endpoint'lerin DAYANACAĞI çekirdek
  * fonksiyonlara (scope.ts/scoped.ts) karşı GERÇEK, geçici bir SQLite
- * dosyası + gerçek migration + seed ile uygular (QA-PLAN.md §1).
+ * dosyası + gerçek migration + seed ile uygular.
  *
  * Seed verisi (bkz. `scripts/db-seed-dev.ts`): İşletme A (vehicleA1,
  * vehicleA2 — ikisi de aktif), İşletme B (vehicleB1 aktif, vehicleB2
@@ -249,7 +249,7 @@ describe("scope.ts + scoped.ts — T1.5 ADIM 1/2 (gerçek geçici SQLite + migra
       expect(readResult).toMatchObject({ ok: true });
     });
 
-    it("STORIES S1.5 AC2 — istemcinin gövdeye eklediği businessId/role/personId/ownerId ASLA okunmaz/kullanılmaz (yalnız header + DB kullanılır)", async () => {
+    it("S1.5 AC2 — istemcinin gövdeye eklediği businessId/role/personId/ownerId ASLA okunmaz/kullanılmaz (yalnız header + DB kullanılır)", async () => {
       const { context } = await createPlatformSession(db, SEED_IDS.platformSupport1);
       const request = targetRequest(SEED_IDS.vehicleA1, {
         businessId: SEED_IDS.businessB,
@@ -407,7 +407,7 @@ describe("scope.ts + scoped.ts — T1.5 ADIM 1/2 (gerçek geçici SQLite + migra
   }
 
   // -------------------------------------------------------------------
-  // recheckScopeInTransaction — ARCH §3.4 adım 3 / STORIES S1.5 AC7
+  // recheckScopeInTransaction — S1.5 AC7
   // -------------------------------------------------------------------
 
   describe("recheckScopeInTransaction", () => {
@@ -487,8 +487,8 @@ describe("scope.ts + scoped.ts — T1.5 ADIM 1/2 (gerçek geçici SQLite + migra
 
     // Düzeltme turu 1 — denetim bulgusu (mimari merceği): staff'ın PASİF bir
     // hedefi `active: true` yapan (reaktive eden) yazması, hedefin O AN
-    // pasif olması YÜZÜNDEN recheck'te 403'e düşmemelidir — bu, ARCH §2
-    // yetki matrisinin staff'a verdiği TEK meşru "işletme/araç açma"
+    // pasif olması YÜZÜNDEN recheck'te 403'e düşmemelidir — bu, yetki
+    // matrisinin staff'a verdiği TEK meşru "işletme/araç açma"
     // senaryosudur. Aşağıdaki iki test `RecheckScopeOptions` ile bu yolun
     // artık YAPISAL olarak mümkün olduğunu kanıtlar.
     it("(izole) skipVehicleActiveCheck: true verildiğinde PASİF araç recheck'i GEÇER — staff'ın aracı reaktive eden yazması artık engellenmez", async () => {

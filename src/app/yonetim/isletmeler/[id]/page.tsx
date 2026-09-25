@@ -15,14 +15,14 @@ import { BusinessDetailForm } from "./business-detail-form";
 /**
  * /yonetim/isletmeler/[id] — işletme detay/düzenleme/aktiflik. T2.1, S2.1.
  *
- * DESIGN.md §2.9 tablosu satırları: "İşletme / sahip açma" (ad ve sahip adı
- * düzeltme, sahipsiz işletmede mevcut kişi seçimi veya yeni sahip), "Araç /
- * işletme aktifliği" (etkilenen hedef ve erişim sonucu açıkça gösterilir;
- * pasife alma geçmişi silmez).
+ * Kapsam: işletme / sahip açma (ad ve sahip adı düzeltme, sahipsiz
+ * işletmede mevcut kişi seçimi veya yeni sahip) ve araç / işletme
+ * aktifliği (etkilenen hedef ve erişim sonucu açıkça gösterilir; pasife
+ * alma geçmişi silmez).
  *
  * `getBusinessDetail` (`../../../../server/usecases/admin-businesses/
- * queries.ts`) DOĞRUDAN çağrılır — ARCH §2 "kendi HTTP API'sine gereksiz
- * döngü yok" ilkesi `../page.tsx`'in (/yonetim) liste render'ıyla AYNI
+ * queries.ts`) DOĞRUDAN çağrılır — "kendi HTTP API'sine gereksiz döngü
+ * yok" ilkesi `../page.tsx`'in (/yonetim) liste render'ıyla AYNI
  * desen; sayfa render'ı zaten sunucu tarafındadır, kendi API'sine ayrı bir
  * `fetch` YAPMAZ. Mutasyonlar (`BusinessDetailForm` içindeki PATCH) İSE
  * gerçek `fetch("/api/v1/admin/businesses/:id")` kullanır — CSRF/idempotency

@@ -8,7 +8,7 @@ import { describe, expect, it } from "vitest";
  *
  * Denetim bulgusu (`mimari` merceği): "authorize() fonksiyonu belgelenen
  * adımda gerçekte hiç çağrılmıyor — withProtectedRoute aynı mantığı ayrıca
- * (hasPermission ile) yeniden yazmış." Bugünkü ARCHITECTURE §2 matrisiyle
+ * (hasPermission ile) yeniden yazmış." Bugünkü yetki matrisiyle
  * `authorize()` ve `hasPermission()` HER actor/permission çifti için AYNI
  * sonucu ürettiğinden (`Scope.actor` HER ZAMAN `context.role`'e eşittir —
  * bkz. `../auth/scope.ts` `scopeFromVehicleSession` /

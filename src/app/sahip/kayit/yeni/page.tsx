@@ -12,7 +12,7 @@ import { VehiclePageHeader } from "../../../_components/vehicle-page-header";
 import { WorkEntryForm } from "../../../_components/work-entry-form";
 
 /**
- * /sahip/kayit/yeni — sahip çalışma kaydı (DESIGN "Sahip çalışma kaydı").
+ * /sahip/kayit/yeni — sahip çalışma kaydı.
  * `../../page.tsx` İLE AYNI yönlendirme: oturum yok → /giris, ekip → /yonetim,
  * şoför → /sofor. Sahibin adı sunucuda oturumun kendi kapsamıyla okunur. Form
  * kaydı yazar (T3.4).

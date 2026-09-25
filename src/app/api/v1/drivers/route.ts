@@ -1,8 +1,8 @@
 /**
  * GET/POST /api/v1/drivers — T2.4.
  *
- * ARCHITECTURE §4 — "GET /drivers: Şoför seçici veya yönetim listesi;
- * POST /drivers: şoför ekle." `target: "vehicle"` — şoför/sahip oturumu kendi
+ * GET /drivers: şoför seçici veya yönetim listesi; POST /drivers: şoför
+ * ekler. `target: "vehicle"` — şoför/sahip oturumu kendi
  * aracını, ekip `X-Target-Vehicle` ile hedef aracı çözer.
  *
  * GET yanıt BİÇİMİ istemci parametresiyle DEĞİL, `driver.manage` izniyle

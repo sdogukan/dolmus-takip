@@ -49,7 +49,7 @@
  * ## Yaptığı iş
  *
  * `../../scripts/db-init.ts` (migration) + `../../scripts/db-seed-dev.ts`
- * (`seedDevData` — QA-PLAN.md §2 "Ortak veri seti") ile AYNI, zaten VAR
+ * (`seedDevData` — ortak veri seti) ile AYNI, zaten VAR
  * OLAN mantığı çağırır; hiçbir SQL/seed kuralı BURADA TEKRARLANMAZ
  * (CLAUDE.md "var olan modülleri yeniden yazma; genişlet"). Tek fark:
  * `DOLMUS_DB_PATH` (bu betiği çalıştıran `webServer.command`'ın `env`'i
@@ -107,8 +107,8 @@ async function main(): Promise<void> {
     // `scripts/db-init.ts` ile AYNI migration çağrısı.
     migrate(createDb(sqlite), { migrationsFolder });
 
-    // `scripts/db-seed-dev.ts` `seedDevData` ile AYNI seed — QA-PLAN.md §2
-    // "Ortak veri seti" (İşletme A/B, araçlar, iki rol credential'ı, ekip
+    // `scripts/db-seed-dev.ts` `seedDevData` ile AYNI seed — ortak veri seti
+    // (İşletme A/B, araçlar, iki rol credential'ı, ekip
     // hesapları). `runSeed()` (CLI sarmalayıcısı) DEĞİL doğrudan
     // `seedDevData(sqlite)` çağrılır: `runSeed` kendi `openDatabaseConnection`
     // çağrısını yapar (bağlantıyı BURADA zaten açtık, ikinci bir bağlantıya

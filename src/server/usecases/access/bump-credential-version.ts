@@ -7,14 +7,14 @@
  * ... ilgili revoke ile aynı BEGIN IMMEDIATE transaction'ında."
  *
  * Gerçek parola sıfırlama akışı (yeni hash üretimi, admin_audit) S2.3'te
- * gelecektir; bu kullanım durumu yalnız STORIES.md S1.4 AC4'ün gerektirdiği
+ * gelecektir; bu kullanım durumu yalnız S1.4 AC4'ün gerektirdiği
  * "credential_version artışı + oturum iptali ATOMİK" çekirdeğidir — S2.3
  * gerçek parola alanını EKLEYECEK, bu transaction'ı YENİDEN YAZMAYACAKTIR
  * (bkz. `../../data/db.ts` `AppDatabase` notu — M2 admin_audit yazması aynı
  * transaction'a eklenecek).
  *
  * `vehicle_credentials` tablosunda `id` her (araç, rol) çiftine ÖZGÜDÜR
- * (§3.2 — "Araç/rol UNIQUE"). Bu yüzden yalnız BU credential_id'ye bağlı
+ * ("Araç/rol UNIQUE"). Bu yüzden yalnız BU credential_id'ye bağlı
  * oturumlar (`revokeSessionsForCredentialSync`) iptal edilir; aynı araçtaki
  * DİĞER rolün credential'ı ve oturumları dokunulmadan kalır (S1.4 AC4).
  *

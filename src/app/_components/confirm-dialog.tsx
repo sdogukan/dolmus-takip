@@ -1,12 +1,11 @@
 "use client";
 
 /**
- * Kısa erişilebilir onay penceresi — DESIGN.md §3 "Pencere" kuralı:
- * "Kayıt ve para onayı ayrı açılır pencerede tekrarlanmaz. Yalnız ...
- * kısa kararlar için erişilebilir iletişim penceresi kullanılabilir; odak
- * kapanınca önceki düğmeye döner." İlk kullanımı T2.1 (S2.1) işletme
- * pasifleştirme onayıdır (DESIGN §2.9 tablosu — "Etkilenen hedef ve erişim
- * sonucu açıkça gösterilir").
+ * Kısa erişilebilir onay penceresi — pencere kuralı: kayıt ve para onayı
+ * ayrı açılır pencerede tekrarlanmaz; yalnız kısa kararlar için
+ * erişilebilir iletişim penceresi kullanılabilir; "odak kapanınca önceki
+ * düğmeye döner". İlk kullanımı T2.1 (S2.1) işletme pasifleştirme onayıdır
+ * (etkilenen hedef ve erişim sonucu açıkça gösterilir).
  *
  * Native `<dialog>` (`showModal`) kullanılır — tarayıcı ZATEN odak
  * tuzağını (Tab pencereden dışarı çıkmaz), Escape'i ve arka plan
@@ -24,8 +23,8 @@ export interface ConfirmDialogProps {
   description: ReactNode;
   confirmLabel: string;
   cancelLabel?: string;
-  /** DESIGN §3 "Düğmeler" — "Kırmızı yalnız pasife alma gibi sonuçlu
-   * işlemlerde." */
+  /** Kırmızı düğme yalnız pasife alma gibi sonuçlu işlemlerde
+   * kullanılır. */
   danger?: boolean;
   isSubmitting?: boolean;
   onConfirm: () => void;

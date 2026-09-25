@@ -1,12 +1,12 @@
 /**
  * Argon2 doğrulama kuyruğu — T1.2 ADIM 1/2, S1.2.
  *
- * Kaynak — ARCHITECTURE.md §6 "Hash yükü" satırı (birebir): "Eşzamanlı
- * hash işine ve bekleyen kuyruğa üst sınır; başlangıç 4 çalışan/100
- * bekleyen, en fazla 10 saniye. Aşım 429; sınırsız bellek kuyruğu yok."
+ * Hash yükü kuralı: eşzamanlı hash işine ve bekleyen kuyruğa üst sınır;
+ * başlangıç 4 çalışan/100 bekleyen, en fazla 10 saniye. Aşım 429;
+ * sınırsız bellek kuyruğu yok.
  * Görev tanımı (3, birebir): "en fazla 4 eşzamanlı doğrulama, en fazla
  * 100 bekleyen, bekleme üst sınırı 10 sn; aşım 429 HASH_QUEUE_FULL
- * (mesaj: sistem yoğun, tekrar dene); DECISIONS F10: her giriş denemesi
+ * (mesaj: sistem yoğun, tekrar dene); F10: her giriş denemesi
  * ≤ 2 hash işlemi sayılır; kuyruk metriği (bekleyen sayısı, en uzun
  * bekleme) loglanabilir."
  *

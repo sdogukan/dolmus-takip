@@ -12,7 +12,7 @@ import { TeamPageHeader } from "../../_components/team-page-header";
 import { AuditHistory } from "./audit-history";
 
 /**
- * /yonetim/islem-gecmisi — salt okunur işlem geçmişi (DESIGN §2.9). Ekip
+ * /yonetim/islem-gecmisi — salt okunur işlem geçmişi. Ekip
  * oturumu dışında erişilemez (araç oturumu → /sahip|/sofor). Opsiyonel
  * `?vehicleId=` / `?businessId=` filtresi DOĞRUDAN API'ye gider (API doğrular);
  * başlıktaki filtre etiketi için hedef burada sunucuda okunur, bilinmeyen

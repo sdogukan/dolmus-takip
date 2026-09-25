@@ -14,37 +14,36 @@
  * handler'lar bunu kullanır" amacına dayanan bir mühendislik kararıdır. Bu
  * karar başka hiçbir yere (ör. "open_issues" diye bir dosya/bölüm yoktur —
  * denetim bulgusu, düzeltme turu 2) AYRICA KAYDEDİLMEMİŞTİR; yalnız bu
- * yorumda belgelenir. docs/DECISIONS.md'de T1.1'inkine benzer bir "T1.4
- * uygulama kararları" bölümü ürün sahibi tarafından istenirse eklenebilir.
+ * yorumda belgelenir.
  *
  * (b) "requireWrite(request) yardımcısı [origin/Sec-Fetch-Site, CSRF token,
  * Content-Type, gövde boyutu] birleştirir; logout dahil tüm yazma uçları
  * kullanır." `requireWrite` önce `requireSession`'ı çağırır (CSRF tokenı
- * `SessionContext.csrfToken`'a bağlı olduğundan — ARCHITECTURE §6 "CSRF" —
- * geçerli bir oturum olmadan karşılaştırılacak bir değer yoktur), sonra
+ * `SessionContext.csrfToken`'a bağlı olduğundan geçerli bir oturum olmadan
+ * karşılaştırılacak bir değer yoktur), sonra
  * sırasıyla origin/Sec-Fetch-Site (403), CSRF header (403), Content-Type
  * (415), gövde boyutu (413) denetler.
  *
- * DAVRANIŞ DEĞİŞİKLİĞİ (açık karar — docs/DECISIONS.md'de AYRICA kayıtlı
- * DEĞİLDİR, bkz. dosya üstündeki ilk not; denetim bulgusu, düzeltme turu 2):
+ * DAVRANIŞ DEĞİŞİKLİĞİ (açık karar — yalnız burada belgelenir, bkz. dosya
+ * üstündeki ilk not; denetim bulgusu, düzeltme turu 2):
  * ADIM 1/2'nin
  * POST /auth/logout'u KASITLI olarak "idempotent" tasarlanmıştı (token
  * eksik/geçersiz/süresi dolmuş olsa da 200) ve bu, o dosyanın kendi üst
- * notunda "STORIES.md S1.4'te açıkça yazılmamış bir tasarım kararı" olarak
+ * notunda "S1.4'te açıkça yazılmamış bir tasarım kararı" olarak
  * işaretlenmişti. Bu ADIM'ın "logout dahil tüm yazma uçları [requireWrite]
  * kullanır" talimatı MUTLAK ise (özel durum/istisna TANIMLANMADAN), logout
  * artık DİĞER her yazma ucu gibi ÖNCE geçerli bir oturum ister — token
- * eksik/geçersiz/süresi dolmuşsa 401 döner (200 DEĞİL). STORIES.md S1.4'ün
- * 7 kabul kriterinden HİÇBİRİ "logout'un tokensız da 200 dönmesini"
- * ZORUNLU KILMAZ; bu yüzden bu, dokümanla ÇELİŞEN değil, ADIM 1/2'nin
+ * eksik/geçersiz/süresi dolmuşsa 401 döner (200 DEĞİL). S1.4'ün 7 kabul
+ * kriterinden HİÇBİRİ "logout'un tokensız da 200 dönmesini" ZORUNLU
+ * KILMAZ; bu yüzden bu, kabul kriterleriyle ÇELİŞEN değil, ADIM 1/2'nin
  * kendi kendine koyduğu (ve kendi içinde "açık nokta" işaretlediği) bir
  * tasarım tercihinin bu ADIM'ın merkezi-denetim gereğiyle DEĞİŞTİRİLMESİDİR.
  *
  * DÜZELTME TURU 1 (denetim bulguları — kanıt için ayrıntılar ilgili
  * fonksiyonların üst notlarında):
  * - "aynı kaynak" artık `request.url`'den DEĞİL, açıkça yapılandırılmış
- *   `APP_ORIGIN`'den (bkz. `./app-origin.ts`) hesaplanır — ARCHITECTURE §2
- *   üretim topolojisinde (Next yalnız 127.0.0.1:3000, Caddy arkasında)
+ *   `APP_ORIGIN`'den (bkz. `./app-origin.ts`) hesaplanır — üretim
+ *   topolojisinde (Next yalnız 127.0.0.1:3000, Caddy arkasında)
  *   `request.url` istemcinin gerçek Origin'ini ASLA yansıtmaz; bu, gerçek
  *   `next@16.3.5` next-server.js/build-utils.js kaynağıyla ve gerçek
  *   `next build` + standalone + gerçek HTTP isteğiyle doğrulandı.
@@ -73,7 +72,7 @@ import { systemClock, type Clock } from "./session";
 
 /** `requireSession`/`requireWrite` başarısız olduğunda döndürülecek hazır
  * `Response` — route handler bunu OLDUĞU GİBİ döner (kendi hata gövdesini
- * ÜRETMEZ; ARCHITECTURE §4 hata sözleşmesi TEK yerde uygulanır). */
+ * ÜRETMEZ; API hata sözleşmesi TEK yerde uygulanır). */
 export interface GuardFailure {
   ok: false;
   response: Response;
@@ -116,10 +115,10 @@ export type RequireSessionResult = RequireSessionSuccess | GuardFailure;
  * `../data/db.ts` `extractTransientSqliteLockError`'ın çıkardığı canlı
  * `SqliteError` (SQLITE_BUSY/SQLITE_LOCKED) için de çağrılır — ikisi de
  * aynı "sunucu şu an hazır değil, az sonra tekrar dene" 503 zarfını
- * hak eder (ARCHITECTURE §3.6/§4).
+ * hak eder.
  */
 function dbUnavailableFailure(requestId: string, error: Error): GuardFailure {
-  // ARCHITECTURE §4 — "geçici DB kilidi/hazır olmama 503". Ayrıntı (dosya
+  // Geçici DB kilidi/hazır olmama → 503. Ayrıntı (dosya
   // yolu/migration sayısı/SQL hata mesajı vb.) istemciye DÖNMEZ; yalnız
   // sunucu tarafında loglanır (bkz. ADIM 1/2'nin aynı davranışı, artık
   // burada tek yerde).
@@ -186,7 +185,7 @@ export async function requireSession(
     // last_seen_at UPDATE'i sırasında, ör. eşzamanlı bir BEGIN IMMEDIATE
     // kilidi busy_timeout'u [2000 ms] aşarsa) daha önce hiçbir sınıfa
     // uymadığından burada `throw error` ile dışarı SIZIYOR ve Next'in genel
-    // 500'üne düşüyordu — ARCHITECTURE §3.6/§4'ün istediği 503 zarfı YOKTU.
+    // 500'üne düşüyordu — geçici kilidin gerektirdiği 503 zarfı YOKTU.
     // Kanıt ve ayrıntı için `../data/db.ts` `extractTransientSqliteLockError`
     // üst notuna bakın.
     const lockError = extractTransientSqliteLockError(error);
@@ -203,9 +202,8 @@ export async function requireSession(
 
 /**
  * "gövde boyutu sınırı (örn. 64 KB → 413)" — görev tanımının verdiği örnek
- * değer. ARCHITECTURE bu sayıyı kendisi vermez (Caddy'nin kendi istek
- * boyutu sınırı §2'de anılır ama sayısı burada değildir); bu, uygulama
- * katmanının EK bir savunma-derinliği sınırıdır. Bu sayı docs/DECISIONS.md'de
+ * değer. Caddy'nin kendi istek boyutu sınırından ayrı olarak bu, uygulama
+ * katmanının EK bir savunma-derinliği sınırıdır. Bu sayı başka bir yerde
  * AYRICA kayıtlı DEĞİLDİR (denetim bulgusu, düzeltme turu 2) — yalnız bu
  * yorumda gerekçelendirilmiştir.
  */
@@ -217,15 +215,15 @@ export const MAX_WRITE_BODY_BYTES = 64 * 1024;
  * EN AZ birini her zaman gönderir (Fetch standardı — bkz. MDN "Origin
  * header" ve "Sec-Fetch-Site header"); `Sec-Fetch-Site` VARSA öncelikli
  * kabul edilir (tarayıcının KENDİSİNİN ürettiği, sahteciliği DAHA ZOR bir
- * sinyaldir — ARCHITECTURE §6 "SameSite tek başına kontrol değildir" aynı
+ * sinyaldir — SameSite'ın tek başına kontrol sayılmaması da aynı
  * savunma-derinliği ilkesine dayanır). İkisi de YOKSA reddedilir (güvenli
  * varsayım).
  *
  * DÜZELTME (denetim bulgusu, düzeltme turu 1): Origin-header yedek yolu
  * `trustedOrigin` (bkz. `./app-origin.ts`) ile karşılaştırır — İSTEĞİN
  * KENDİ `request.url`'İYLE DEĞİL. Önceki sürüm `new URL(request.url).origin`
- * kullanıyordu; ARCHITECTURE §2 üretim topolojisinde ("Next.js ... Yalnız
- * 127.0.0.1:3000") Next'in KENDİSİ Route Handler'a verdiği `request.url`'i
+ * kullanıyordu; üretim topolojisinde (Next.js yalnız 127.0.0.1:3000'i
+ * dinler) Next'in KENDİSİ Route Handler'a verdiği `request.url`'i
  * istemcinin gerçek Host/Origin'inden değil sunucunun kendi dinleme
  * adresinden üretir (`./app-origin.ts` üst notundaki next-server.js/
  * build/utils.js kanıtına bakın) — bu yüzden `request.url` GÜVENİLMEZ bir

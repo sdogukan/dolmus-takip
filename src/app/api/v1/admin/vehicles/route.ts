@@ -1,12 +1,12 @@
 /**
  * GET/POST /api/v1/admin/vehicles — T2.2.
  *
- * ARCHITECTURE §4 — "GET / POST / PATCH | /admin/vehicles;
- * /admin/vehicles/:id | Araç yönetimi | Staff." Yalnız ekip (support/
- * admin) `vehicle.manage` iznine sahiptir; `target: "none"` kullanılır —
- * bu koleksiyon ucu HENÜZ VAR OLAN bir araç HEDEFİNE bağlı DEĞİLDİR (POST
- * YENİ bir araç YARATIR, hedef İŞLETME gövdedeki `businessRef` ile gelir
- * — `../businesses/route.ts`'in POST'unun "hedef henüz yok" deseniyle AYNI
+ * GET / POST / PATCH /admin/vehicles ve /admin/vehicles/:id — araç
+ * yönetimi. Yalnız ekip (support/admin) `vehicle.manage` iznine sahiptir;
+ * `target: "none"` kullanılır — bu koleksiyon ucu HENÜZ VAR OLAN bir araç
+ * HEDEFİNE bağlı DEĞİLDİR (POST YENİ bir araç YARATIR, hedef İŞLETME
+ * gövdedeki `businessRef` ile gelir — `../businesses/route.ts`'in
+ * POST'unun "hedef henüz yok" deseniyle AYNI
  * gerekçe, bkz. `../../../../../server/usecases/admin-vehicles/
  * create-vehicle.ts` üst notu).
  */

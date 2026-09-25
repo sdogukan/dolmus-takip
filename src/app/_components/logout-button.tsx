@@ -10,8 +10,8 @@
  * → `../../server/auth/page-session.ts` `readPageSession()` sonucundaki
  * `context.csrfToken`) PROP olarak gelir — bu bir SIR değildir (aynı
  * değer zaten `GET /api/v1/session`in yanıtında istemciye VERİLİR, bkz.
- * `../../server/auth/guard.ts` `requireWrite` üst notu ve DECISIONS.md
- * T1.4 kararı: yalnız oturum sırrının KENDİSİ [ham token] hiçbir yanıta/
+ * `../../server/auth/guard.ts` `requireWrite` üst notu ve T1.4 kararı:
+ * yalnız oturum sırrının KENDİSİ [ham token] hiçbir yanıta/
  * loga YAZILMAZ; CSRF tokenı bilerek istemcinin OKUYABİLECEĞİ bir
  * anti-CSRF nonce'tur).
  *

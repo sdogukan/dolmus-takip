@@ -2,13 +2,13 @@
  * Araç credential parolası — Argon2id hashleme/doğrulama + sahip/şoför
  * "aynı olamaz" kuralı — T2.2, T2.3'ün de PAYLAŞACAĞI tek kaynak.
  *
- * ARCHITECTURE.md §6 — "node-argon2 ile Argon2id; başlangıç 19 MiB, t=2,
- * p=1" (`scripts/db-seed-dev.ts`/`scripts/platform-admin.ts` `ARGON2ID_
- * OPTIONS` ile BİREBİR AYNI parametreler — DECISIONS.md K9). ARCH §3.4 —
- * hash işlemi HİÇBİR ZAMAN bir yazma transaction'ı İÇİNDE çalışmaz; bu
- * yüzden her iki fonksiyon da `../auth/hash-queue.ts` `runInHashQueue`
- * ÜZERİNDEN çalışır (429 `HashQueueFullError` ihtimali burada doğar,
- * çağıran bunu HTTP 429 HASH_QUEUE_FULL'e çevirir) ve çağıranın onları
+ * node-argon2 ile Argon2id; başlangıç 19 MiB, t=2, p=1
+ * (`scripts/db-seed-dev.ts`/`scripts/platform-admin.ts` `ARGON2ID_
+ * OPTIONS` ile BİREBİR AYNI parametreler — K9). Hash işlemi HİÇBİR ZAMAN
+ * bir yazma transaction'ı İÇİNDE çalışmaz; bu yüzden her iki fonksiyon
+ * da `../auth/hash-queue.ts` `runInHashQueue` ÜZERİNDEN çalışır (429
+ * `HashQueueFullError` ihtimali burada doğar, çağıran bunu HTTP 429
+ * HASH_QUEUE_FULL'e çevirir) ve çağıranın onları
  * `withImmediateTransaction(...)` bloğunun DIŞINDA çağırması gerekir
  * (better-sqlite3'ün native transaction sarmalayıcısı senkron bir
  * fonksiyon bekler — bkz. `../data/db.ts` `AppDatabase` üst notu).

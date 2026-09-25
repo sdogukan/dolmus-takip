@@ -57,8 +57,8 @@
  *   paketin open_issues'ı) 403 `TARGET_HEADER_NOT_ALLOWED` ile AÇIKÇA
  *   REDDEDİLİR (SESSİZCE yok saymak yerine): yalnız ekip (staff)
  *   oturumları bu header'ı KULLANABİLİR; bir araç oturumundan gelen aynı
- *   header, "başka bir aracı hedeflemeye ÇALIŞMA" sinyalidir ve STORIES
- *   S1.5 AC1/AC2'nin ruhuna (ekrandaki/istemcideki bir alan asla kapsamı
+ *   header, "başka bir aracı hedeflemeye ÇALIŞMA" sinyalidir ve S1.5
+ *   AC1/AC2'nin ruhuna (ekrandaki/istemcideki bir alan asla kapsamı
  *   genişletmez) uygun biçimde açıkça işaretlenir. Ekip (staff) oturumu
  *   `resolveStaffVehicleScopeFromHeader`'ı kullanır (401/403/404/422
  *   üretebilir, bkz. o fonksiyonun kendi üst notu).
@@ -68,7 +68,7 @@
  *   Ekip oturumu `../auth/scope.ts` `resolveAdminScope`'u, `routeParams`
  *   (Next.js dinamik route segmentleri — `{ params }`) İÇİNDEN OKUNAN
  *   `businessId`/`vehicleId` İLE çağırır. **AÇIK NOKTA (bu paketin
- *   open_issues'ı):** ARCHITECTURE §4'te bu `target`i kullanacak İLK
+ *   open_issues'ı):** API endpoint tablosunda bu `target`i kullanacak İLK
  *   gerçek uç (`/admin/businesses/:id`, T2.1) henüz YAZILMADI; bu dal bu
  *   ADIM'da yalnız BİRİM testiyle (sahte `routeParams`, gerçek
  *   `resolveAdminScope` + gerçek SQLite) kanıtlanır — "henüz varmış gibi
@@ -81,7 +81,7 @@
  * `tests/integration/scope-authorization.test.ts`in `readAssignment`/
  * `writeAssignment` handler'ları (düzeltme turu 3 — bkz. `../auth/
  * permissions.ts` "KALDIRILDI" notu: önceki `GET /api/v1/vehicles/current`
- * ucu ARCHITECTURE §4'te karşılığı olmayan, onaysız bir yüzeydi).
+ * ucu API endpoint tablosunda karşılığı olmayan, onaysız bir yüzeydi).
  */
 import type { Actor } from "../auth/scope";
 import { authorize, hasPermission, type Permission } from "../auth/permissions";

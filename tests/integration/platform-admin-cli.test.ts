@@ -18,12 +18,11 @@ import {
 } from "../../scripts/platform-admin";
 
 /**
- * `scripts/platform-admin.ts` entegrasyon testleri — T1.3 ADIM 1/2, S1.3,
- * DECISIONS.md F11.
+ * `scripts/platform-admin.ts` entegrasyon testleri — T1.3 ADIM 1/2, S1.3, F11.
  *
- * QA-PLAN.md §1 — "Finansal/kimlik DB testleri yalnız mock veya :memory:
- * üzerinde kabul edilmez." Her test kendi geçici GERÇEK SQLite dosyasını
- * açar, gerçek migration'ı uygular; idempotency testi gerçek `child_process`
+ * Finansal/kimlik DB testleri yalnız mock veya :memory: üzerinde kabul
+ * edilmez. Her test kendi geçici GERÇEK SQLite dosyasını açar, gerçek
+ * migration'ı uygular; idempotency testi gerçek `child_process`
  * ile script'in KENDİSİNİ (stdout/exit kodu dahil) çalıştırır — hiçbir
  * yerde mock kimlik doğrulama YOKTUR.
  */

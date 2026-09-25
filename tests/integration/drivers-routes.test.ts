@@ -2,7 +2,7 @@
  * GET/POST /api/v1/drivers, PATCH /api/v1/drivers/[personId] ve
  * PUT /api/v1/vehicles/[vehicleId]/drivers/[personId] — T2.4.
  *
- * QA-PLAN §1 — gerçek geçici SQLite dosyası + gerçek migration + seed
+ * Gerçek geçici SQLite dosyası + gerçek migration + seed
  * (mock/`:memory:` YOK). Kapsam: şoför oturumu yalnız seçilebilir listeyi
  * görür (sahipsiz, yalnız aktif kişi + aktif atama) ve yazmada 403 alır;
  * sahip POST tek `people` + tek `vehicle_drivers` + audit + makbuz yazar,

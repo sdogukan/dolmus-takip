@@ -13,7 +13,7 @@ import { createDb, openDatabaseConnection } from "../../src/server/data/db";
 
 /**
  * `scripts/db-backup.ts` — gerçek geçici SQLite dosyası, gerçek migration ve
- * script'in KENDİSİ gerçek alt süreçte (mock/`:memory:` yok; QA-PLAN §1).
+ * script'in KENDİSİ gerçek alt süreçte (mock/`:memory:` yok).
  * Saat `DOLMUS_BACKUP_NOW` ile sabitlenir: 02:55–04:00 Europe/Istanbul
  * penceresi testleri günün saatine bağlı değildir.
  */

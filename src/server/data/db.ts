@@ -2,8 +2,8 @@
  * SQLite bağlantı modülü.
  *
  * ADIM 1/3 (S1.1): bağlantı, güvenli PRAGMA ayarları ve BEGIN IMMEDIATE
- * transaction yardımcısı. ADIM 2/3: gerçek Drizzle şeması (`./schema.ts`,
- * ARCHITECTURE.md §3.2) eklendi; `createDb` artık bu şemayla tipli bir
+ * transaction yardımcısı. ADIM 2/3: gerçek Drizzle şeması (`./schema.ts`)
+ * eklendi; `createDb` artık bu şemayla tipli bir
  * istemci döndürür — migration'lar `scripts/db-init.ts` üzerinden
  * `drizzle-orm/better-sqlite3/migrator` ile uygulanır (bkz. o dosyanın
  * başlığı). Ayrıca `assertMigrationsApplied` eklendi: "Uygulama açılışında
@@ -11,21 +11,19 @@
  * modülü çağıran bir istek/instrumentation yolu yok (T1.2+ ile gelecek),
  * ama fonksiyonun kendisi burada hazır ve gerçek DB'ye karşı test edilir.
  *
- * Kaynaklar:
- * - ARCHITECTURE.md §3.4 — "Yazma transaction'ı için BEGIN IMMEDIATE
- *   davranışı seçilir; Drizzle/better-sqlite3 API karşılığı kilitlenen
- *   sürümde doğrulanır."
- * - ARCHITECTURE.md §3.6 — "Her bağlantıda foreign_keys=ON,
- *   synchronous=FULL; dosyada WAL doğrulanır. Başlangıç busy_timeout
- *   değeri 2000 ms." ve "Sürüm kapısı: Kullanılan better-sqlite3 içindeki
- *   gerçek SQLite sürümü SELECT sqlite_version() ile kayıt altına alınır.
- *   Resmî WAL-reset düzeltmesini içeren 3.51.3 veya daha yeni desteklenen
- *   sürüm seçilir... Yalnız npm paket sürümüne bakmak yeterli değildir."
- * - ARCHITECTURE.md §8.1 — "Uygulama DB dosyası bulunamazsa sessizce boş
- *   DB oluşturarak başlamaz. İlk şema kurulumuna yalnız açık migration/
- *   kurulum komutu izin verir."
- * - DECISIONS.md K9 — better-sqlite3 13.0.3'ün gömülü SQLite'ı 3.53.4
- *   olarak `SELECT sqlite_version()` ile doğrulandı (≥ 3.51.3).
+ * Kurallar:
+ * - Yazma transaction'ı için BEGIN IMMEDIATE davranışı seçilir;
+ *   Drizzle/better-sqlite3 API karşılığı kilitlenen sürümde doğrulanır.
+ * - Her bağlantıda foreign_keys=ON, synchronous=FULL; dosyada WAL
+ *   doğrulanır. Başlangıç busy_timeout değeri 2000 ms.
+ * - Sürüm kapısı: kullanılan better-sqlite3 içindeki gerçek SQLite sürümü
+ *   SELECT sqlite_version() ile kayıt altına alınır. Resmî WAL-reset
+ *   düzeltmesini içeren 3.51.3 veya daha yeni desteklenen sürüm seçilir;
+ *   yalnız npm paket sürümüne bakmak yeterli değildir.
+ * - Uygulama DB dosyası bulunamazsa sessizce boş DB oluşturarak başlamaz.
+ *   İlk şema kurulumuna yalnız açık migration/kurulum komutu izin verir.
+ * - K9 — better-sqlite3 13.0.3'ün gömülü SQLite'ı 3.53.4 olarak
+ *   `SELECT sqlite_version()` ile doğrulandı (≥ 3.51.3).
  *
  * API doğrulaması (varsayım değil, kanıt):
  * - `better-sqlite3` `Database.Options.fileMustExist` ve
@@ -59,7 +57,7 @@ export type SqliteConnection = InstanceType<typeof Database>;
 
 /**
  * Veritabanı dosyası bulunamadığında fırlatılır. Uygulama bu durumda
- * sessizce boş bir DB oluşturmaz (ARCHITECTURE.md §8.1); yalnız açık
+ * sessizce boş bir DB oluşturmaz; yalnız açık
  * `db:init` kurulum komutu (`createIfMissing: true`) dosyayı oluşturabilir.
  */
 export class MissingDatabaseFileError extends Error {
@@ -85,9 +83,9 @@ export interface OpenDatabaseOptions {
 }
 
 /**
- * ARCHITECTURE.md §3.6 "Sürüm kapısı" — better-sqlite3'ün gömülü SQLite'ı
- * bu sürümden eski olamaz (resmî WAL-reset düzeltmesi). DECISIONS.md K9
- * bu eşiği `better-sqlite3@13.0.3` (gömülü SQLite 3.53.4) ile kanıtladı.
+ * Sürüm kapısı — better-sqlite3'ün gömülü SQLite'ı bu sürümden eski
+ * olamaz (resmî WAL-reset düzeltmesi). K9 bu eşiği `better-sqlite3@13.0.3`
+ * (gömülü SQLite 3.53.4) ile kanıtladı.
  */
 export const MINIMUM_SQLITE_VERSION = "3.51.3";
 
@@ -101,7 +99,7 @@ export class UnsupportedSqliteVersionError extends Error {
   constructor(actualVersion: string, minimumVersion: string) {
     super(
       `Desteklenmeyen SQLite sürümü: "${actualVersion}" (gerekli en düşük ` +
-        `sürüm: "${minimumVersion}"). ARCHITECTURE.md §3.6 — WAL-reset ` +
+        `sürüm: "${minimumVersion}"). WAL-reset ` +
         "düzeltmesini içeren sürüm ailesi gereklidir.",
     );
     this.name = "UnsupportedSqliteVersionError";
@@ -141,11 +139,10 @@ export function assertSupportedSqliteVersion(
 }
 
 /**
- * Ham better-sqlite3 bağlantısını açar; ARCHITECTURE.md §3.6'daki
- * PRAGMA'ları uygular ve SQLite sürüm kapısını denetler. `:memory:`
- * desteklenmez: mali/DB testleri gerçek geçici dosya kullanmalıdır
- * (QA-PLAN.md §1 — "Finansal DB testleri yalnız mock veya :memory:
- * üzerinde kabul edilmez").
+ * Ham better-sqlite3 bağlantısını açar; zorunlu PRAGMA'ları uygular ve
+ * SQLite sürüm kapısını denetler. `:memory:` desteklenmez: mali/DB
+ * testleri gerçek geçici dosya kullanmalıdır (finansal DB testleri yalnız
+ * mock veya :memory: üzerinde kabul edilmez).
  */
 export function openDatabaseConnection(
   dbPath: string,
@@ -197,7 +194,7 @@ export function resolveDbPathFromEnv(
 }
 
 /**
- * Şemalı Drizzle istemcisi (`./schema.ts` — ARCHITECTURE.md §3.2 tabloları).
+ * Şemalı Drizzle istemcisi (`./schema.ts` tabloları).
  */
 export function createDb(sqlite: SqliteConnection) {
   return drizzle<Schema>(sqlite, { schema });
@@ -235,7 +232,7 @@ export class PendingMigrationsError extends Error {
   constructor(pendingCount: number) {
     super(
       `${pendingCount} migration henüz uygulanmamış. Uygulama açılışta ` +
-        "migration'ı otomatik ÇALIŞTIRMAZ (ARCHITECTURE.md §8.1). Mevcut " +
+        "migration'ı otomatik ÇALIŞTIRMAZ. Mevcut " +
         "veritabanı için sunucuda `node scripts/db-init.ts --existing` " +
         "çalıştırın.",
     );
@@ -315,7 +312,8 @@ export function assertMigrationsApplied(
 }
 
 /**
- * ARCHITECTURE.md §3.4'teki BEGIN IMMEDIATE davranışını uygulayan yardımcı.
+ * Yazma transaction'ları için seçilen BEGIN IMMEDIATE davranışını
+ * uygulayan yardımcı.
  * Kısa yazma transaction'ları (kayıt + revizyon + makbuz birlikte) bu
  * yardımcı üzerinden çalıştırılmalıdır. Henüz mali kullanım yoktur; bu
  * adımda yalnız mekanizma hazırlanır ve gerçek bir SQLite dosyasına karşı
@@ -423,7 +421,7 @@ function nearestRankPercentile(values: readonly number[], fraction: number): num
  * SQLITE_BUSY/SQLITE_LOCKED, `../auth/guard.ts` `requireSession`'ın
  * catch'inden (yalnız `SessionError | PendingMigrationsError |
  * MissingDatabaseFileError | UnsupportedSqliteVersionError` yakalar)
- * SIZIP genel Next.js 500'üne (ARCHITECTURE §4'ün zarfı OLMADAN)
+ * SIZIP genel Next.js 500'üne (API hata zarfı OLMADAN)
  * düşüyordu. Kanıt: aynı `DOLMUS_DB_PATH` dosyasına ikinci bir
  * better-sqlite3 bağlantısıyla `BEGIN IMMEDIATE` açılıp kilit
  * `busy_timeout`'tan (`applyPragmas` — 2000 ms) UZUN tutulunca, gerçek
@@ -432,9 +430,8 @@ function nearestRankPercentile(values: readonly number[], fraction: number): num
  * ile 500 dönüyordu — bkz. `tests/integration/session-routes.test.ts`
  * "DB kilitli (503, gerçek SQLITE_BUSY)" bloğu.
  *
- * ARCHITECTURE §3.6 — "Kilitte sınırsız döngü yoktur: transaction geri
- * alınır, 503 ... döner" ve §4 — "geçici DB kilidi/hazır olmama 503" bunu
- * AÇIKÇA ister.
+ * Kural: kilitte sınırsız döngü yoktur — transaction geri alınır ve 503
+ * döner; geçici DB kilidi/hazır olmama da 503'tür.
  *
  * Drizzle'ın asenkron `db.select()/db.update()` API'si (resolveSession'ın
  * kullandığı) bu hatayı ÇIPLAK fırlatmaz; `DrizzleQueryError` ile SARAR ve

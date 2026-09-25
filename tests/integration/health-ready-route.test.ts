@@ -9,7 +9,7 @@ import { resetAppDbForTests } from "../../src/server/data/app-db";
 import { createDb, openDatabaseConnection } from "../../src/server/data/db";
 
 /**
- * GET /api/v1/health/ready — gerçek geçici SQLite dosyası (QA-PLAN.md §1).
+ * GET /api/v1/health/ready — gerçek geçici SQLite dosyası.
  * 503 gövdesi yol/SQL/migration ayrıntısı taşımaz; live DB'ye dokunmaz.
  */
 describe("GET /api/v1/health/ready", () => {

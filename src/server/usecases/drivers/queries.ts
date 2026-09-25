@@ -43,7 +43,7 @@ export interface DriverCandidate {
 export interface VehicleDriversManagementView {
   drivers: ManagedDriver[];
   /** Aynı işletmede, bu araca HENÜZ atanmamış aktif kişiler (mükerrer kişi
-   * açmak yerine yeniden kullanım — DESIGN "Şoförlerim — notes"). */
+   * açmak yerine yeniden kullanım). */
   candidates: DriverCandidate[];
 }
 

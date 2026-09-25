@@ -4,19 +4,19 @@
  * İşletme detay/düzenleme/aktiflik formu (istemci bileşeni) — T2.1, S2.1.
  *
  * Üç bağımsız mini-form (ad düzeltme, sahip ataması/adı düzeltme, aktiflik)
- * DESIGN §3 "Düğmeler — her formda tek baskın işlem" ilkesi gereği AYRI
- * tutulur; her biri kendi `requestId`sini (`../../../../lib/client-state.ts`
- * üzerinden, TEK bir taslak nesnesinin alt alanı olarak) taşır — ARCHITECTURE
- * §3.4'ün "aynı form yeniden gönderilirken bu anahtar korunur" / "belirsiz
- * sonuçta içerik/anahtar dondurulur" kuralı HER ÜÇÜ için AYNI şekilde
+ * "her formda tek baskın işlem" düğme ilkesi gereği AYRI tutulur; her biri
+ * kendi `requestId`sini (`../../../../lib/client-state.ts` üzerinden, TEK
+ * bir taslak nesnesinin alt alanı olarak) taşır — "aynı form yeniden
+ * gönderilirken bu anahtar korunur" / "belirsiz sonuçta içerik/anahtar
+ * dondurulur" tekrar gönderim kuralı HER ÜÇÜ için AYNI şekilde
  * uygulanır (bkz. `../yeni/new-business-form.tsx`'in AYNI desenin daha
  * basit tek-form hâli için üst notu — burada üç form olduğundan mantık
  * `patchBusiness` ortak yardımcısında TOPLANIR, tekrar YAZILMAZ).
  *
  * Her BAŞARILI PATCH sunucunun döndürdüğü TAZE `BusinessDetail`'i (yeni
  * `businesses.version`/`people.version` dahil) yerel `detail` durumuna
- * yazar — "Her PATCH businesses.version'ı en az bir kez artırır" (DECISIONS
- * T2.1 notu) bu yüzden BİR mini-formun başarısı DİĞERLERİNİN sonraki
+ * yazar — "Her PATCH businesses.version'ı en az bir kez artırır" (T2.1
+ * notu) bu yüzden BİR mini-formun başarısı DİĞERLERİNİN sonraki
  * gönderiminin sürüm jetonunu da GÜNCEL tutmalıdır; ayrı ayrı senkron
  * mantığı YAZILMAZ, tek `setDetail(fresh)` üçünü de besler.
  *
@@ -186,7 +186,7 @@ function ErrorBanner({ banner }: { banner: Banner }) {
 
 /**
  * `version`/`ownerVersion` YALNIZ sonucu belirsiz (pending) bir istek için
- * taslakta DONDURULUR: ARCHITECTURE §3.4 — "Tekrar kontrol et" aynı
+ * taslakta DONDURULUR: "Tekrar kontrol et" aynı
  * requestId'yi AYNI değer ve sürümle göndermelidir (istek özetine `version`
  * de girer; sayfa yenilenip taze sürüm gelirse sunucu 409 REQUEST_ID_REUSED
  * döner). İstek çözülünce (başarı/kesin red/içerik değişimi) alanlar
@@ -1005,8 +1005,8 @@ function ActiveSection({
     };
     if (target) {
       // Yeniden aktifleştirme sonuçlu bir "kesme" işlemi DEĞİLDİR — onay
-      // penceresi gerekmez (DESIGN §3 "Pencere" yalnız "sonuçlu işlemler"
-      // ister).
+      // penceresi gerekmez (pencere kuralı onayı yalnız sonuçlu işlemler
+      // için ister).
       const sent = { ...body, pending: true, version: detail.business.version };
       onDraftChange(sent);
       setIsFetching(true);

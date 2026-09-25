@@ -4,17 +4,16 @@ import { PrivacyNoticeLink } from "../_components/privacy-notice-link";
 import { LOGIN_HELP_TEXT, VEHICLE_LOGIN_RESULT_MESSAGES } from "../../lib/messages";
 
 /**
- * /giris — araç girişi (DESIGN.md §1 "Giriş gerektirmeyen sayfalar",
- * §2.1). T1.2 ADIM 2/2, S1.2; T1.3 ADIM 2/2 (ortak `LoginForm` bileşenine
- * taşındı — bkz. `../_components/login-form.tsx` üst notu).
+ * /giris — araç girişi (giriş gerektirmeyen sayfa). T1.2 ADIM 2/2, S1.2;
+ * T1.3 ADIM 2/2 (ortak `LoginForm` bileşenine taşındı — bkz.
+ * `../_components/login-form.tsx` üst notu).
  *
  * Bu sayfa KASITLI olarak zaten geçerli bir oturumu olan ziyaretçiyi
- * otomatik yönlendirmez: DESIGN §1'in "Ana adres, oturum yoksa araç
- * girişine; geçerli oturum varsa ilgili ana ekrana yönlenir" cümlesi
- * yalnız kök adrese ('/') aittir (bkz. `../page.tsx`) — /giris için
- * AYRICA bir yönlendirme kuralı YOKTUR. Bu, dokümanla ÇELİŞEN bir eksiklik
- * DEĞİL, kapsamın dışında bırakılan bir UX iyileştirmesidir (bu paketin
- * open_issues'ında not edilmiştir).
+ * otomatik yönlendirmez: "oturum yoksa araç girişine, geçerli oturum varsa
+ * ilgili ana ekrana" yönlendirme kuralı yalnız kök adrese ('/') aittir
+ * (bkz. `../page.tsx`) — /giris için AYRICA bir yönlendirme kuralı YOKTUR.
+ * Bu bir eksiklik DEĞİL, kapsamın dışında bırakılan bir UX
+ * iyileştirmesidir (bu paketin open_issues'ında not edilmiştir).
  */
 export const metadata: Metadata = {
   title: "Giriş — Dolmuş Takip",

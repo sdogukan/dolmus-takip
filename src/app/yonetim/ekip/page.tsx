@@ -7,9 +7,9 @@ import { TeamPageHeader } from "../../_components/team-page-header";
 import { readTeamPageContext } from "./team-page-context";
 
 /**
- * /yonetim/ekip — ekip hesapları listesi (DESIGN "Ekip hesapları ve işlem
- * geçmişi"). Yalnız yönetici: yetki kararı sunucuda, taze oturum rolüyle
- * verilir; destek rolü yalnız yetkisiz metnini görür ve liste HİÇ okunmaz.
+ * /yonetim/ekip — ekip hesapları listesi. Yalnız yönetici: yetki kararı
+ * sunucuda, taze oturum rolüyle verilir; destek rolü yalnız yetkisiz
+ * metnini görür ve liste HİÇ okunmaz.
  */
 export const metadata: Metadata = {
   title: "Ekip hesapları — Dolmuş Takip",

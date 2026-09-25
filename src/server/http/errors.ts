@@ -1,12 +1,11 @@
 /**
  * Ortak HTTP hata/yanıt yardımcısı — T1.4 ADIM 1/2, S1.4.
  *
- * Görev tanımı: "ARCHITECTURE §4 hata sözleşmesi: ... her yanıtta
- * request_id, gövde JSON, gizli veri (token/hash) hiçbir yanıt/log'da
- * yok. Ortak hata yanıtı yardımcısı src/server/http/errors.ts (422/401/
- * 403/404/409/429/503 için tek biçim)." ve ARCHITECTURE.md §4: "Hata
- * yanıtı alan hataları ve request_id içerir; SQL, hash veya yığın izi
- * müşteriye dönmez."
+ * Görev tanımı: "API hata sözleşmesi: ... her yanıtta request_id, gövde
+ * JSON, gizli veri (token/hash) hiçbir yanıt/log'da yok. Ortak hata
+ * yanıtı yardımcısı src/server/http/errors.ts (422/401/403/404/409/429/503
+ * için tek biçim)." Hata yanıtı alan hataları ve request_id içerir; SQL,
+ * hash veya yığın izi müşteriye dönmez.
  *
  * Bu dosya HERHANGİ bir alana özgü (session/work-entry/...) hata sınıfı
  * BİLMEZ — yalnız durum kodu + kod + mesaj + (422 için) alan hatalarından
@@ -45,10 +44,10 @@ export interface HttpErrorBody {
 }
 
 /**
- * Her yanıt (başarı/hata) için bir istek izleme kimliği — OPS.md: "Loglar
- * zaman, request_id, ... taşır." Bu, ARCHITECTURE §3.4'teki MÜŞTERİ
- * ÜRETİMLİ mutasyon `request_id`'siyle (tekrar gönderim/idempotency
- * anahtarı) KARIŞTIRILMAMALIDIR; o ayrı bir kavramdır ve yalnız
+ * Her yanıt (başarı/hata) için bir istek izleme kimliği — loglar zaman,
+ * request_id vb. taşır. Bu, MÜŞTERİ ÜRETİMLİ mutasyon `request_id`'siyle
+ * (tekrar gönderim/idempotency anahtarı) KARIŞTIRILMAMALIDIR; o ayrı bir
+ * kavramdır ve yalnız
  * mutasyon endpoint'lerinin gövdesinde taşınır. Buradaki, HER isteğe
  * (GET dahil) sunucunun kendi ürettiği bir izleme kimliğidir.
  */
@@ -58,8 +57,8 @@ export function generateRequestId(): string {
 
 /**
  * `Cache-Control: private, no-store` — denetim bulgusu (düzeltme turu 1,
- * "medium"): ARCHITECTURE.md §5 "Müşteriye özel API ve sayfa yanıtları
- * private/no-store olur; Caddy bunları ortak cache'e almaz." Bu, TEK
+ * "medium"): müşteriye özel API ve sayfa yanıtları private/no-store olur;
+ * Caddy bunları ortak cache'e almaz. Bu, TEK
  * merkezi yardımcı olduğundan (`jsonErrorResponse`/`jsonSuccessResponse`
  * her ikisi de burayı çağırır), her API yanıtına (GET /session dahil —
  * oturuma özel kapsam/CSRF bilgisi taşır) otomatik uygulanır; paylaşılan
@@ -97,8 +96,8 @@ export function jsonErrorResponse(
 /**
  * Başarı yanıtları da "her yanıtta request_id" kuralına tabidir; bu
  * yardımcı `data`'yı `request_id` ile birlikte düz (nested wrapper
- * OLMADAN) döner — ARCHITECTURE hiçbir yerde başarı gövdesi için bir
- * sarmalayıcı anahtar (ör. "data") tanımlamaz.
+ * OLMADAN) döner — başarı gövdesi için bir sarmalayıcı anahtar (ör.
+ * "data") tanımlanmamıştır.
  */
 export function jsonSuccessResponse<T extends Record<string, unknown>>(
   status: number,

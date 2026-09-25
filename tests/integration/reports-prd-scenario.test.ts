@@ -1,5 +1,5 @@
 /**
- * S5.5 birleşik PRD senaryosu (PRD §4): Ahmet (şoför) 14 Eylül, sahip (Görkem'in karşılığı)
+ * S5.5 birleşik örnek senaryo: Ahmet (şoför) 14 Eylül, sahip (Görkem'in karşılığı)
  * 15 Eylül; her biri 10.000 TL hasılat, 1.500 TL mazot, 300 TL diğer masraf, 08:00–17:30.
  * Ahmet'in payı 2.000 TL (kalan 6.200), sahibin payı 0 (kalan 8.200) → toplam kalan 14.400 TL.
  * Doğrulanmış teslim: onay yokken 0, tam onayda 6.200, 6.000 onayında 6.000; sahip çalışması
@@ -15,7 +15,7 @@ const MONTH = `?period=month&date=${DAY}`;
 const AHMET_DAY = "2026-09-14";
 const OWNER_DAY = "2026-09-15";
 
-describe("birleşik PRD senaryosu", () => {
+describe("birleşik örnek senaryo", () => {
   const h = setupReportHarness("reports-prd");
 
   const json = async (response: Response) => {

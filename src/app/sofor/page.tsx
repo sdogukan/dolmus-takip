@@ -11,14 +11,14 @@ import { VehiclePageHeader } from "../_components/vehicle-page-header";
 import { WorkEntryForm } from "../_components/work-entry-form";
 
 /**
- * /sofor — şoför ana ekranı (DESIGN.md §1/§2.2). T1.2 ADIM 2/2, S1.2;
+ * /sofor — şoför ana ekranı. T1.2 ADIM 2/2, S1.2;
  * T1.3 ADIM 2/2, S1.3, görev tanımı (c) — platform oturumu artık /giris
  * yerine /yonetim'e yönlendirilir.
  *
  * Görev tanımı (2, birebir): "oturum yoksa /giris'e yönlendirir
  * (redirect); rol uyuşmuyorsa rolüne uygun sayfaya yönlendirir (şoför
- * şifresi /sahip'i AÇMAZ)." MILESTONES M1 — "çalışan rapor/günlük kayıt
- * varmış gibi boş yer tutucu ekran sunulmaz". T3.1: günlük kayıt formu
+ * şifresi /sahip'i AÇMAZ)." M1 — çalışan rapor/günlük kayıt varmış gibi
+ * boş yer tutucu ekran sunulmaz. T3.1: günlük kayıt formu
  * (`../_components/work-entry-form.tsx`) burada açılır; kaydı yazar (T3.4).
  */
 export const metadata: Metadata = {
@@ -33,8 +33,8 @@ export default async function SoforPage() {
   const { context } = session;
 
   if (context.kind !== "vehicle") {
-    // Ekip (platform) oturumu — DESIGN §1 "geçerli oturum varsa ilgili
-    // ana ekrana yönlenir" (T1.3 ADIM 2/2, görev tanımı c).
+    // Ekip (platform) oturumu — geçerli oturum varsa ilgili ana ekrana
+    // yönlenir (T1.3 ADIM 2/2, görev tanımı c).
     redirect("/yonetim");
   }
   if (context.role === "owner") {

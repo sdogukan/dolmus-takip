@@ -41,10 +41,10 @@ import {
 /**
  * Oturum kullanım durumları entegrasyon testleri — T1.4 ADIM 1/2, S1.4.
  *
- * QA-PLAN.md §1 — "Finansal DB testleri yalnız mock veya :memory: üzerinde
- * kabul edilmez." Her test kendi geçici gerçek SQLite dosyasını açar,
- * gerçek migration'ı uygular ve `scripts/db-seed-dev.ts`'teki QA-PLAN §2
- * ortak veri setini gerçek Argon2 hash'leriyle tohumlar. Zaman kontrolü
+ * Finansal DB testleri yalnız mock veya :memory: üzerinde kabul edilmez.
+ * Her test kendi geçici gerçek SQLite dosyasını açar, gerçek migration'ı
+ * uygular ve `scripts/db-seed-dev.ts`'teki ortak veri setini gerçek Argon2
+ * hash'leriyle tohumlar. Zaman kontrolü
  * `Clock` enjeksiyonuyla yapılır (görev tanımı — "Saat enjekte edilebilir
  * ve zaman kontrollü testlerle doğrulanır").
  */
@@ -248,8 +248,8 @@ describe("oturum kullanım durumları (T1.4 ADIM 1/2)", () => {
 
     // DÜZELTME TURU 2 (denetim bulgusu, "low"): yukarıdaki test yalnız
     // `limit - 1` (geçerli) ve `limit + 1` (geçersiz) noktalarını sınıyordu;
-    // `now >= expiresAt` (yarı-açık aralık, ARCHITECTURE §3.5'ten
-    // örnekseme — bkz. `../../src/server/auth/session.ts` üst notu) yerine
+    // `now >= expiresAt` (yarı-açık aralık; bkz.
+    // `../../src/server/auth/session.ts` üst notu) yerine
     // biri `>` yazsaydı (tam sınırda hâlâ geçerli sayılsaydı) bu iki nokta
     // TEK BAŞINA bunu YAKALAMAZDI. Bu test TAM sınırın (offset 0) kendisini
     // sınar; dokunuş YOKTUR (last_seen_at = t0) — mutlak kontrol

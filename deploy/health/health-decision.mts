@@ -1,11 +1,10 @@
 /**
- * Sağlık görevinin SAF karar modülü (ARCHITECTURE §8.2). G/Ç yok: tüm girdi
- * `Observation` ve önceki `HealthState`, çıktı `Decision`. Görev her 30 sn'de
+ * Sağlık görevinin SAF karar modülü. G/Ç yok: tüm girdi `Observation` ve
+ * önceki `HealthState`, çıktı `Decision`. Görev her 30 sn'de
  * yeni bir süreç olduğundan sayaçlar ve restart zamanları `HealthState`'te
  * taşınır ve çağıran tarafından kalıcı dosyaya yazılır.
  *
  * HAZIRLANDI, gerçek sunucuda DENENMEDİ (manuel kurulumda denenecek).
- * docs/SERVER-SETUP.md.
  *
  * Bilerek YOK: kurtarma kilidini kaldırma ve systemd start sınırını sıfırlama.
  * `Action` bu iki eylemi taşımaz; bunlar yalnız ekibin elle yaptığı işlerdir.
@@ -181,7 +180,7 @@ export function parseMemAvailablePercent(meminfo: string): number | null {
   return Math.round((Number(avail[1]) / Number(total[1])) * 100);
 }
 
-/** OPS §2 başlangıç eşikleri: %80 uyarı, %90 kritik. */
+/** Başlangıç eşikleri: %80 uyarı, %90 kritik. */
 export function diskLevel(usedPercent: number): "ok" | "warn" | "critical" {
   if (usedPercent >= 90) return "critical";
   if (usedPercent >= 80) return "warn";

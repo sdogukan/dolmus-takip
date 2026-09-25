@@ -1,10 +1,9 @@
 /**
  * Oturum çerezi yardımcıları (T1.4 ADIM 1/2, S1.4; Secure bayrağı T1.2 ek
- * düzeltme ile güncellendi — docs/DECISIONS.md "T1.2 uygulama kararları").
+ * düzeltme ile güncellendi).
  *
- * Kaynak — ARCHITECTURE.md §6 "Oturum" satırı (birebir): "...istemcide
- * HttpOnly/Secure/SameSite=Lax, Path=/, Domain'siz cookie. Token URL/
- * localStorage'a yazılmaz."
+ * Oturum çerezi kuralı: istemcide HttpOnly/Secure/SameSite=Lax, Path=/,
+ * Domain'siz cookie. Token URL'e/localStorage'a yazılmaz.
  *
  * Secure bayrağı: APP_ORIGIN'in şemasından türetilir — `https:` ise Secure
  * eklenir, `http:` ise eklenmez; NODE_ENV'e BAKILMAZ (T1.2 ek düzeltme —

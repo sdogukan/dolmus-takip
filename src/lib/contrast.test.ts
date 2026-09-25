@@ -11,9 +11,7 @@ import {
  * (`vitest.config.mts` "unit" projesi).
  *
  * Renk değerleri `../app/globals.css` `:root` değişkenlerinden BİREBİR
- * alınır (tek kaynak — burada AYRI bir renk listesi İCAT EDİLMEZ); bu
- * değerler DESIGN.md §4 "Framework Config"teki token'larla ve §3 "Renk
- * paleti" tablosuyla birebir aynıdır.
+ * alınır (tek kaynak — burada AYRI bir renk listesi İCAT EDİLMEZ).
  */
 const COLOR_PRIMARY = "#1d4ed8";
 const COLOR_ON_PRIMARY = "#ffffff";
@@ -55,21 +53,21 @@ describe("contrastRatio", () => {
     );
   });
 
-  it("DESIGN §3 — ana düğme (primary/on-primary) yaklaşık 6,70:1", () => {
+  it("renk paleti — ana düğme (primary/on-primary) yaklaşık 6,70:1", () => {
     expect(contrastRatio(COLOR_PRIMARY, COLOR_ON_PRIMARY)).toBeCloseTo(6.7, 1);
   });
 
-  it("DESIGN §3 — ana metin/beyaz yaklaşık 17,85:1", () => {
+  it("renk paleti — ana metin/beyaz yaklaşık 17,85:1", () => {
     expect(contrastRatio(COLOR_TEXT, COLOR_SURFACE)).toBeCloseTo(17.85, 1);
   });
 
-  it("DESIGN §3 — ikincil metin/yüzey en az 4,5:1 (WCAG AA normal metin)", () => {
+  it("renk paleti — ikincil metin/yüzey en az 4,5:1 (WCAG AA normal metin)", () => {
     expect(contrastRatio(COLOR_TEXT_SECONDARY, COLOR_SURFACE)).toBeGreaterThanOrEqual(
       MIN_NORMAL_TEXT_CONTRAST,
     );
   });
 
-  it("DESIGN §3 — durum metni/kendi açık zemini en az 5,91:1", () => {
+  it("renk paleti — durum metni/kendi açık zemini en az 5,91:1", () => {
     expect(contrastRatio(COLOR_SUCCESS, COLOR_SUCCESS_SURFACE)).toBeGreaterThanOrEqual(5.91);
     expect(contrastRatio(COLOR_WARNING, COLOR_WARNING_SURFACE)).toBeGreaterThanOrEqual(5.91);
     expect(contrastRatio(COLOR_ERROR, COLOR_ERROR_SURFACE)).toBeGreaterThanOrEqual(5.91);

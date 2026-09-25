@@ -3,9 +3,9 @@ import { generateRequestId, jsonErrorResponse, jsonSuccessResponse } from "./err
 
 /**
  * Saf birim testleri (DB'ye dokunmaz). Görev tanımı: "422/401/403/404/
- * 409/429/503 için tek biçim" ve ARCHITECTURE §4: "Hata yanıtı alan
- * hataları ve request_id içerir; SQL, hash veya yığın izi müşteriye
- * dönmez." + "her yanıtta request_id, gövde JSON."
+ * 409/429/503 için tek biçim". Hata yanıtı alan hataları ve request_id
+ * içerir; SQL, hash veya yığın izi müşteriye dönmez; her yanıtta
+ * request_id, gövde JSON.
  */
 
 describe("generateRequestId", () => {

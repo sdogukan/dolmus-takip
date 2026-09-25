@@ -18,7 +18,7 @@
  * notu).
  *
  * — "başka kapsamdan aynı request_id → bulunamaz": `mutation_receipts`
- *   birincil anahtarı `(scope_key, request_id)`'dir (§3.2); sorgu HER
+ *   birincil anahtarı `(scope_key, request_id)`'dir; sorgu HER
  *   ZAMAN `scope_key`'i de eşitlik koşuluna katar — başka bir Scope'un
  *   (farklı aktör/işletme/araç) ÜRETTİĞİ `scope_key` bu satırla HİÇ
  *   ESLEŞMEZ, `undefined` döner. `ScopeMissingVehicleIdError`/başka bir
@@ -31,15 +31,15 @@
  * — "aynı request_id, FARKLI operation" (aynı scope_key+request_id
  *   birincil anahtarına sahip bir satır VAR ama `operation` alanı
  *   İSTENEN'den FARKLIYSA): görev tanımı bu durumu AYRI bir dalla
- *   yazmaz; ama ARCHITECTURE §3.4'ün "aynı kapsam/anahtar/İŞLEM/içerik
- *   eski sonucu döndürür; İÇERİK farklıysa 409 verir" cümlesi `operation`ı
- *   da eşleşmesi gereken bir bileşen sayar — bu yüzden bir `request_id`'nin
+ *   yazmaz; ama tekrar gönderim kuralı ("aynı kapsam/anahtar/İŞLEM/içerik
+ *   eski sonucu döndürür; İÇERİK farklıysa 409 verir") `operation`ı da
+ *   eşleşmesi gereken bir bileşen sayar — bu yüzden bir `request_id`'nin
  *   BAŞKA bir işlem türü için TEKRAR kullanılması da AYNI 409
  *   `REQUEST_ID_REUSED` sınıfına girer (hash karşılaştırmasıyla AYNI
  *   MANTIK: "bu anahtar zaten farklı bir içerik/işlem için harcanmış").
- *   Bu, dokümanın BİREBİR yazmadığı ama §3.4'ün kendi terimine dayanan bir
- *   mühendislik yorumudur; docs/DECISIONS.md'de AYRICA kayıtlı DEĞİLDİR —
- *   bu paketin open_issues'ında işaretlenmiştir.
+ *   Bu, kuralın BİREBİR yazmadığı ama kendi terimine dayanan bir
+ *   mühendislik yorumudur; yalnız bu paketin open_issues'ında
+ *   işaretlenmiştir.
  *
  * — "erişimi iptal edilen aktör eski makbuz üzerinden veri okuyamaz":
  *   `../../data/scoped.ts` `recheckScopeInTransaction` AYNI denetimi (oturum

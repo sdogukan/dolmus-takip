@@ -1,18 +1,17 @@
 /**
  * İlk yönetici kurulumu / şifre sıfırlama CLI'sı — `npm run platform-admin`
- * (T1.3 ADIM 1/2, S1.3, DECISIONS.md F11).
+ * (T1.3 ADIM 1/2, S1.3, F11).
  *
- * Kaynak — ARCHITECTURE.md §1.1 (birebir): "Ekibin ilk yönetici hesabı
- * kurulumda, sunucunun yerel yönetim komutuyla oluşturulur; herkese açık
- * yönetici kayıt endpoint'i bulunmaz." ve DECISIONS.md F11: "Yerel CLI:
- * `create-first-admin` (idempotent, S1.3) + `reset-admin-password
+ * Ekibin ilk yönetici hesabı kurulumda, sunucunun yerel yönetim komutuyla
+ * oluşturulur; herkese açık yönetici kayıt endpoint'i bulunmaz. F11 — yerel
+ * CLI: `create-first-admin` (idempotent, S1.3) + `reset-admin-password
  * --username` (yalnız sunucu shell, admin_audit'e yazar, public endpoint
- * yok)."
+ * yok).
  *
  * Bu script yalnız SUNUCU SHELL'İNDEN çalışır — hiçbir HTTP endpoint'i
  * (`src/app/api/**`) bu dosyayı ÇAĞIRMAZ ve bu dosya hiçbir Next.js route
  * handler'ı İÇE AKTARMAZ; tek giriş yolu doğrudan `node
- * scripts/platform-admin.ts <alt-komut> ...` çağrısıdır (STORIES.md S1.3
+ * scripts/platform-admin.ts <alt-komut> ...` çağrısıdır (S1.3
  * AC1 — "herkese açık yönetici kayıt ekranı veya endpoint'i bulunmaz").
  *
  * ## Alt komutlar
@@ -22,7 +21,7 @@
  *   mevcut hesabı ÇOĞALTMAZ ve şifre/yetkisini SESSİZCE DEĞİŞTİRMEZ —
  *   "zaten var" durumunu açıkça bildirir, exit 0 (S1.3 AC1/AC2). Argon2id
  *   hash'i (m=19456 KiB, t=2, p=1 — `scripts/db-seed-dev.ts` ile AYNI
- *   parametreler, ARCHITECTURE §6) BEGIN IMMEDIATE transaction'ı
+ *   parametreler) BEGIN IMMEDIATE transaction'ı
  *   AÇILMADAN ÖNCE üretilir (görev tanımı: "Argon2id hash transaction
  *   Dışında"); yalnız hash + INSERT'ler (platform_users + admin_audit)
  *   TEK bir transaction'da yazılır. admin_audit: action
@@ -49,10 +48,10 @@
  * DB yolu her iki alt komutta da `DOLMUS_DB_PATH`'ten (bkz. `../src/
  * server/data/db.ts` `resolveDbPathFromEnv`) okunur; migration bekliyorsa
  * (`assertMigrationsApplied`) AÇIK hata verip exit 1 (otomatik migration
- * ÇALIŞTIRILMAZ — ARCHITECTURE §8.1 ile AYNI ilke, `scripts/db-init.ts`ye
- * yönlendirir).
+ * ÇALIŞTIRILMAZ — migration'ı yalnız açık kurulum komutu uygular; hata
+ * `scripts/db-init.ts`ye yönlendirir).
  *
- * Gizli değer kuralı (CLAUDE.md, ARCHITECTURE §6): parola/hash/token HİÇBİR
+ * Gizli değer kuralı (CLAUDE.md): parola/hash/token HİÇBİR
  * konsol çıktısına yazılmaz — yalnız durum mesajları ("oluşturuldu",
  * "zaten var", "güncellendi") basılır.
  *
@@ -82,8 +81,8 @@ const projectRoot = path.resolve(__dirname, "..");
 const migrationsFolder = path.join(projectRoot, "drizzle");
 
 /**
- * ARCHITECTURE.md §6 — "node-argon2 ile Argon2id; başlangıç 19 MiB, t=2,
- * p=1" — `scripts/db-seed-dev.ts` `ARGON2ID_OPTIONS` ile BİREBİR AYNI
+ * node-argon2 ile Argon2id; başlangıç parametreleri 19 MiB, t=2, p=1 —
+ * `scripts/db-seed-dev.ts` `ARGON2ID_OPTIONS` ile BİREBİR AYNI
  * (tek kaynak değeri burada TEKRARLANIR; iki script birbirini İÇE
  * AKTARAMAZ — `db-seed-dev.ts`'in `isDirectRun` kapısı yalnız KENDİ
  * doğrudan çalıştırılmasını korur, bir sabit-DIŞA-AKTARMA modülü değildir

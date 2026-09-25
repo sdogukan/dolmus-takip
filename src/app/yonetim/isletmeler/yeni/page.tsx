@@ -11,13 +11,12 @@ import { NewBusinessForm } from "./new-business-form";
 /**
  * /yonetim/isletmeler/yeni — işletme + mal sahibi oluşturma. T2.1, S2.1.
  *
- * DESIGN.md §2.9 tablosu "İşletme / sahip açma" — "İşletme adı, tanımlı
- * sahip veya yeni sahip ad-soyadı; kaydetmeden önce ilişki görünür. Kişisel
- * araç giriş hesabı oluşturma adımı yoktur." İlk sürümde "tanımlı sahip"
- * seçimi YOKTUR (yalnız POST ile yeni işletme YENİ bir sahiple birlikte
- * kurulur — bkz. `../../../../server/usecases/admin-businesses/
- * create-business.ts` üst notu: "sahipsiz işletme" bir PATCH ARA
- * durumudur, POST'un çıktısı değil).
+ * İşletme / sahip açma: işletme adı, tanımlı sahip veya yeni sahip
+ * ad-soyadı; kaydetmeden önce ilişki görünür. Kişisel araç giriş hesabı
+ * oluşturma adımı yoktur. İlk sürümde "tanımlı sahip" seçimi YOKTUR (yalnız
+ * POST ile yeni işletme YENİ bir sahiple birlikte kurulur — bkz.
+ * `../../../../server/usecases/admin-businesses/create-business.ts` üst
+ * notu: "sahipsiz işletme" bir PATCH ARA durumudur, POST'un çıktısı değil).
  *
  * `../page.tsx` (/yonetim) İLE AYNI oturum deseni: platform oturumu yoksa
  * girişe, araç oturumu kendi alanına yönlendirilir (görev tanımı — "Sayfalar

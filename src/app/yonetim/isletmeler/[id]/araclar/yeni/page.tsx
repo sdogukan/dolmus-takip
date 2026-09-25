@@ -16,14 +16,13 @@ import { NewVehicleForm } from "./new-vehicle-form";
 /**
  * /yonetim/isletmeler/[id]/araclar/yeni — araç oluşturma. T2.2, S2.2.
  *
- * DESIGN.md §2.9 tablosu "Araç açma / düzenleme" — "Bağlı işletme/sahip,
- * plaka, marka/model/yıl, hat/durak notu, aktiflik. İlk oluşturma sırasında
- * mal sahibi şifresi ve ortak şoför şifresi ayrı etiketli alanlardır; aynı
- * olamazlar."
+ * Araç açma / düzenleme: bağlı işletme/sahip, plaka, marka/model/yıl,
+ * hat/durak notu, aktiflik. İlk oluşturma sırasında mal sahibi şifresi ve
+ * ortak şoför şifresi ayrı etiketli alanlardır; aynı olamazlar.
  *
  * `getBusinessDetail` (`../../../../../../server/usecases/admin-businesses/
  * queries.ts`) DOĞRUDAN çağrılır — `../../page.tsx` (işletme detayı) İLE
- * AYNI desen (ARCH §2 "kendi HTTP API'sine gereksiz döngü yok"). Bağlı
+ * AYNI desen (kendi HTTP API'sine gereksiz döngü yok). Bağlı
  * işletme/sahip başlığı bu okumadan gelir; POST'un kendisi (`NewVehicleForm`
  * içinde) gerçek `fetch("/api/v1/admin/vehicles")` kullanır (CSRF/idempotency
  * katmanı yalnız route handler üzerinden çalışır).

@@ -15,7 +15,7 @@
  *
  * Bu script BİREBİR o iki kopyayı (Node'un yerleşik `fs.cpSync` ile,
  * harici bir CDN/statik sunum katmanı bu projede henüz OLMADIĞINDAN)
- * yapar. `output: "standalone"` (`../next.config.ts`, DECISIONS.md F4)
+ * yapar. `output: "standalone"` (`../next.config.ts`, F4)
  * `next build`'in ÇIKTISI olan `.next/standalone/server.js`'in bu iki
  * klasör OLMADAN statik dosya/`_next/static` isteklerine 404 döneceği
  * ("next start does not work with output: standalone" uyarısının işaret
@@ -27,7 +27,7 @@
  * kopyalama mantığı İKİ YERDE TEKRARLANMAZ.
  *
  * `public/` bu depoda henüz YOKTUR (proje kökünde `public` klasörü yok) —
- * bu, üretim topolojisinin (ARCHITECTURE §2, Caddy statik varlıkları ayrıca
+ * bu, üretim topolojisinin (Caddy statik varlıkları ayrıca
  * sunmaz) ve bu projenin sistem fontu kullanıp harici görsel/asset
  * eklememesinin bir sonucudur; script bu klasörün YOKLUĞUNU hataya
  * ÇEVİRMEZ (var olması ZORUNLU değildir, resmi belge de "public" klasörünü

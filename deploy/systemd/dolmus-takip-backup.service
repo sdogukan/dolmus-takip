@@ -1,6 +1,6 @@
 # Dolmuş Takip günlük DB kopyası — /etc/systemd/system/dolmus-takip-backup.service
-# HAZIRLANDI, gerçek sunucuda DENENMEDİ (manuel kurulumda denenecek). docs/SERVER-SETUP.md.
-# ARCHITECTURE §8.4: dolmus-takip-backup.timer tetikler (her gün 02:30 Europe/Istanbul);
+# HAZIRLANDI, gerçek sunucuda DENENMEDİ (manuel kurulumda denenecek).
+# dolmus-takip-backup.timer tetikler (her gün 02:30 Europe/Istanbul);
 # kendi başına etkinleştirilmez ([Install] yok). Bakım işaretini oluşturmaz/kaldırmaz.
 [Unit]
 Description=Dolmus Takip gunluk tutarli SQLite kopyasi (scripts/db-backup.ts run)
@@ -9,7 +9,7 @@ StartLimitIntervalSec=0
 
 [Service]
 Type=oneshot
-# DB komutları root olarak çalıştırılmaz (docs/SERVER-SETUP.md §2).
+# DB komutları root olarak çalıştırılmaz.
 User=dolmus-takip
 Group=dolmus-takip
 # db-backup.ts release kimliğini realpath(cwd)'den alır: current sembolik bağı

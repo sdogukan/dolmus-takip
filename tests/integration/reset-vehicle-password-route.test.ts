@@ -1,7 +1,7 @@
 /**
  * POST /api/v1/admin/vehicles/[vehicleId]/reset-password — T2.3.
  *
- * QA-PLAN.md §1 — gerçek geçici SQLite dosyası + gerçek migration + seed
+ * Gerçek geçici SQLite dosyası + gerçek migration + seed
  * (mock/`:memory:` YOK). `argon2.verify` GEÇİŞLİ (passthrough) casus olarak
  * mock'lanır — `../../src/server/usecases/auth/vehicle-login.ts`in üst
  * notundaki AYNI gerekçeyle (`tests/integration/vehicle-login-route.test.ts`):

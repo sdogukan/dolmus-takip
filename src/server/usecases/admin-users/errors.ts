@@ -2,7 +2,7 @@
  * Ekip hesabı yönetimi kullanım durumu hataları — S2.6.
  *
  * `../admin-vehicles/errors.ts` ile AYNI desen (kendi durum kodunu/kodunu
- * taşıyan hata sınıfı; route'un `_http.ts`'i bunu ARCH §4 zarfına çevirir).
+ * taşıyan hata sınıfı; route'un `_http.ts`'i bunu API hata zarfına çevirir).
  */
 import { COMMON_SCREEN_MESSAGES } from "../../../lib/messages";
 

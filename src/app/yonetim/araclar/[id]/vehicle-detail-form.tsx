@@ -4,7 +4,7 @@
  * Araç detay/düzenleme/aktiflik formu (istemci bileşeni) — T2.2, S2.2.
  *
  * `../../isletmeler/[id]/business-detail-form.tsx` İLE AYNI iki desen:
- * ARCHITECTURE §3.4 tekrar gönderim/eşzamanlı düzenleme kuralları (her
+ * tekrar gönderim/eşzamanlı düzenleme kuralları (her
  * mini-form kendi `requestId`sini taşır, belirsiz sonuçta alanlar
  * dondurulur, `version` bir sonraki PATCH'e taşınır) ve her BAŞARILI
  * PATCH'in sunucunun döndürdüğü TAZE `VehicleDetail`'i yerel `detail`

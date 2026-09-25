@@ -8,8 +8,7 @@
  * kararlılığı." `businessId`/`vehicleId`/`role` (actor) zaten T1.4'te
  * test edilmiştir (bkz. `./session-routes.test.ts`); bu dosya YALNIZ bu
  * ADIM'ın EKLEDİĞİ iki alanı (`permissions`, `scopeKey`) gerçek bir route
- * çağrısı üzerinden sınar (QA-PLAN.md §1 — gerçek geçici SQLite + migration
- * + seed).
+ * çağrısı üzerinden sınar (gerçek geçici SQLite + migration + seed).
  */
 import fs from "node:fs";
 import os from "node:os";
@@ -107,7 +106,7 @@ describe("GET /api/v1/session — izinli kapsam özeti + scopeKey (T1.5 ADIM 1/2
       ].sort(),
     );
     // Şoförün ALAMAYACAĞI izinler owner listesinde de OLMAMALI (business/
-    // platform yönetimi) — STORIES S1.5 AC3.
+    // platform yönetimi) — S1.5 AC3.
     expect(body.permissions).not.toContain("platform_user.manage");
     expect(body.permissions).not.toContain("business.manage");
   });

@@ -2,7 +2,7 @@
  * GET /api/v1/admin/vehicles ve /admin/businesses — q/active/cursor/limit
  * arama ve keyset sayfalama.
  *
- * QA-PLAN §1 — gerçek geçici SQLite dosyası + gerçek migration + seed.
+ * Gerçek geçici SQLite dosyası + gerçek migration + seed.
  * Kapsam: plaka farklı boşluk/harf biçimiyle, işletme ve sahip adıyla (Türkçe
  * ö/ı/İ/ş katlaması) arama; active filtresi; nextCursor ile tekrarsız
  * sayfalama; geçersiz parametre 422; araç oturumu 403; mevcut anahtarlar

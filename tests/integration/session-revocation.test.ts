@@ -31,7 +31,7 @@ import { resolveSession } from "../../src/server/usecases/session/resolve-sessio
  * integration/session-revocation.test.ts) doğrudan kullanım durumu/DB ile
  * değişiklik yapıp kanıtlar." Her senaryo `src/server/usecases/access/*`
  * kullanım durumunu GERÇEK bir kullanım durumu çağrısıyla (RAW SQL DEĞİL)
- * tetikler; QA-PLAN.md §1 gereği gerçek geçici SQLite + migration + seed.
+ * tetikler; gerçek geçici SQLite + migration + seed kullanılır.
  */
 
 const projectRoot = path.resolve(

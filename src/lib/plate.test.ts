@@ -32,7 +32,7 @@ describe("normalizePlate", () => {
 });
 
 describe("validatePlate", () => {
-  it("35 abc 123 ile 35ABC123 aynı normalize sonucu üretir (STORIES S1.2)", () => {
+  it("35 abc 123 ile 35ABC123 aynı normalize sonucu üretir (S1.2)", () => {
     const a = validatePlate("35 abc 123");
     const b = validatePlate("35ABC123");
     expect(a.valid).toBe(true);

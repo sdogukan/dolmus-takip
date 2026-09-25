@@ -72,7 +72,7 @@ import { compareVersions, MINIMUM_SQLITE_VERSION } from "../../src/server/data/d
  * yapar (bu, GERÇEK proje deposuna HİÇBİR şekilde dokunmaz — ayrı `.git`,
  * ayrı geçici dizin) ve GERÇEK bir `git clone` bu geçici depodan yapılır.
  * Bu, mevcut entegrasyon testlerinin "gerçek geçici SQLite dosyası"
- * ilkesiyle AYNI desendir (QA-PLAN.md §1) — mock/taklit YOK, yalnız test
+ * ilkesiyle AYNI desendir — mock/taklit YOK, yalnız test
  * fixture'ı GERÇEK bir git deposu ve GERÇEK bir `git clone`dur; kirli ağaç
  * senaryosu da bu klonun KENDİ İÇİNDE bir dosyaya dokunularak üretilir
  * (görev tanımı: "klonda bir dosyaya dokunup").
@@ -313,7 +313,7 @@ describe("release:build / release:verify boru hattı (T6.1, S6.1)", () => {
         /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/,
       );
 
-      // --- ARCHITECTURE.md §3.6 sürüm kapısı: >= 3.51.3, yalnız npm paket
+      // --- SQLite sürüm kapısı: >= 3.51.3, yalnız npm paket
       // numarası DEĞİL, GERÇEK `SELECT sqlite_version()` sonucu ---
       expect(
         compareVersions(manifest.sqlite_version, MINIMUM_SQLITE_VERSION),

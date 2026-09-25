@@ -1,8 +1,8 @@
 /**
  * POST /api/v1/auth/vehicle-login — T1.2 ADIM 1/2, S1.2, görev tanımı (4).
  *
- * ARCHITECTURE.md §4 — "POST | /auth/vehicle-login | Plaka + parola
- * oturumu | Giriş hız sınırı". Görev tanımı (4, birebir): "oturum yok,
+ * POST /auth/vehicle-login — plaka + parola ile oturum açar; giriş hız
+ * sınırına tabidir. Görev tanımı (4, birebir): "oturum yok,
  * bu yüzden requireWrite kullanılamaz — guard.ts'e
  * requireAnonymousWrite(request) [kullan]: Origin/Sec-Fetch-Site
  * (APP_ORIGIN), Content-Type JSON (415), gövde sınırı (413); CSRF token
@@ -16,14 +16,13 @@
  * işi yapar: (1) `requireAnonymousWrite` ile origin/Content-Type/gövde
  * denetimi + DB açılışı, (2) `X-Forwarded-For`'dan IP çözümü
  * (`resolveClientIp`), (3) BAŞARIDA eski oturum çerezinin iptali +
- * yeni `Set-Cookie`, (4) usecase sonucunun ARCHITECTURE §4 hata
+ * yeni `Set-Cookie`, (4) usecase sonucunun API hata
  * sözleşmesine (`../../../../../server/http/errors.ts`) çevrilmesi.
  *
- * Durum kodu: ARCHITECTURE §4 — "Oluşturma 201". Başarılı giriş YENİ bir
- * `sessions` satırı ÜRETİR (bir kaynak "oluşturma"sıdır) — bu yüzden 200
- * DEĞİL 201 kullanılır (dokümanın genel "oluşturma → 201" kuralı; giriş
- * uçları için AYRICA özel bir kod BELİRTİLMEZ, bu bir mühendislik
- * yorumudur — docs/DECISIONS.md'de AYRICA kayıtlı DEĞİLDİR, bu paketin
+ * Durum kodu: 201. Başarılı giriş YENİ bir `sessions` satırı ÜRETİR (bir
+ * kaynak "oluşturma"sıdır) — bu yüzden 200 DEĞİL 201 kullanılır (genel
+ * "oluşturma → 201" kuralı; giriş uçları için AYRICA özel bir kod
+ * belirlenmemiştir, bu bir mühendislik yorumudur — bu paketin
  * open_issues'ında işaretlenmiştir).
  */
 import { eq } from "drizzle-orm";
@@ -103,9 +102,9 @@ export async function revokePriorSessionCookieIfAny(
  * çalışır) ve `revokePriorSessionCookieIfAny(...)`'nin `revokeSession`
  * UPDATE'i — `requireAnonymousWrite`'ın KENDİ içindeki DB-hazır-değil
  * denetiminin KAPSAMI DIŞINDADIR (o denetim yalnız `getAppDb()`'yi
- * kapsar). Canlı bir SQLITE_BUSY/SQLITE_LOCKED (ARCHITECTURE §3.6
- * busy_timeout=2000 ms aşımı) bu iki noktadan biri sırasında oluşursa,
- * yakalanmadan Next'in ARCH §4 zarfı OLMAYAN genel 500'üne düşerdi (bkz.
+ * kapsar). Canlı bir SQLITE_BUSY/SQLITE_LOCKED (busy_timeout=2000 ms
+ * aşımı) bu iki noktadan biri sırasında oluşursa, yakalanmadan Next'in
+ * API hata zarfı OLMAYAN genel 500'üne düşerdi (bkz.
  * `tests/integration/vehicle-login-route.test.ts` "DB kilitli" bloğu —
  * CANLI tekrar üretim `session-routes.test.ts`'teki eşdeğer testlerle
  * AYNI yöntem: ikinci bir better-sqlite3 bağlantısıyla BEGIN IMMEDIATE).

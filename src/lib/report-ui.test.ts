@@ -508,7 +508,7 @@ describe("parseOwnerSummary", () => {
 });
 
 describe("ownerSummaryView", () => {
-  it("etiketli toplamlar PRD örneğiyle; alınan tutar ayrı", () => {
+  it("etiketli toplamlar örnek senaryoyla; alınan tutar ayrı", () => {
     const view = ownerSummaryView(parseOwnerSummary(summaryBody({ confirmedReceivedCents: "0" }))!);
     expect(view.rangeText).toBe("1–30 Eylül 2026");
     expect(view.totals).toEqual([

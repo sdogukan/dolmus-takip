@@ -208,8 +208,8 @@ export function PasswordResetSection({
       setShowPassword(false);
       setSubmitted(null);
       setFieldErrors({});
-      // DESIGN §2.9 / TECH-STACK "Şifre teslimi" — plaka + değişen erişim
-      // adı, kapatılan oturumlar ve elden teslim uyarısı TEK cümlede.
+      // Şifre teslimi — plaka + değişen erişim adı, kapatılan oturumlar ve
+      // elden teslim uyarısı TEK cümlede.
       setSuccessMessage(
         `${plate} · ${roleLabel} değiştirildi. Bu erişimin açık oturumları kapatıldı. Yeni şifreyi müşteriye WhatsApp üzerinden kendin ilet; uygulama otomatik mesaj göndermez.`,
       );

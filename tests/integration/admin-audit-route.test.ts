@@ -1,7 +1,7 @@
 /**
  * GET /api/v1/admin/audit — yönetim işlem geçmişi (salt okunur).
  *
- * QA-PLAN §1 — gerçek geçici SQLite dosyası + gerçek migration + seed.
+ * Gerçek geçici SQLite dosyası + gerçek migration + seed.
  * Kayıtlar gerçek yazma rotalarıyla üretilir (elle INSERT yalnız aynı
  * `occurred_at`'li sayfalama kenar durumu ve `business_id` NULL satırı için).
  * Kapsam: 401/403/404/422, yalnız GET export'u, gerçek aktör (kullanıcı adı /

@@ -13,7 +13,7 @@
  * ## Tekrar gönderim (risk notu — `create-vehicle.ts` ile AYNI desen)
  *
  * `requestHash` YALNIZ `{ access }`i kapsar — `newPassword` KASITLI olarak
- * DIŞLANIR (ARCH §6 — SHA-256 yalnız yüksek entropili oturum tokenları için;
+ * DIŞLANIR (SHA-256 yalnız yüksek entropili oturum tokenları için;
  * kısa bir parolanın SHA-256'sı çevrimdışı kırılabilir). Bilinen bir makbuzla
  * karşılaşınca (transaction'a hiç girmeden, salt-okunur bir ön bakışla)
  * gönderilen `newPassword`, makbuzun `entityId`sindeki (hedef credential)

@@ -5,7 +5,7 @@ import { SEED_TEST_PASSWORDS, SEED_USERNAMES } from "../../scripts/db-seed-dev";
  * Destek (ekip) modunda özet ve raporlar: /yonetim/araclar/:id/ozet ve /raporlar.
  * Gerçek standalone sunucu + seed. Testler KENDİ işletme/aracını açar (paylaşılan
  * seed verisine dokunmaz); kayıtlar aracın sahip oturumuyla yazılır, ekip yalnız okur.
- * PRD örneği: hasılat 20.000, mazot 3.000, diğer masraf 600, şoför payı 2.000,
+ * Örnek senaryo: hasılat 20.000, mazot 3.000, diğer masraf 600, şoför payı 2.000,
  * hesaplanan kalan 14.400, onaylı teslim alınan 6.000 — sahip görünümüyle AYNI.
  */
 
@@ -82,7 +82,7 @@ function istanbulToday(): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Istanbul" }).format(new Date());
 }
 
-/** Yeni araç + PRD örneği: doğrulanmamış şoför kaydı ve sahip kaydı; `confirm` şoför teslimini 6.000 TL olarak onaylar. */
+/** Yeni araç + örnek senaryo: doğrulanmamış şoför kaydı ve sahip kaydı; `confirm` şoför teslimini 6.000 TL olarak onaylar. */
 async function seedPrdVehicle(page: Page, browser: Browser, baseURL: string | undefined, letters: string) {
   const vehicle = await createBusinessWithVehicle(page, letters, "Sevim Sahip");
   const owner = await newVehiclePage(browser, baseURL, vehicle.plate, OWNER_PASSWORD, "/sahip");
@@ -138,7 +138,7 @@ test.describe("Destek modunda özet ve raporlar", () => {
     }
   });
 
-  test("Özet: destek başlığı, PRD toplamları sahip görünümüyle aynı, her istek X-Target-Vehicle taşır, Kaydı aç yönetim sayfasına gider", async ({
+  test("Özet: destek başlığı, örnek senaryo toplamları sahip görünümüyle aynı, her istek X-Target-Vehicle taşır, Kaydı aç yönetim sayfasına gider", async ({
     page,
     browser,
   }, testInfo) => {

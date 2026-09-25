@@ -70,7 +70,7 @@ const FORBIDDEN_NAME_PATTERNS: { pattern: RegExp; reason: string }[] = [
 
 /**
  * Yalnız arşiv/açılmış-arşiv KÖKÜNDEKİ (`relPath === "data"`) bir dizini
- * yasaklar — ARCHITECTURE.md §8.1'deki çalışma zamanı DB dizini
+ * yasaklar — çalışma zamanı DB dizini
  * (`.../data/app.sqlite`, yerelde `./data/dev.sqlite`) budur. `src/server/
  * data/**` (bu depodaki GERÇEK veri ERİŞİM kodu — `db.ts`/`schema.ts`,
  * `release-build.ts` tarafından KASITLI olarak arşive kopyalanır) İÇ İÇE

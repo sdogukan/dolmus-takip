@@ -29,7 +29,7 @@ export { parseJsonBody };
 
 /**
  * `createBusinessWithOwner`/`updateBusiness`'in FIRLATABİLECEĞİ bilinen
- * hata sınıflarını ARCHITECTURE §4 zarfına çevirir. Bilinmeyen bir hata için
+ * hata sınıflarını API hata zarfına çevirir. Bilinmeyen bir hata için
  * `undefined` döner — çağıran bunu YENİDEN fırlatır (programlama hatası,
  * genel 500).
  */

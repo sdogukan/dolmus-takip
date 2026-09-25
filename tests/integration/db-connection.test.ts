@@ -18,9 +18,9 @@ import {
 /**
  * Gerçek geçici SQLite dosyalarıyla çalışan entegrasyon testleri.
  *
- * QA-PLAN.md §1 — "Finansal DB testleri yalnız mock veya :memory: üzerinde
- * kabul edilmez." Bu testler her defasında `os.tmpdir()` altında yeni,
- * benzersiz bir dosya kullanır ve sonunda temizler; taklit/mock DB yoktur.
+ * Finansal DB testleri yalnız mock veya :memory: üzerinde kabul edilmez.
+ * Bu testler her defasında `os.tmpdir()` altında yeni, benzersiz bir dosya
+ * kullanır ve sonunda temizler; taklit/mock DB yoktur.
  *
  * Şema/migration ADIM 2'de geleceğinden, transaction yardımcısını
  * doğrulamak için burada yalnız bu test dosyasına özgü geçici bir tablo
@@ -43,8 +43,7 @@ describe("openDatabaseConnection", () => {
     expect(() => openDatabaseConnection(dbPath)).toThrow(
       MissingDatabaseFileError,
     );
-    // Sessizce boş DB oluşturmadığını dosya sisteminden de doğrula
-    // (ARCHITECTURE.md §8.1).
+    // Sessizce boş DB oluşturmadığını dosya sisteminden de doğrula.
     expect(fs.existsSync(dbPath)).toBe(false);
   });
 
@@ -73,7 +72,7 @@ describe("openDatabaseConnection", () => {
     }
   });
 
-  it("ARCHITECTURE.md §3.6 PRAGMA'larını uygular: foreign_keys, WAL, synchronous=FULL, busy_timeout", () => {
+  it("PRAGMA'ları uygular: foreign_keys, WAL, synchronous=FULL, busy_timeout", () => {
     const sqlite = openDatabaseConnection(dbPath, { createIfMissing: true });
     try {
       expect(sqlite.pragma("foreign_keys", { simple: true })).toBe(1);
@@ -317,8 +316,8 @@ describe("createDb", () => {
  * `../../src/server/data/db.ts` `extractTransientSqliteLockError` üst
  * notu. Uçtan uca (route seviyesinde) tekrar üretim
  * `tests/integration/session-routes.test.ts`'te; burada sınıflandırıcının
- * KENDİSİ, GERÇEK bir kilit dahil, izole olarak sınanır (QA-PLAN.md §1 —
- * mock/`:memory:` yasağı gerçek `better-sqlite3` bağlantısıyla korunur).
+ * KENDİSİ, GERÇEK bir kilit dahil, izole olarak sınanır (mock/`:memory:`
+ * yasağı gerçek `better-sqlite3` bağlantısıyla korunur).
  */
 describe("extractTransientSqliteLockError", () => {
   let dir: string;

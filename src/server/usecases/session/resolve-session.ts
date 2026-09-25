@@ -8,15 +8,15 @@
  * fonksiyon TAM OLARAK bu sırayla denetler; hangi başarısızlığın hangi
  * `SessionErrorCode`'a düştüğü `./errors.ts` üstündeki nota bağlıdır.
  *
- * Aralık kuralı: ARCHITECTURE.md §3.5 dönem sınırları için "[başlangıç,
- * sonraki dönemin başlangıcı)" yarı-açık aralığını kullanır. Oturum süresi
- * bölümü (§6) kendi sınırları için aynı açıklığı BİREBİR vermez; burada
- * aynı yarı-açık kuralı ÖRNEKSEME yoluyla uygulanır: `now >= expiresAt`
- * (mutlak sınır) ve `now - lastSeenAt >= inactivityLimit` (hareketsizlik)
- * ANINDA geçersiz sayılır (sınırın tam ucu dahil değil). Bu, dokümanın
- * birebir yazmadığı bir yorumdur; docs/DECISIONS.md'de AYRICA kayıtlı
- * DEĞİLDİR ("open_issues" diye bir dosya/bölüm YOKTUR — denetim bulgusu,
- * düzeltme turu 2), yalnız bu yorumda belgelenir.
+ * Aralık kuralı: dönem sınırları "[başlangıç, sonraki dönemin
+ * başlangıcı)" yarı-açık aralığını kullanır. Oturum süresi kuralı kendi
+ * sınırları için aynı açıklığı BİREBİR vermez; burada aynı yarı-açık
+ * kuralı ÖRNEKSEME yoluyla uygulanır: `now >= expiresAt` (mutlak sınır) ve
+ * `now - lastSeenAt >= inactivityLimit` (hareketsizlik) ANINDA geçersiz
+ * sayılır (sınırın tam ucu dahil değil). Bu, birebir yazılmış bir kural
+ * değil, bir yorumdur; başka bir yerde AYRICA kayıtlı DEĞİLDİR
+ * ("open_issues" diye bir dosya/bölüm YOKTUR — denetim bulgusu, düzeltme
+ * turu 2), yalnız bu yorumda belgelenir.
  *
  * "last_seen yazımı aralıklı yapılır" — yalnız BAŞARILI bir çözümlemenin
  * sonunda, en son yazımdan `SESSION_LAST_SEEN_WRITE_INTERVAL_MS` (5 dk)
@@ -92,7 +92,7 @@ export async function resolveSession(
     const credential = row.vehicle_credentials;
     const vehicle = row.vehicles;
     const business = row.businesses;
-    // Birleşik FK (§3.1) bu satırların eksik olmasını normalde engeller;
+    // Birleşik FK bu satırların eksik olmasını normalde engeller;
     // bu yalnız savunma amaçlı bir bütünlük denetimidir.
     if (!credential || !vehicle || !business) {
       throw new SessionRevokedError();

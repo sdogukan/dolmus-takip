@@ -20,9 +20,8 @@ import {
 } from "../../deploy/health/health-decision.mts";
 
 /**
- * Sağlık görevinin saf karar modülü (ARCHITECTURE §8.2). Gerçek systemd/HTTP
- * yok; yalnız karar tablosu. Gerçek davranış SERVER-SETUP §5 satır 10–16'da
- * elle kurulumda doğrulanır.
+ * Sağlık görevinin saf karar modülü. Gerçek systemd/HTTP yok; yalnız karar
+ * tablosu. Gerçek davranış elle kurulumda doğrulanır.
  */
 
 const START = 1_000_000_000_000;

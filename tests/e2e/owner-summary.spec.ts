@@ -92,7 +92,7 @@ test.describe("Sahip özeti (/sahip)", () => {
     await driver.waitForURL("**/sofor");
   });
 
-  test("PRD örneği: toplamlar, bekleyen liste (sahip kaydı yok), onay sonrası yenileme", async ({ page }) => {
+  test("Örnek senaryo: toplamlar, bekleyen liste (sahip kaydı yok), onay sonrası yenileme", async ({ page }) => {
     const { today, range } = currentMonth();
     await login(page, PLATE, SEED_TEST_PASSWORDS.owner, "/sahip");
 

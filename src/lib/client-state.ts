@@ -3,12 +3,11 @@
  * T1.4 ADIM 2/2, S1.4, görev tanımı (c); düzeltme turu 1 ile `scopeKey`
  * tabanlı tek anahtara geçirildi.
  *
- * Kaynak — DECISIONS.md F6: "Taslak + request_id **localStorage**'da;
- * anahtar = credential/platform_user kimliği + araç; TTL 24 saat; çıkış/
- * oturum değişiminde temizlenir." ve DECISIONS.md T1.4 notu (satır 89):
- * "GET /session istemciye sessionId/credentialId/platformUserId VERMEZ.
- * client-state (F6) anahtarı için T1.5'te yanıta gizli olmayan opak
- * `scopeKey` eklenir."
+ * Kaynak — F6 kararı: taslak + request_id **localStorage**'da; anahtar =
+ * credential/platform_user kimliği + araç; TTL 24 saat; çıkış/oturum
+ * değişiminde temizlenir. T1.4 kararı: GET /session istemciye
+ * sessionId/credentialId/platformUserId VERMEZ; client-state (F6) anahtarı
+ * için T1.5'te yanıta gizli olmayan opak `scopeKey` eklenir.
  *
  * DB/ağ YOK — bu SAF bir tarayıcı `Storage` sarmalayıcısıdır. `window`/
  * `localStorage` DOĞRUDAN KULLANILMAZ: `StorageLike` arayüzü enjekte edilir
@@ -19,7 +18,7 @@
  * DÜZELTME (denetim bulgusu, düzeltme turu 1): önceki sürüm F6'nın "anahtar
  * = credential/platform_user kimliği + araç" cümlesini HAM `credentialId`/
  * `platformUserId` alanlarıyla uyguluyordu — ama bu iki alan GET /session
- * yanıtında YOKTUR ve DECISIONS.md T1.4 kararı gereği asla EKLENMEYECEKTİR
+ * yanıtında YOKTUR ve T1.4 kararı gereği asla EKLENMEYECEKTİR
  * (bkz. `../app/api/v1/session/route.ts` üst notu). Gerçek UI kodunun
  * KULLANABİLECEĞİ tek eşdeğer, sunucunun ZATEN aynı kimliklerden ürettiği
  * opak `scopeKey`dir (`../server/auth/scope.ts` `computeScopeKey`:
@@ -49,7 +48,7 @@ export interface ClientStateScope {
   scopeKey: string;
 }
 
-/** DECISIONS.md F6 — "TTL 24 saat." */
+/** F6 — TTL 24 saat. */
 export const CLIENT_STATE_TTL_MS = 24 * 60 * 60 * 1000;
 
 const KEY_PREFIX = "dolmus_takip:client_state:";
@@ -97,8 +96,8 @@ const systemClientStateClock: ClientStateClock = () => new Date();
 /**
  * Bir taslağı/`request_id`'yi kaydeder. `storage.setItem` BAZI ortamlarda
  * (gizli sekme, dolu kota) fırlatabilir — bu yalnız kullanım KOLAYLIĞI
- * verisidir (DESIGN §2.10 — "Telefonun kapanması veya tarayıcı verilerinin
- * silinmesine karşı taslak kurtarma garantisi verilmez"), bu yüzden hata
+ * verisidir (telefonun kapanması veya tarayıcı verilerinin silinmesine
+ * karşı taslak kurtarma garantisi verilmez), bu yüzden hata
  * SESSİZCE yutulur; kaydetme başarısızlığı KULLANICI İŞLEMİNİ engellemez.
  */
 export function saveClientState<T>(
@@ -207,8 +206,8 @@ export function clearClientStateForOtherScopes(
 }
 
 /**
- * "çıkışta tümünü temizleme" (görev tanımı) — S1.4 AC2/DESIGN §2.10
- * "Çıkışta müşteriye ait geçici veriler temizlenir." Çıkışta ARTIK hiçbir
+ * "çıkışta tümünü temizleme" (görev tanımı) — S1.4 AC2: çıkışta müşteriye
+ * ait geçici veriler temizlenir. Çıkışta ARTIK hiçbir
  * kapsam "mevcut" sayılmadığından, bu `clearClientStateForOtherScopes`'u
  * `currentScope: null` ile çağırmakla AYNIDIR (tek kaynak, iki isim).
  */

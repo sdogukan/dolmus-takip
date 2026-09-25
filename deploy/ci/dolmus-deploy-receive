@@ -5,10 +5,10 @@
 # (dolmus-takip-<id>-linux-x64.tar.gz + .manifest.json) tar akışı olarak SSH stdin'ine
 # yazar. `deploy` kullanıcısının authorized_keys satırı bu betiği ZORLA çalıştırır
 # (restrict,command="sudo -n /usr/local/sbin/dolmus-deploy-receive"); anahtar başka hiçbir
-# komut çalıştıramaz. Betik SERVER-SETUP.md §4 adımlarını birebir uygular:
+# komut çalıştıramaz. Betik şu adımları sırayla uygular:
 # hash kontrolü → yeni releases/<id> dizini → release-apply deploy → dış kontrol → cleanup.
 # `mark-verified` BİLEREK çalıştırılmaz: doğrulanmamış yayında cleanup önceki release'i ve yayın
-# öncesi DB kopyasını korur, böylece RELEASE §7 geri dönüşü (--code / --code-and-db) bir sonraki
+# öncesi DB kopyasını korur, böylece geri dönüş (--code / --code-and-db) bir sonraki
 # yayına kadar mümkün kalır. Bir sonraki deploy'u engellemez (trafiği açık yayın "çözülmüş" sayılır).
 # Çıktının son satırları iş akışının okuduğu anahtar=değer satırlarıdır.
 set -euo pipefail
@@ -72,7 +72,7 @@ install -m 0644 -o root -g root "$MANIFEST" "$REL_ROOT/$ID.manifest.json"
 cd "$REL"
 /usr/bin/node scripts/release-apply.ts deploy || fail "release_apply_deploy_exit_$?"
 
-# Dış kontrol: Caddy + sertifika + uygulama uçtan uca (RELEASE §6 kısa doğrulama).
+# Dış kontrol: Caddy + sertifika + uygulama uçtan uca (kısa doğrulama).
 set -a; . /etc/dolmus-takip/domain.env; set +a
 CODE="$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 "https://${DOLMUS_DOMAIN}/giris" || true)"
 [[ "$CODE" == "200" ]] || fail "external_check_$CODE"

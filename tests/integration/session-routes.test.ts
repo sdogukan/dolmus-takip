@@ -30,7 +30,7 @@ import { POST as logout } from "../../src/app/api/v1/auth/logout/route";
  * KURULMAZ — route modülleri doğrudan çağrılır, tıpkı gerçek bir Next
  * sunucusunun onları çağıracağı gibi düz `Request` nesnesiyle.
  *
- * QA-PLAN.md §1 — gerçek geçici SQLite + migration + seed; mock/`:memory:`
+ * Gerçek geçici SQLite + migration + seed; mock/`:memory:`
  * yok. `getAppDb()` (bkz. `../../src/server/data/app-db.ts`) `DOLMUS_
  * DB_PATH` ortam değişkenini okuduğundan, her test kendi geçici dosyasını
  * bu değişkene atar ve `resetAppDbForTests()` ile önbelleği temizler.
@@ -39,7 +39,7 @@ import { POST as logout } from "../../src/app/api/v1/auth/logout/route";
  * `../../src/server/auth/guard.ts` üst notundaki "DAVRANIŞ DEĞİŞİKLİĞİ").
  * Aşağıdaki "geçersiz oturumla da 200 döner" ADIM 1/2 testleri, bu
  * ADIM'da artık 401 bekleyecek şekilde GÜNCELLENDİ (idempotent logout
- * tasarımı, merkezi denetim gereğiyle terk edildi — STORIES.md S1.4'ün
+ * tasarımı, merkezi denetim gereğiyle terk edildi — S1.4'ün
  * hiçbir kabul kriteri o eski davranışı zorunlu kılmıyordu).
  */
 
@@ -196,7 +196,7 @@ describe("GET /api/v1/session ve POST /api/v1/auth/logout (T1.4 ADIM 1/2)", () =
         role: "owner",
         businessId: SEED_IDS.businessA,
         vehicleId: SEED_IDS.vehicleA1,
-        // T1.2, DECISIONS.md T1.5 notunun son cümlesi — "Araç oturumu
+        // T1.2, T1.5 notunun son cümlesi — "Araç oturumu
         // için T1.2'de plate (görüntü biçimi) eklenecek." seed'in
         // vehicleA1 plakası "34 AAA 001" (SEED_RAW_PLATES.vehicleA1).
         plate: "34 AAA 001",
@@ -204,7 +204,7 @@ describe("GET /api/v1/session ve POST /api/v1/auth/logout (T1.4 ADIM 1/2)", () =
       expect(typeof body.csrfToken).toBe("string");
       expect(body.csrfToken.length).toBeGreaterThan(0);
       expect(typeof body.request_id).toBe("string");
-      // DECISIONS.md T1.4 kararı (satır 89) — GET /session sessionId/
+      // T1.4 kararı — GET /session sessionId/
       // credentialId/platformUserId VERMEZ; client-state anahtarı yalnız
       // aşağıdaki `scopeKey`dir (bkz. session-scope-summary.test.ts).
       expect(body).not.toHaveProperty("sessionId");
@@ -225,7 +225,7 @@ describe("GET /api/v1/session ve POST /api/v1/auth/logout (T1.4 ADIM 1/2)", () =
       const body = await response.json();
       expect(body.kind).toBe("platform");
       expect(body.role).toBe("support");
-      // DECISIONS.md T1.4 kararı (satır 89): iki farklı ekip üyesi (ör. iki
+      // T1.4 kararı: iki farklı ekip üyesi (ör. iki
       // "support" hesabı) aynı cihazı paylaşsa bile `platformUserId`
       // yanıtta YOKTUR; ayırt etme ihtiyacı `scopeKey` ile karşılanır (bkz.
       // session-scope-summary.test.ts).
@@ -315,10 +315,10 @@ describe("GET /api/v1/session ve POST /api/v1/auth/logout (T1.4 ADIM 1/2)", () =
    * `resolveSession`'ın SELECT'i/last_seen_at UPDATE'i sırasında canlı bir
    * SQLITE_BUSY/SQLITE_LOCKED, `guard.ts` `requireSession`'ın catch'inden
    * (yalnız `SessionError`/DB-hazır-değil sınıflarını yakalıyordu) SIZIP
-   * Next'in genel 500'üne (ARCHITECTURE §4 zarfı OLMADAN) düşüyordu. Bu
+   * Next'in genel 500'üne (API hata zarfı OLMADAN) düşüyordu. Bu
    * blok denetimin GERÇEK tekrar üretimini birebir sınar: mock/`:memory:`
    * DEĞİL, AYNI dosyaya İKİNCİ bir better-sqlite3 bağlantısıyla açılan
-   * gerçek bir yazma kilidi (QA-PLAN.md §1).
+   * gerçek bir yazma kilidi.
    */
   describe("GET /api/v1/session — DB kilitli (503, gerçek SQLITE_BUSY)", () => {
     beforeEach(setUpSeededDb);
@@ -615,8 +615,8 @@ describe("GET /api/v1/session ve POST /api/v1/auth/logout (T1.4 ADIM 1/2)", () =
 
     // -----------------------------------------------------------------
     // Denetim bulgusu (düzeltme turu 1, "blocker"/"high"/"mimari") — kök
-    // neden: Next'in GERÇEK üretim topolojisinde (ARCHITECTURE §2 — "Next
-    // ... Yalnız 127.0.0.1:3000") Route Handler'a verilen `request.url`,
+    // neden: Next'in GERÇEK üretim topolojisinde (Next yalnız
+    // 127.0.0.1:3000'i dinler) Route Handler'a verilen `request.url`,
     // istemcinin gönderdiği Host/Origin'den DEĞİL, sunucunun kendi dinleme
     // adresinden üretilir (bkz. `../../src/server/auth/app-origin.ts` üst
     // notundaki next-server.js/build-utils.js kaynak kanıtı). Aşağıdaki

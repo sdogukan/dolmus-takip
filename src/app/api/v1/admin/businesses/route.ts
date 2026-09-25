@@ -1,13 +1,13 @@
 /**
  * GET/POST /api/v1/admin/businesses — T2.1.
  *
- * ARCHITECTURE §4 — "GET / POST / PATCH | /admin/businesses;
- * /admin/businesses/:id | İşletme yönetimi | Staff." Yalnız ekip
- * (support/admin) `business.manage` iznine sahiptir (bkz. `../../../../
- * ../server/auth/permissions.ts`); `target: "none"` kullanılır — bu
- * koleksiyon ucu HENÜZ VAR OLAN bir işletme/araç HEDEFİNE bağlı değildir
- * (POST'un kendisi YENİ bir işletme YARATIR, bkz. `../../../../../server/
- * usecases/admin-businesses/create-business.ts`'in üst notu).
+ * GET / POST / PATCH /admin/businesses ve /admin/businesses/:id — işletme
+ * yönetimi. Yalnız ekip (support/admin) `business.manage` iznine sahiptir
+ * (bkz. `../../../../../server/auth/permissions.ts`); `target: "none"`
+ * kullanılır — bu koleksiyon ucu HENÜZ VAR OLAN bir işletme/araç HEDEFİNE
+ * bağlı değildir (POST'un kendisi YENİ bir işletme YARATIR, bkz.
+ * `../../../../../server/usecases/admin-businesses/create-business.ts`'in
+ * üst notu).
  */
 import { z } from "zod";
 import { scopeSafeObject } from "../../../../../server/auth/scope";

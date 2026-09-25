@@ -8,12 +8,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 /**
  * `argon2.verify` GEÇİŞLİ (passthrough) casus — sonucu ASLA DEĞİŞTİRMEZ
  * (gerçek Argon2id hesaplaması HER ÇAĞRIDA GERÇEKTEN çalışır, CLAUDE.md
- * "asla pragmatik kısayol" ve QA-PLAN.md §1 "gerçek SQLite/gerçek
- * migration" ilkesiyle AYNI doğrultuda "mock ile testi geçirme" YASAĞINI
- * ihlal ETMEZ — burada hiçbir sonuç SAHTELENMEZ, yalnız GERÇEK çağrının
- * hangi ARGÜMANLARLA yapıldığı KAYDEDİLİR). Bu, ARCH §6 "Kullanıcı/plaka
- * tahmini"nin "bilinmeyen kimlikte kontrollü dummy hash yolu kullanılır"
- * gerekliliğini CANLI KANITLAMANIN tek yoludur: yanıt gövdesi/durum kodu
+ * "asla pragmatik kısayol" ve "gerçek SQLite/gerçek migration" ilkesiyle
+ * AYNI doğrultuda "mock ile testi geçirme" YASAĞINI ihlal ETMEZ — burada
+ * hiçbir sonuç SAHTELENMEZ, yalnız GERÇEK çağrının hangi ARGÜMANLARLA
+ * yapıldığı KAYDEDİLİR). Bu, kullanıcı/plaka tahminine karşı "bilinmeyen
+ * kimlikte kontrollü dummy hash yolu kullanılır" gerekliliğini CANLI
+ * KANITLAMANIN tek yoludur: yanıt gövdesi/durum kodu
  * TEK BAŞINA (kasıtlı olarak) bilinmeyen plaka ile yanlış şifreyi ayırt
  * ETTİRMEZ; bu yüzden "dummy yol GERÇEKTEN çağrıldı" iddiası ancak
  * `argon2.verify`'nin GERÇEK çağrı argümanlarını gözlemleyerek
@@ -184,7 +184,7 @@ describe("POST /api/v1/auth/vehicle-login (T1.2 ADIM 1/2)", () => {
   });
 
   // -------------------------------------------------------------------
-  // ARCH §6 "Kullanıcı/plaka tahmini" — genel 401, dummy hash yolu.
+  // Kullanıcı/plaka tahmini — genel 401, dummy hash yolu.
   // -------------------------------------------------------------------
 
   it("bilinmeyen plaka ile yanlış şifre 401 INVALID_CREDENTIALS + genel mesaj döner", async () => {
@@ -834,7 +834,7 @@ describe("POST /api/v1/auth/vehicle-login (T1.2 ADIM 1/2)", () => {
   });
 
   // -------------------------------------------------------------------
-  // T1.2 EK DÜZELTME — docs/DECISIONS.md "T1.2 uygulama kararları":
+  // T1.2 EK DÜZELTME — uygulama kararı:
   // Set-Cookie'nin Secure bayrağı APP_ORIGIN'in şemasından türetilir,
   // NODE_ENV'DEN BAĞIMSIZDIR (`../../src/server/auth/cookie.ts`
   // `isSecureCookieOrigin`). Her iki test de NODE_ENV'i AÇIKÇA TERSİNE

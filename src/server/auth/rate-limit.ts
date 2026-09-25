@@ -1,27 +1,26 @@
 /**
  * Araç girişi hız sınırı — T1.2 ADIM 1/2, S1.2.
  *
- * Kaynak — ARCHITECTURE.md §6 "Giriş saldırıları" satırı (birebir):
- * "Başarısız denemeler credential/plaka ve IP bazında süreli sayaç; kalıcı
- * hesap kilidi yok. Başlangıç 20 başarısız plaka/15 dk ve 120 başarısız
- * IP/15 dk; 429/geçici bekleme." Görev tanımı (2, birebir): "başarısız
- * deneme sayacı normalize plaka başına 20 / 15 dk ve IP başına 120 / 15 dk;
- * kayan/süreli pencere; kalıcı kilit YOK; aşımda 429 RATE_LIMITED + Retry-
- * After header'ı ... yalnız başarısız denemeler sayılır; bellek içi (tek
- * süreç, ARCH §2), clock enjekte edilebilir, testte sıfırlanabilir."
+ * Giriş saldırıları kuralı: başarısız denemeler için credential/plaka ve
+ * IP bazında süreli sayaç; kalıcı hesap kilidi yok. Başlangıç 20 başarısız
+ * plaka/15 dk ve 120 başarısız IP/15 dk; 429/geçici bekleme. Görev tanımı
+ * (2, birebir): "başarısız deneme sayacı normalize plaka başına 20 / 15 dk
+ * ve IP başına 120 / 15 dk; kayan/süreli pencere; kalıcı kilit YOK; aşımda
+ * 429 RATE_LIMITED + Retry-After header'ı ... yalnız başarısız denemeler
+ * sayılır; bellek içi (tek süreç), clock enjekte edilebilir, testte
+ * sıfırlanabilir."
  *
  * "Yalnız başarısız denemeler sayılır" — bu modülün ürettiği sayaç
  * yalnız GERÇEK bir kimlik doğrulama denemesinin (owner/driver Argon2
  * doğrulaması, bilinen VEYA dummy-hash yolu — ikisi de `../usecases/
  * auth/vehicle-login.ts`'te "başarısız kimlik doğrulama" sayılır)
  * SONUCUNA göre artırılır. 422 alan doğrulama hatası (biçimsiz plaka,
- * boş şifre) BURAYA HİÇ ULAŞMAZ — bu, dokümanın "Kullanıcı/plaka
- * tahmini"/"Giriş saldırıları" endişesinin KENDİSİNİN bir kimlik
- * doğrulama denemesi (gerçek veya dummy bir Argon2 karşılaştırması)
- * hakkında olduğu, bir istemci girdi HATASI hakkında OLMADIĞI
- * yorumuna dayanır — bu ayrım dokümanın BİREBİR yazmadığı bir
- * mühendislik kararıdır, docs/DECISIONS.md'de AYRICA kayıtlı DEĞİLDİR
- * (bu paketin open_issues'ında işaretlenmiştir).
+ * boş şifre) BURAYA HİÇ ULAŞMAZ — bu, kullanıcı/plaka tahmini ve giriş
+ * saldırıları endişesinin KENDİSİNİN bir kimlik doğrulama denemesi
+ * (gerçek veya dummy bir Argon2 karşılaştırması) hakkında olduğu, bir
+ * istemci girdi HATASI hakkında OLMADIĞI yorumuna dayanır — bu ayrım bir
+ * mühendislik kararıdır, yalnız bu paketin open_issues'ında
+ * işaretlenmiştir.
  *
  * "Kayan/süreli pencere" — her anahtar (plaka veya IP) için son
  * `windowMs` içindeki başarısız deneme ZAMAN DAMGALARININ bir listesi
@@ -30,8 +29,8 @@
  * FARKLIDIR: pencere sınırında ani bir "sıfırlanma" YOKTUR, sayaç her an
  * geriye dönük `windowMs`'lik gerçek pencereyi yansıtır.
  *
- * Bellek içi, TEK süreç (ARCH §2 — "İlk sürümde tek Node uygulama süreci
- * kullanılacak") `Map`'lerdir; Redis/harici depolama YOKTUR (kural: "Yeni
+ * Bellek içi, TEK süreç (ilk sürümde tek Node uygulama süreci
+ * kullanılır) `Map`'lerdir; Redis/harici depolama YOKTUR (kural: "Yeni
  * DB servisi ... EKLENMEZ"). Süreç yeniden başlatıldığında sayaçlar
  * sıfırlanır — bu "kalıcı hesap kilidi yok" ilkesiyle TUTARLIDIR (görev
  * tanımı: "kalıcı kilit YOK").
@@ -45,13 +44,13 @@ export interface RateLimitRule {
 
 const FIFTEEN_MINUTES_MS = 15 * 60 * 1000;
 
-/** ARCHITECTURE §6 — "20 başarısız plaka/15 dk". */
+/** 20 başarısız plaka/15 dk. */
 export const PLATE_LOGIN_RATE_LIMIT: RateLimitRule = {
   limit: 20,
   windowMs: FIFTEEN_MINUTES_MS,
 };
 
-/** ARCHITECTURE §6 — "120 başarısız IP/15 dk". */
+/** 120 başarısız IP/15 dk. */
 export const IP_LOGIN_RATE_LIMIT: RateLimitRule = {
   limit: 120,
   windowMs: FIFTEEN_MINUTES_MS,
@@ -82,7 +81,7 @@ export const UNKNOWN_CLIENT_IP_KEY = "unknown";
  * kombinasyon) kabul ettiğinden, saldırgan HER denemede FARKLI bir plaka
  * göndererek `store.plate`'e KALICI yeni bir giriş EKLEYEBİLİR; hiçbir
  * periyodik süpürme veya boyut sınırı OLMADIĞINDA bu, TEK Node sürecinin
- * (ARCH §2) belleğini SINIRSIZ tüketebilir. ARCH §6 "Hash yükü" satırının
+ * belleğini SINIRSIZ tüketebilir. Hash yükü kuralının
  * `../hash-queue.ts`'e uyguladığı "sınırsız bellek kuyruğu yok" ilkesi bu
  * mağazaya da GENİŞLETİLİR: her anahtar için GERÇEK bir kimlik doğrulama
  * denemesi (Argon2/dummy-hash, `../hash-queue.ts`'in KENDİ 4-eşzamanlı/
@@ -90,7 +89,7 @@ export const UNKNOWN_CLIENT_IP_KEY = "unknown";
  * o kapıyla sınırlıdır, ama üst SINIR yine de tanımsızdır — bu yüzden
  * aşağıdaki `MAX_TRACKED_KEYS_PER_STORE` sabit bir tavan koyar.
  *
- * Değer seçimi (kanıt): PRD.md §1 "en fazla 500 toplam kullanıcı" ve
+ * Değer seçimi (kanıt): "en fazla 500 toplam kullanıcı" hedefini ve
  * önceki "200 araç" tahminini üst sınır alırsak, meşru trafik bir 15 dk
  * penceresinde birkaç yüz DAHİ farklı plaka/IP üretmez; `50_000` bu
  * gerçekçi tavanın ÇOK üzerinde bir pay bırakırken (her giriş küçük bir
@@ -110,8 +109,8 @@ export const UNKNOWN_CLIENT_IP_KEY = "unknown";
  * sayacının erken sıfırlanması riskini TAŞIR — ama bu, TÜM sürecin bellek
  * tükenmesiyle ÇÖKMESİNE karşı KABUL EDİLEBİLİR bir bilinçli ödünleşimdir
  * (hash-queue.ts'nin "aşımda 429" ilkesiyle AYNI aile: sınırsız büyüme
- * yerine sınırlı bozulma). Bu ödünleşim ARCH/DECISIONS'ta AYRICA
- * kayıtlı DEĞİLDİR (bu paketin open_issues'ında işaretlenmiştir).
+ * yerine sınırlı bozulma). Bu ödünleşim yalnız bu paketin
+ * open_issues'ında işaretlenmiştir.
  */
 export const MAX_TRACKED_KEYS_PER_STORE = 50_000;
 
@@ -234,8 +233,8 @@ export interface VehicleLoginRateLimitKeys {
 
 /**
  * T1.3, S1.3, görev tanımı (b) — "hız sınırı rate-limit.ts ile (anahtar
- * 'platform:'+normalize(username) 20/15 dk ve IP 120/15 dk)". ARCHITECTURE
- * §6 "Giriş saldırıları" satırı "credential/plaka ve IP bazında" der —
+ * 'platform:'+normalize(username) 20/15 dk ve IP 120/15 dk)". Giriş
+ * saldırılarına karşı sayaç credential/plaka ve IP bazındadır —
  * `../usecases/auth/platform-login.ts` bu anahtarı KENDİSİ üretir
  * (`` `platform:${normalize(username)}` ``); bu modül yalnız TAŞIR,
  * normalizasyon YAPMAZ.
@@ -302,7 +301,7 @@ function checkCredentialRateLimit(
  * Salt OKUMA denetimi — herhangi bir sayaç ARTIRMAZ. `../usecases/auth/
  * vehicle-login.ts` bunu Argon2 doğrulamasına (gerçek veya dummy-hash
  * yolu) BAŞLAMADAN ÖNCE çağırır; sınırlıysa DB sorgusu/hash kuyruğu HİÇ
- * ÇALIŞTIRILMAZ (ARCHITECTURE §6 "Hash yükü" ile aynı savunma-derinliği
+ * ÇALIŞTIRILMAZ (hash yükü sınırıyla aynı savunma-derinliği
  * ilkesi — hız sınırı, hash kuyruğunun ÖNÜNDEKİ ucuz/bellek-içi ilk
  * kapıdır).
  */
@@ -365,7 +364,7 @@ function recordFailedCredentialAttempt(
 /**
  * Bir BAŞARISIZ kimlik doğrulama denemesinden SONRA çağrılır (bkz. dosya
  * üstü not — "yalnız başarısız denemeler sayılır"). BAŞARILI girişte
- * ASLA çağrılmaz (STORIES/görev tanımı doğrulaması: "başarılı giriş
+ * ASLA çağrılmaz (görev tanımı doğrulaması: "başarılı giriş
  * sayaç artırmaz").
  */
 export function recordFailedVehicleLoginAttempt(
@@ -398,8 +397,8 @@ export function recordFailedPlatformLoginAttempt(
  * bağlantının GERÇEK TCP eş adresini (`net.Socket.remoteAddress`) HİÇ
  * TAŞIMAZ (görev tanımı — "Next route handler'da uzak adres doğrudan
  * yok"); bu yüzden "bu istek GERÇEKTEN güvenilir proxy'den mi geldi?"
- * sorusu, HER İSTEKTE İSTEĞİN KENDİSİNDEN doğrulanamaz. ARCHITECTURE §2
- * üretim topolojisi ("Next.js uygulaması ... Yalnız 127.0.0.1:3000")
+ * sorusu, HER İSTEKTE İSTEĞİN KENDİSİNDEN doğrulanamaz. Üretim
+ * topolojisi (Next.js uygulaması yalnız 127.0.0.1:3000'i dinler)
  * bunun yerine bir DAĞITIM GARANTİSİ sağlar: Next süreci yalnız
  * localhost'ta dinlediğinden, ona ulaşan HER bağlantı zaten (Caddy'nin
  * kendisi hariç) mantıken localhost'tan (Caddy'den) gelmek ZORUNDADIR.
@@ -411,7 +410,7 @@ export function recordFailedPlatformLoginAttempt(
  * gerçek istemci) değerine güvenilir. TANIMLI DEĞİLSE (yerel geliştirme,
  * `.env.example`'da KASITLI OLARAK ayarlanmamıştır — "varsayılan yok"),
  * bu header İSTEMCİ TARAFINDAN SERBESTÇE SAHTELENEBİLECEĞİNDEN
- * (ARCHITECTURE'ın kendisi güvenmediği bir dağıtımda) TRUSTED SAYILMAZ;
+ * (güvenilir proxy'si onaylanmamış bir dağıtımda) TRUSTED SAYILMAZ;
  * `UNKNOWN_CLIENT_IP_KEY` sabit anahtarı kullanılır.
  */
 export function resolveClientIp(

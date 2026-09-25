@@ -19,7 +19,7 @@ import {
  * "34 AAA 001") hem owner hem driver credential'ı taşır (bkz. o
  * dosyanın "Üretilen veri" bölümü).
  *
- * S1.2 kabul kriterleri (STORIES.md) ile eşleme (`ac_coverage`'da tekrar
+ * S1.2 kabul kriterleri ile eşleme (`ac_coverage`'da tekrar
  * özetlenir):
  * - AC1 (doğru rol alanı açılır, plaka görünür) → "sahip girişi", "şoför
  *   girişi", "şoför şifresiyle /sahip'e gidince /sofor'a yönlenir".
@@ -106,7 +106,7 @@ test.describe("Araç girişi (/giris)", () => {
     await page.getByRole("button", { name: "Giriş yap", exact: true }).click();
 
     await page.waitForURL("**/sahip");
-    // DESIGN.md §2.5 üst başlığı — "35 ABC 123 · ...": plaka görüntü
+    // Ekranın üst başlığı — "35 ABC 123 · ...": plaka görüntü
     // biçiminde (boşluklu) görünür.
     await expect(page.getByText(OWNER_PLATE, { exact: false })).toBeVisible();
     // T5.5 — yer tutucu metin yerine sahip özeti açılır.
@@ -145,7 +145,7 @@ test.describe("Araç girişi (/giris)", () => {
     await fillLoginForm(page, OWNER_PLATE, "yanlis-sifre-xyz");
     await page.getByRole("button", { name: "Giriş yap", exact: true }).click();
 
-    // STORIES.md S1.2 AC4 — bilinmeyen plaka/yanlış şifre AYNI genel
+    // S1.2 AC4 — bilinmeyen plaka/yanlış şifre AYNI genel
     // mesajı verir; hata renk DIŞINDA da (role="alert") bildirilir.
     // `.filter({ hasText })` gerekir: Next.js App Router her sayfaya kendi
     // (bu testte boş kalan) `role="alert"` rota anons `<div>`'ini
@@ -218,9 +218,9 @@ test.describe("Araç girişi (/giris)", () => {
       .poll(() => page.evaluate(() => document.scrollingElement?.scrollWidth ?? 0))
       .toBeLessThanOrEqual(320);
 
-    // DESIGN §2.2/§2.5 üst başlığı da aynı ürün genelindeki 320 px kuralına
-    // (DESIGN §3 "Responsive yerleşim") tabidir — sahip/şoför ekranları da
-    // aynı viewport'ta doğrulanır.
+    // Sahip/şoför ekranlarının üst başlığı da ürün genelindeki aynı 320 px
+    // (responsive yerleşim) kuralına tabidir — bu ekranlar da aynı
+    // viewport'ta doğrulanır.
     await fillLoginForm(page, OWNER_PLATE, SEED_TEST_PASSWORDS.owner);
     await page.getByRole("button", { name: "Giriş yap", exact: true }).click();
     await page.waitForURL("**/sahip");

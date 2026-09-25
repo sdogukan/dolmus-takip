@@ -1,7 +1,7 @@
 /**
  * İşletme okuma sorguları (liste + detay) — T2.1.
  *
- * ARCHITECTURE §4 sözleşmesi:
+ * API sözleşmesi:
  * - "GET /admin/businesses: businesses [ { id, name, active, owner veya
  *   null, vehicleCount } ]" — arama/sayfalama `listBusinessesPage` ile
  *   (isteğe bağlı `q`/`active`/`cursor`/`limit`; `nextCursor` ekler).
@@ -132,7 +132,7 @@ export interface BusinessDetail {
     anonymized: boolean;
   } | null;
   /** Yalnız `owner === null` iken dolu — "sahipsizse seçilebilir aynı
-   * işletme kişileri" (ARCH §4). Sahip varsa boş dizi döner. */
+   * işletme kişileri". Sahip varsa boş dizi döner. */
   eligiblePeople: { id: string; fullName: string; active: boolean }[];
   vehicles: { id: string; plateNormalized: string; active: boolean }[];
 }

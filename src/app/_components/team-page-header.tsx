@@ -4,14 +4,10 @@
  * etiketi ('Yönetici' / 'Destek') + Çıkış (mevcut LogoutButton, çıkış
  * sonrası /yonetim/giris)."
  *
- * DESIGN.md §2.9 "Back office" başlığının ilkesi — "Yönetim · Doğukan
- * Çıkış" — GERÇEK ekip kimliğinin (uydurma "yönetici" etiketi/rolü
- * VARSAYILAN gösterim DEĞİL) her zaman görünür olmasıdır; bu bileşen aynı
- * ilkeyi ("{kullanıcı adı} · {rol etiketi}" + Çıkış) uygular. (Görev
- * tanımı DESIGN §2.8'e atıf yapıyor; o bölüm "Şoförlerim" ekranıdır —
- * gerçek ekip-kimliği-başlığı ilkesi §2.9'dadır; bu, dokümanla ÇELİŞEN bir
- * davranış DEĞİL, görev tanımının bölüm numarası yanlış atfıdır — bkz. bu
- * paketin open_issues'ı.)
+ * Back office başlığının ilkesi ("Yönetim · Doğukan  Çıkış") GERÇEK ekip
+ * kimliğinin (uydurma "yönetici" etiketi/rolü VARSAYILAN gösterim DEĞİL)
+ * her zaman görünür olmasıdır; bu bileşen aynı ilkeyi
+ * ("{kullanıcı adı} · {rol etiketi}" + Çıkış) uygular.
  *
  * `../sofor|sahip/page.tsx`'in `./vehicle-page-header.tsx`'inin ekip
  * karşılığıdır — plaka yerine kişisel kimlik + rol gösterir, `LogoutButton`

@@ -13,8 +13,8 @@ import {
 } from "./session";
 
 /**
- * Saf birim testleri (DB'ye dokunmaz) — ARCHITECTURE.md §6 "Oturum" ve
- * "Oturum süresi" satırlarının sayısal/kriptografik karşılıklarını sınar.
+ * Saf birim testleri (DB'ye dokunmaz) — oturum ve oturum süresi
+ * kurallarının sayısal/kriptografik karşılıklarını sınar.
  * Zaman kontrollü DB davranışı (resolveSession'ın gerçek sınır testleri)
  * `tests/integration/session-usecases.test.ts`'tedir.
  */
@@ -86,7 +86,7 @@ describe("systemClock", () => {
   });
 });
 
-describe("süre sabitleri — ARCHITECTURE.md §6 birebir sayısal karşılık", () => {
+describe("süre sabitleri — oturum süresi kuralının birebir sayısal karşılığı", () => {
   it("araç oturumu: 30 gün mutlak, 7 gün hareketsizlik", () => {
     expect(VEHICLE_SESSION_ABSOLUTE_MS).toBe(30 * 24 * 60 * 60 * 1000);
     expect(VEHICLE_SESSION_INACTIVITY_MS).toBe(7 * 24 * 60 * 60 * 1000);

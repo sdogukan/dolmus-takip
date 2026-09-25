@@ -9,11 +9,11 @@ import {
 import { resetTrustedAppOriginForTests } from "./app-origin";
 
 /**
- * Saf birim testleri (DB'ye dokunmaz). T1.2 ek düzeltme —
- * docs/DECISIONS.md "T1.2 uygulama kararları": Secure bayrağı APP_ORIGIN
- * şemasından türetilir (https → true, http → false), NODE_ENV'DEN
- * BAĞIMSIZDIR. `process.env.NODE_ENV`'i her iki uçta da AÇIKÇA TERSİNE
- * ayarlayan testler bunu KANITLAR: hiçbiri sonucu ETKİLEMEZ.
+ * Saf birim testleri (DB'ye dokunmaz). T1.2 ek düzeltme (uygulama
+ * kararı): Secure bayrağı APP_ORIGIN şemasından türetilir (https → true,
+ * http → false), NODE_ENV'DEN BAĞIMSIZDIR. `process.env.NODE_ENV`'i her
+ * iki uçta da AÇIKÇA TERSİNE ayarlayan testler bunu KANITLAR: hiçbiri
+ * sonucu ETKİLEMEZ.
  */
 
 describe("isSecureCookieOrigin", () => {

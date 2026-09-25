@@ -1,9 +1,9 @@
 /**
  * Plaka normalizasyonu ve biçim doğrulaması.
  *
- * Kaynak: ARCHITECTURE.md §1.1 — "Plaka boşluklardan arındırılıp büyük harfe
- * çevrilerek benzersiz tutulur." ve STORIES.md S1.2 kabul kriteri —
- * "35 abc 123" ile "35ABC123" aynı tanımlı araca karşılık gelir.
+ * Kural: plaka boşluklardan arındırılıp büyük harfe çevrilerek benzersiz
+ * tutulur; S1.2 kabul kriteri — "35 abc 123" ile "35ABC123" aynı tanımlı
+ * araca karşılık gelir.
  *
  * Türkçe yerel ayarda küçük harf "i" büyütüldüğünde "İ" (noktalı büyük I)
  * olur ve küçük harf "ı" büyütüldüğünde "I" (noktasız büyük I) olur. Plaka
@@ -69,7 +69,7 @@ export interface PlateValidationResult {
  * Ham plaka girdisini normalize eder ve biçim doğrulaması yapar.
  * Geçersiz veya eksik girdide `valid: false` ve anlaşılır bir `reason`
  * döner; hata mesajının kendisi bu modülde üretilmez (ekran/API katmanı
- * Türkçe metni STORIES/DESIGN'a göre kendi üretir).
+ * Türkçe metni kendi üretir).
  */
 export function validatePlate(rawPlate: string): PlateValidationResult {
   const normalized = normalizePlate(rawPlate);
@@ -87,10 +87,10 @@ export function validatePlate(rawPlate: string): PlateValidationResult {
 
 /**
  * Saklanan (normalize, boşluksuz) plakayı ekranda gösterilecek biçime
- * çevirir — T1.2, STORIES.md S1.2 / görev tanımı: "formatPlateForDisplay:
- * '35 ABC 123'". API her yerde normalize plakayı (boşluksuz) taşır
- * (DECISIONS.md T1.5 notu — "API'de plaka normalize döner; boşluklu
- * gösterim ekranın işidir"); bu fonksiyon yalnız il kodu/harf/rakam
+ * çevirir — T1.2, S1.2 / görev tanımı: "formatPlateForDisplay:
+ * '35 ABC 123'". API her yerde normalize plakayı (boşluksuz) taşır (T1.5
+ * notu: API'de plaka normalize döner; boşluklu gösterim ekranın işidir);
+ * bu fonksiyon yalnız il kodu/harf/rakam
  * gruplarının arasına TEK boşluk ekler, başka bir dönüşüm yapmaz.
  *
  * Girdinin `PLATE_PATTERN`'e uymadığı (ör. DB'de hiç var olmaması gereken

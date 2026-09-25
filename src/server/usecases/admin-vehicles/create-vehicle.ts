@@ -1,7 +1,7 @@
 /**
  * createVehicle — T2.2, `POST /api/v1/admin/vehicles`.
  *
- * ARCHITECTURE §3.4 (tek transaction, tekrar gönderim) — araç, İKİ
+ * Tek transaction ve tekrar gönderim kuralı — araç, İKİ
  * vehicle_credentials satırı (owner, driver), admin_audit ve
  * mutation_receipts TEK BEGIN IMMEDIATE transaction içinde yazılır (risk
  * notu — "vehicles satırı ve her iki vehicle_credentials satırı receipt
@@ -9,7 +9,7 @@
  * kilit, FK) hepsini geri alır — iki credential'dan AZ credential'ı olan
  * bir araç asla VAR OLMAZ").
  *
- * ARCH §3.4 "no password hash inside the write tx" — Argon2 hashleme
+ * Yazma transaction'ı içinde parola hash'i yapılmaz — Argon2 hashleme
  * `../../auth/vehicle-password.ts` `hashVehiclePassword` ile HER ZAMAN
  * transaction'ın DIŞINDA (bu fonksiyonun ilk yarısında) çalışır.
  *
@@ -18,9 +18,9 @@
  * `requestHash` (bkz. `../admin-businesses/request-hash.ts`
  * `hashRequestPayload`) YALNIZ GİZLİ OLMAYAN alanları kapsar
  * (`businessRef`/`plate`/`brandModel`/`year`/`routeStop`/`note`) —
- * `ownerPassword`/`driverPassword` KASITLI olarak DIŞLANIR (ARCH §6 —
- * SHA-256 yalnız yüksek entropili oturum tokenları için; kısa bir
- * parolanın SHA-256'sı çevrimdışı kırılabilir). Bu, aynı `requestId` ile
+ * `ownerPassword`/`driverPassword` KASITLI olarak DIŞLANIR (SHA-256 yalnız
+ * yüksek entropili oturum tokenları için; kısa bir parolanın SHA-256'sı
+ * çevrimdışı kırılabilir). Bu, aynı `requestId` ile
  * FARKLI parolalarla yapılan bir tekrar gönderimin `requestHash` düzeyinde
  * FARK EDİLEMEYECEĞİ anlamına gelir — bu yüzden bu fonksiyon, bilinen bir
  * makbuzla karşılaşınca (transaction'a hiç girmeden, salt-okunur bir ön
@@ -400,7 +400,7 @@ export async function createVehicle(
       .run();
 
     // admin_audit — gizli değer içermez (yalnız plaka/marka-model/yıl/hat-
-    // durak/not/sahip/sürüm); oluşturmada `beforeJson` NULL (ARCH §3.2).
+    // durak/not/sahip/sürüm); oluşturmada `beforeJson` NULL.
     db.insert(adminAudit)
       .values({
         id: crypto.randomUUID(),

@@ -11,7 +11,7 @@
  * sorgusu event loop'u tutar; health isteği başka süreçten ölçülürse bu etki
  * görünmez. Gerçek `GET /api/v1/health/live` route'u süreç içi bir HTTP
  * sunucusundan sunulur, rapor sorguları art arda koşarken health gecikmesi
- * ölçülür; OPS'taki 3 saniyelik health timeout'u aşılırsa komut hata verir.
+ * ölçülür; sağlık görevinin 3 saniyelik health timeout'u aşılırsa komut hata verir.
  *
  * Ortam (hepsi isteğe bağlı): `PERF_VEHICLES` (varsayılan 40), `PERF_RUNS` (15),
  * `PERF_F12_SECONDS` (6), `PERF_REPORT_PATH` (varsayılan docs/REPORT-QUERY-PLAN.md).
@@ -477,7 +477,7 @@ function renderReport(info: FixtureInfo, sqliteVersion: string, measurements: Me
   p(`| Health p95 (ms) | ${fmt(f12.healthP95Ms)} |`);
   p(`| Health en yüksek (ms) | ${fmt(f12.healthMaxMs)} |`);
   p(`| Health en yüksek, rapor yokken (ms) | ${fmt(f12.idleMaxMs)} |`);
-  p(`| Health timeout (OPS) | ${HEALTH_TIMEOUT_MS} ms |`);
+  p(`| Health timeout (sağlık görevi) | ${HEALTH_TIMEOUT_MS} ms |`);
   p();
   p(`Sonuç: en yüksek health gecikmesi ${fmt(f12.healthMaxMs)} ms, ${HEALTH_TIMEOUT_MS} ms timeout'unun ${f12.healthMaxMs < HEALTH_TIMEOUT_MS ? "altında" : "ÜSTÜNDE"}.`);
   p();

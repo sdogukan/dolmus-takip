@@ -1,12 +1,11 @@
 /**
  * Kontrollü yayın ve geri dönüş — `node scripts/release-apply.ts <komut>`
- * (T6.5, S6.5; RELEASE.md §5 ve §7, SERVER-SETUP.md §4, ARCHITECTURE "Flow:
- * Daily backup, restore and release").
+ * (T6.5, S6.5).
  *
  * Root olarak, YENİ release dizininden çalışır
  * (`cd /opt/dolmus-takip/releases/<id> && sudo node scripts/release-apply.ts deploy`).
  * Root kanıtı yayın durumu dizinidir: dizin bu sürecin kullanıcısına ait ve
- * yalnız ona açık (`0700`) değilse komut reddedilir (SERVER-SETUP §2:
+ * yalnız ona açık (`0700`) değilse komut reddedilir (sunucuda
  * `root:root 0700`). DB'ye dokunan her adım servis kullanıcısıyla
  * (`runuser -u dolmus-takip`, argüman dizisiyle; kabuk yok) ve
  * `--env-file=/etc/dolmus-takip/app.env` ile çalışır; bu araç canlı DB
@@ -38,7 +37,7 @@
  * parmak izi migration sonrasıyla AYNI) → `traffic_opened_at` yazılır →
  * bakım işareti kalkar.
  *
- * `deploy --under-maintenance`: bakım işareti ZATEN varken (RELEASE §7 F5
+ * `deploy --under-maintenance`: bakım işareti ZATEN varken (F5
  * ileri düzeltmesi, işareti bir insan koydu) yalnız bu bayrakla yayımlanır ve
  * işaret mali kontrolden sonra kalkar; işaret yoksa bayrak reddedilir. Önceki
  * yayın çözülmemişse (`previous_release_unresolved`) veya durum dosyası
@@ -83,7 +82,7 @@
  *
  * ## Ortam
  *
- * Varsayılanlar SERVER-SETUP §2 yollarıdır; değişkenler yalnız test/deneme
+ * Varsayılanlar sunucu kurulumunun yollarıdır; değişkenler yalnız test/deneme
  * içindir: `DOLMUS_RELEASES_DIR`, `DOLMUS_CURRENT_LINK`, `DOLMUS_APP_ENV_FILE`,
  * `DOLMUS_RELEASE_STATE_DIR`, `DOLMUS_PRE_MIGRATION_DIR`,
  * `DOLMUS_BACKUP_READY_DIR`, `DOLMUS_PRESERVED_DIR`, `DOLMUS_MAINTENANCE_FILE`,
@@ -93,7 +92,7 @@
  *
  * `systemctl reset-failed` hiçbir yolda çağrılmaz: başlatma sınırı
  * (`start-limit-hit`) birim durumuyla hata olarak yazılır, sayacı yalnız
- * insan sıfırlar (OPS §5-B). Import ağacı `release-build.ts`
+ * insan sıfırlar. Import ağacı `release-build.ts`
  * `bundleDbInitIntoStandalone`'da eksiksiz kopyalanır.
  */
 import { spawnSync } from "node:child_process";
@@ -143,7 +142,7 @@ const DEFAULT_OPS_LOCK = "/var/lib/dolmus-takip/ops.lock";
 const DEFAULT_APP_URL = "http://127.0.0.1:3000";
 const DEFAULT_READINESS_TIMEOUT_SECONDS = 120;
 const STATE_FILE = "state.json";
-/** release-id = arşiv adındaki kısa commit (SERVER-SETUP §2). */
+/** release-id = arşiv adındaki kısa commit. */
 const RELEASE_ID_PATTERN = /^[0-9a-f]{7,40}$/u;
 const RELEASE_MANIFEST_SUFFIX = ".manifest.json";
 const MIGRATION_FILE_PATTERN = /^[\w.-]+\.sql$/u;
@@ -337,7 +336,7 @@ interface ReleaseState {
     restored_fingerprint: string | null;
   } | null;
   failure: { phase: Phase; reason: string; at: string } | null;
-  /** `deploy --under-maintenance`'ın devraldığı çözülmemiş/okunamayan durumlar (RELEASE §7 F5). */
+  /** `deploy --under-maintenance`'ın devraldığı çözülmemiş/okunamayan durumlar (F5). */
   inherited: InheritedState[];
 }
 
@@ -467,7 +466,7 @@ function releaseIdOf(dir: string, paths: Paths): string {
   return id;
 }
 
-/** `current`'ın gösterdiği release; ilk kurulum SERVER-SETUP §3.4'tür. */
+/** `current`'ın gösterdiği release; bağ ilk kurulumda oluşturulur. */
 function currentReleaseDir(paths: Paths): string {
   let isLink = false;
   try {
@@ -476,7 +475,7 @@ function currentReleaseDir(paths: Paths): string {
     // yok
   }
   if (!isLink) {
-    reject("current_missing", "current sembolik bağı yok; ilk kurulum SERVER-SETUP §3.4 ile yapılır.");
+    reject("current_missing", "current sembolik bağı yok; ilk kurulum bu araçla değil, elle yapılır.");
   }
   const dir = fs.realpathSync(paths.currentLink);
   releaseIdOf(dir, paths);
@@ -599,7 +598,7 @@ function stopService(): void {
 /** Kurtarma kilidi varken başlatılmaz (birimin AssertPathExists'i zaten reddeder). */
 function startService(paths: Paths): void {
   if (fs.existsSync(paths.recoveryLock)) {
-    reject("recovery_lock_present", "Sağlık görevinin kurtarma kilidi var; yalnız ekip kaldırır (OPS §5-B).", {
+    reject("recovery_lock_present", "Sağlık görevinin kurtarma kilidi var; yalnız ekip kaldırır.", {
       lock: paths.recoveryLock,
     });
   }
@@ -829,7 +828,7 @@ function takePreMigrationCopy(paths: Paths, previousDir: string, previousId: str
  * F5 devralması: önceki `state.json`'un baytları üzerine yazılmadan önce aynı
  * (0700) dizine `taken-over-<zaman>.json` olarak kopyalanır ve hash'lenir;
  * `traffic_opened_at`, yayın öncesi kopya ve başarısız faz insanın inceleyeceği
- * kanıttır (RELEASE §7 F5 adım 3).
+ * kanıttır (F5 adım 3).
  */
 function keepTakenOverState(paths: Paths, prior: StateRead): InheritedState {
   const bytes = fs.readFileSync(path.join(paths.stateDir, STATE_FILE));
@@ -925,7 +924,7 @@ async function runDeploy(paths: Paths, env: Env, underMaintenance: boolean): Pro
   assertReleaseManifest(paths, releaseId, selfReleaseDir);
   if (!fs.existsSync(paths.appEnvFile)) reject("app_env_missing", "Uygulama ayar dosyası yok.", { file: paths.appEnvFile });
   if (fs.existsSync(paths.recoveryLock)) {
-    reject("recovery_lock_present", "Sağlık görevinin kurtarma kilidi var; yalnız ekip kaldırır (OPS §5-B).");
+    reject("recovery_lock_present", "Sağlık görevinin kurtarma kilidi var; yalnız ekip kaldırır.");
   }
 
   const lockFd = acquireOpsLock(env, DEFAULT_OPS_LOCK);
@@ -944,7 +943,7 @@ async function runDeploy(paths: Paths, env: Env, underMaintenance: boolean): Pro
         failure: prior.state.failure?.reason ?? "none",
       });
     }
-    // Var olan işaret bir insanın bakım kararıdır: yayın onu yalnız açık bayrakla devralır (RELEASE §7 F5).
+    // Var olan işaret bir insanın bakım kararıdır: yayın onu yalnız açık bayrakla devralır (F5).
     if (!underMaintenance && fs.existsSync(paths.maintenanceFile)) {
       reject("maintenance_already_on", "Bakım işareti zaten var; başka bir bakım sürüyor olabilir (F5 düzeltmesi: --under-maintenance).");
     }
@@ -952,7 +951,7 @@ async function runDeploy(paths: Paths, env: Env, underMaintenance: boolean): Pro
       reject("maintenance_off", "--under-maintenance verildi ama bakım işareti yok.");
     }
     if (fs.existsSync(paths.recoveryLock)) {
-      reject("recovery_lock_present", "Sağlık görevinin kurtarma kilidi var; yalnız ekip kaldırır (OPS §5-B).");
+      reject("recovery_lock_present", "Sağlık görevinin kurtarma kilidi var; yalnız ekip kaldırır.");
     }
     const previousDir = currentReleaseDir(paths);
     const previousId = path.basename(previousDir);
@@ -1045,7 +1044,7 @@ function readStateOrReject(paths: Paths): ReleaseState {
   if (read.kind === "unreadable") {
     reject(
       "state_unreadable",
-      "Yayın durumu okunamıyor; müşteri yazması kabul edilmiş sayılır, eski DB'ye otomatik dönülmez (RELEASE §7).",
+      "Yayın durumu okunamıyor; müşteri yazması kabul edilmiş sayılır, eski DB'ye otomatik dönülmez.",
     );
   }
   return read.state;
@@ -1084,7 +1083,7 @@ async function runRollback(paths: Paths, env: Env, mode: "code" | "code-and-db")
       }
     } else {
       if (state.traffic_opened_at !== null) {
-        reject("traffic_opened", "Trafik açıldı; müşteri yazması kabul edilmiş olabilir, eski DB'ye dönülmez (RELEASE §7 F5).", {
+        reject("traffic_opened", "Trafik açıldı; müşteri yazması kabul edilmiş olabilir, eski DB'ye dönülmez (F5).", {
           traffic_opened_at: state.traffic_opened_at,
         });
       }
@@ -1093,7 +1092,7 @@ async function runRollback(paths: Paths, env: Env, mode: "code" | "code-and-db")
       manifest = readPreMigrationManifest(paths, state.pre_migration, state.previous_release_id);
     }
     if (fs.existsSync(paths.recoveryLock)) {
-      reject("recovery_lock_present", "Sağlık görevinin kurtarma kilidi var; yalnız ekip kaldırır (OPS §5-B).");
+      reject("recovery_lock_present", "Sağlık görevinin kurtarma kilidi var; yalnız ekip kaldırır.");
     }
 
     log("info", "release_rollback_start", { mode, release_id: state.release_id, target: state.previous_release_id });

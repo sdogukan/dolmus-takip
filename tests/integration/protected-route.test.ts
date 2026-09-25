@@ -4,8 +4,8 @@
  * DÜZELTME TURU 3 (denetim bulgusu, `ac` merceği): önceki bir sürüm bu
  * dosyayı gerçek bir `GET /api/v1/vehicles/current` üretim ucuna karşı
  * çalıştırıyordu. Denetim doğruladı ki bu uç (ve onu kullanan
- * `vehicle.read_current` izni) ne ARCHITECTURE.md §2/§4'te ne de
- * docs/DECISIONS.md'de karşılığı olan, ürün sahibi onaylı bir yüzeydi —
+ * `vehicle.read_current` izni) ne mimaride ne de kayıtlı kararlarda
+ * karşılığı olan, ürün sahibi onaylı bir yüzeydi —
  * yalnız `withProtectedRoute`'un `target: "vehicle"` dalını CANLI bir HTTP
  * isteğiyle "kanıtlamak" için icat edilmişti (bkz. `../../src/server/auth/
  * permissions.ts` "KALDIRILDI" notu). Uç ve izin KALDIRILDI; bu dosya artık
@@ -18,9 +18,8 @@
  *
  * Üç bölüm:
  * 1. `withProtectedRoute — target:'vehicle'` — sentetik handler, gerçek
- *    Request/Response, gerçek geçici SQLite + migration + seed
- *    (QA-PLAN.md §1). 401/403/404/422/200 ve başka araç/işletme reddi
- *    BURADA kanıtlanır.
+ *    Request/Response, gerçek geçici SQLite + migration + seed.
+ *    401/403/404/422/200 ve başka araç/işletme reddi BURADA kanıtlanır.
  * 2. `target: "none"`/`"business"` ve `write: true` — aynı gerçek DB/oturum
  *    altyapısıyla, KÜÇÜK sentetik handler'lar sarılır (görev tanımının
  *    "Gelecek TÜM route handler'ların izleyeceği deseni ... kur" cümlesi —
@@ -177,7 +176,7 @@ describe("Korumalı route deseni (T1.5 ADIM 2/2) — gerçek geçici SQLite + mi
       expect(body.vehicleId).toBe(SEED_IDS.vehicleA1);
     });
 
-    it("200 — staff (support) X-Target-Vehicle ile BAŞKA işletmenin (B) aracını AÇIKÇA hedefleyip görebilir (ARCH §2 'Platform desteğinde hedef ... sunucuda doğrulanır')", async () => {
+    it("200 — staff (support) X-Target-Vehicle ile BAŞKA işletmenin (B) aracını AÇIKÇA hedefleyip görebilir (platform desteğinde hedef sunucuda doğrulanır)", async () => {
       const { setupSqlite, setupDb } = await openSetupDb();
       const created = await createPlatformSession(setupDb, SEED_IDS.platformSupport1);
       setupSqlite.close();
@@ -271,7 +270,7 @@ describe("Korumalı route deseni (T1.5 ADIM 2/2) — gerçek geçici SQLite + mi
 
   describe("withProtectedRoute — target:'none'", () => {
     // "audit.read" yalnız support/admin'de vardır (driver/owner'da YOKTUR)
-    // — ARCH §2 matrisinin "yalnız platform ekibi" satırlarından biri;
+    // — yetki matrisinin "yalnız platform ekibi" satırlarından biri;
     // `/admin/audit` (T2.5, henüz yazılmadı) gibi hiçbir işletme/araca
     // BAĞLI OLMAYAN bir ucu TEMSİL eder.
     const dummy = withProtectedRoute({ permission: "audit.read", target: "none" })(
@@ -359,7 +358,7 @@ describe("Korumalı route deseni (T1.5 ADIM 2/2) — gerçek geçici SQLite + mi
    * (target:"business") — `resolveStaffVehicleScopeFromHeader`'ın (target:
    * "vehicle") aksine — scope ÇÖZÜMLEME anında hiçbir aktiflik denetimi
    * YAPMAZ (bkz. `../../src/server/auth/scope.ts` `resolveAdminScope` üst
-   * notu). Bu, bir eksiklik/unutma DEĞİL, KASITLI bir tasarımdır: ARCH §2
+   * notu). Bu, bir eksiklik/unutma DEĞİL, KASITLI bir tasarımdır:
    * yetki matrisinin staff'a verdiği "İşletme/araç açma" TEK meşru
    * reaktivasyon işlemidir; scope çözümleme anında write+pasif'i
    * KOŞULSUZ reddetmek (resolveStaffVehicleScopeFromHeader'ın yaptığı gibi)

@@ -2,9 +2,9 @@
  * resolveReceipt(db, context, scope, params, clock?) — T1.5 ADIM 2/2, S1.5.
  *
  * Görev tanımının kendisi `findReceipt`/`recordReceipt`İ AYRI AYRI adlarla
- * ister (bkz. o iki dosyanın üst notu); ama ARCHITECTURE §3.4'ün "aynı
- * kapsam/anahtar/işlem/içerik eski sonuç kimliğini döndürür; içerik
- * farklıysa 409 verir" cümlesindeki HASH KARŞILAŞTIRMASI mantığının
+ * ister (bkz. o iki dosyanın üst notu); ama tekrar gönderim kuralındaki
+ * ("aynı kapsam/anahtar/işlem/içerik eski sonuç kimliğini döndürür; içerik
+ * farklıysa 409 verir") HASH KARŞILAŞTIRMASI mantığının
  * (bulunduysa: hash eşleşiyor mu → replay; eşleşmiyor mu → 409) HER
  * mutasyon kullanım durumunda (T3.4, T3.5, T4.1–T4.3, ...) TEKRAR TEKRAR
  * elle yazılması — `findReceipt`'in `undefined`/satır ayrımını unutma veya

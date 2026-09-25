@@ -2,17 +2,16 @@
  * Geliştirme test verisi tohumlama komutu — `npm run db:seed-dev` (ADIM 3/3,
  * S1.1).
  *
- * Kaynak: STORIES.md S1.1 kabul kriteri — "E1'i E2 ekranlarını beklemeden
- * denemek için farklı işletmelere ait örnek araçlar, iki rolün girişleri ve
- * ekip hesapları içeren ayrı test verisi vardır. Test verisi gerçek müşteri
- * açma yöntemi veya canlı kurulum adımı değildir." QA-PLAN.md §2 "Ortak veri
- * seti" birebir şu kümeyi tanımlar: "A ve B adlı iki işletme; A'da iki, B'de
- * bir araç. Her araçta ayrı sahip/ortak şoför credential; kişisel yetkili
- * ekip hesabı ve pasif ekip hesabı bulunur... Her işletmede sahip kişi ve
- * şoförler; aynı araçta aynı ada sahip iki ayrı kişi ID'si, yeniden
- * adlandırılmış kişi ve pasif şoför bulunur. Pasif araç/işletme oturum
- * iptalinde kullanılır." Bu script birebir bu kümeyi kurar (bkz. aşağıdaki
- * "Üretilen veri" bölümü).
+ * S1.1 kabul kriteri — "E1'i E2 ekranlarını beklemeden denemek için farklı
+ * işletmelere ait örnek araçlar, iki rolün girişleri ve ekip hesapları
+ * içeren ayrı test verisi vardır. Test verisi gerçek müşteri açma yöntemi
+ * veya canlı kurulum adımı değildir." Ortak test veri seti şu kümedir: A ve
+ * B adlı iki işletme; A'da iki, B'de bir araç. Her araçta ayrı sahip/ortak
+ * şoför credential; kişisel yetkili ekip hesabı ve pasif ekip hesabı
+ * bulunur. Her işletmede sahip kişi ve şoförler; aynı araçta aynı ada sahip
+ * iki ayrı kişi ID'si, yeniden adlandırılmış kişi ve pasif şoför bulunur.
+ * Pasif araç/işletme oturum iptalinde kullanılır. Bu script birebir bu
+ * kümeyi kurar (bkz. aşağıdaki "Üretilen veri" bölümü).
  *
  * Üretilen veri:
  * - İşletme A: sahip "Ali Kaya", iki araç (34AAA001 aktif, 34BBB002 aktif).
@@ -22,12 +21,12 @@
  *   adlandırma işlemi/audit T2.4'te eklenecek),
  *   "Kemal Şahin" (vehicle_drivers.active=0 — pasif şoför ataması).
  *   34BBB002'nin şoförü: "Zeynep Arslan".
- * - İşletme B: sahip "Fatma Çelik", bir aktif araç (06CCC003) ve QA-PLAN'ın
+ * - İşletme B: sahip "Fatma Çelik", bir aktif araç (06CCC003) ve
  *   "pasif araç/işletme oturum iptalinde kullanılır" senaryosu için EK bir
  *   pasif araç (06DDD004, vehicles.active=0). 06CCC003'ün şoförleri aynı
  *   desende: "Hasan Kurt" × 2, "Elif Kaplan" (version=2), "Mustafa Er"
- *   (pasif atama) — İşletme A'daki üç şoför senaryosu QA-PLAN'ın "Her
- *   işletmede ... bulunur" ifadesi gereği B'de de tekrarlanır.
+ *   (pasif atama) — İşletme A'daki üç şoför senaryosu "Her işletmede ...
+ *   bulunur" kuralı gereği B'de de tekrarlanır.
  * - Her araçta (pasif 06DDD004 dahil, giriş reddinin CREDENTIAL eksikliği
  *   değil AKTİFLİK yüzünden olduğunu göstermek için) hem owner hem driver
  *   credential'ı: şifreler `SEED_TEST_PASSWORDS` (owner "sahip-1234", driver
@@ -44,13 +43,12 @@
  * (bkz. `tests/integration/db-seed-dev.test.ts` — "iki kez çalıştırıldığında
  * satır sayıları aynı kalır").
  *
- * Argon2id hash'leri (memoryCost 19456 KiB = 19 MiB, timeCost 2,
- * parallelism 1 — ARCHITECTURE.md §6: "node-argon2 ile Argon2id; başlangıç
- * 19 MiB, t=2, p=1") görev tanımı gereği transaction DIŞINDA üretilir: bu
- * dosyada `await hash(...)` çağrıları `withImmediateTransaction(...)`
- * çağrısından ÖNCE tamamlanır; transaction callback'i (better-sqlite3'ün
- * gerektirdiği gibi) tamamen SENKRONDUR ve yalnız önceden üretilmiş hash
- * dizelerini INSERT eder.
+ * Argon2id hash'leri (node-argon2 başlangıç parametreleri: memoryCost
+ * 19456 KiB = 19 MiB, timeCost 2, parallelism 1) görev tanımı gereği
+ * transaction DIŞINDA üretilir: bu dosyada `await hash(...)` çağrıları
+ * `withImmediateTransaction(...)` çağrısından ÖNCE tamamlanır; transaction
+ * callback'i (better-sqlite3'ün gerektirdiği gibi) tamamen SENKRONDUR ve
+ * yalnız önceden üretilmiş hash dizelerini INSERT eder.
  *
  * Üretim koruması: `NODE_ENV=production` iken `runSeed` DB dosyasına HİÇ
  * dokunmadan (bağlantı bile açmadan) reddeder — bkz. `assertSeedAllowedInEnv`
@@ -96,8 +94,8 @@ export const SEED_TEST_PASSWORDS = {
 } as const;
 
 /**
- * ARCHITECTURE.md §6 — "node-argon2 ile Argon2id; başlangıç 19 MiB, t=2,
- * p=1" (19 MiB = 19456 KiB, node-argon2'nin `memoryCost` birimi KiB'dir).
+ * node-argon2 ile Argon2id; başlangıç parametreleri 19 MiB, t=2, p=1
+ * (19 MiB = 19456 KiB, node-argon2'nin `memoryCost` birimi KiB'dir).
  */
 const ARGON2ID_OPTIONS = {
   type: argon2id,
@@ -382,7 +380,7 @@ function insertPlatformUser(
 }
 
 /**
- * QA-PLAN.md §2 ortak veri setini seçili bağlantıya yazar. Bağlantının
+ * Ortak test veri setini seçili bağlantıya yazar. Bağlantının
  * migration'ları tamamlanmış olmalıdır (`assertMigrationsApplied` bunu
  * denetler). İki kez çağrılması güvenlidir (yukarı bkz. — sabit id + OR
  * IGNORE).
@@ -407,7 +405,7 @@ export async function seedDevData(sqlite: SqliteConnection): Promise<SeedRowCoun
     // İşletme A — sahip ve şoförler.
     insertPerson(sqlite, SEED_IDS.businessA, SEED_IDS.ownerA, "Ali Kaya");
     insertPerson(sqlite, SEED_IDS.businessA, SEED_IDS.driverA1a, "Mehmet Öz");
-    // Aynı araçta aynı adlı İKİNCİ ayrı kişi (farklı id) — QA-PLAN §2.
+    // Aynı araçta aynı adlı İKİNCİ ayrı kişi (farklı id).
     insertPerson(sqlite, SEED_IDS.businessA, SEED_IDS.driverA1b, "Mehmet Öz");
     // Yeniden adlandırılmış kişi temsili: version=2 (bu adımda ayrı bir ad
     // geçmişi tablosu yok; gerçek yeniden adlandırma işlemi/audit T2.4'te
@@ -418,7 +416,7 @@ export async function seedDevData(sqlite: SqliteConnection): Promise<SeedRowCoun
     insertPerson(sqlite, SEED_IDS.businessA, SEED_IDS.driverA1d, "Kemal Şahin");
     insertPerson(sqlite, SEED_IDS.businessA, SEED_IDS.driverA2a, "Zeynep Arslan");
 
-    // İşletme B — aynı üç senaryo (QA-PLAN §2: "Her işletmede ... bulunur").
+    // İşletme B — aynı üç senaryo (her işletmede bulunur).
     insertPerson(sqlite, SEED_IDS.businessB, SEED_IDS.ownerB, "Fatma Çelik");
     insertPerson(sqlite, SEED_IDS.businessB, SEED_IDS.driverB1a, "Hasan Kurt");
     insertPerson(sqlite, SEED_IDS.businessB, SEED_IDS.driverB1b, "Hasan Kurt");
@@ -452,8 +450,8 @@ export async function seedDevData(sqlite: SqliteConnection): Promise<SeedRowCoun
       routeStop: "Merkez - Sanayi",
       active: true,
     });
-    // İşletme B: bir aktif araç + QA-PLAN'ın "pasif araç ... oturum
-    // iptalinde kullanılır" senaryosu için EK bir pasif araç.
+    // İşletme B: bir aktif araç + "pasif araç ... oturum iptalinde
+    // kullanılır" senaryosu için EK bir pasif araç.
     insertVehicle(sqlite, {
       businessId: SEED_IDS.businessB,
       id: SEED_IDS.vehicleB1,

@@ -1,7 +1,7 @@
 # ADR-001 — Tek makine, tek uygulama ve doğrudan kurulum
 
 **Tarih:** 2026-09-15 · **Durum:** Seçilmiş Tech Stack’in mimari karşılığı  
-**Bağlam:** [Tech Stack](../TECH-STACK.md), [Mimari](../ARCHITECTURE.md)
+**Bağlam:** [Tech Stack](../tech-stack.md), [Mimari](../architecture.md)
 
 Hedef en fazla 500 toplam kullanıcıdır; 100 eşzamanlı kullanım test edilecek bir tepe senaryosudur. İlk sürüm tek Lightsail üzerinde Caddy, tek Node/Next uygulaması ve yerel SQLite ile çalışacak. Kod, veri erişim sınırlarıyla bölünecek; bağımsız servisler kurulmayacak.
 

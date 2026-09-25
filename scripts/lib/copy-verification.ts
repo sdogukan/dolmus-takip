@@ -1,7 +1,7 @@
 /**
  * Tek dosyalık SQLite kopyasının doğrulaması — günlük yedek
  * (`scripts/db-backup.ts`) ve kontrollü restore (`scripts/db-restore.ts`)
- * AYNI kontrolleri buradan çalıştırır (T6.4, T6.5; OPS.md §4).
+ * AYNI kontrolleri buradan çalıştırır (T6.4, T6.5).
  *
  * Kopya her zaman KENDİ salt okunur bağlantısında açılır; açmak hash'lenen
  * baytları değiştiremez. Kuruş toplamları METİN olarak okunur (2^53 üstü tam

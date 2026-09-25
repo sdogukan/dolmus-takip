@@ -10,7 +10,7 @@
 import { COMMON_SCREEN_MESSAGES } from "../../../lib/messages";
 
 /**
- * ARCHITECTURE §3.4 / F7 / DECISIONS.md T1.4 notu — kanonik 409 metni TEK
+ * F7 / T1.4 notu — kanonik 409 metni TEK
  * kaynaktan (`../../../lib/messages.ts`) alınır; burada AYRICA
  * YAZILMAZ.
  */
@@ -29,8 +29,8 @@ export class BusinessVersionConflictError extends Error {
  * durumuna bağlı) kurallar için: sahip ataması yalnız sahipsiz işletmeye,
  * belirtilen mevcut kişinin gerçekten bu işletmeye ait olması, sahip adı
  * düzeltmesinin yalnız sahibi olan işletmede yapılabilmesi gibi. Gövde
- * biçimi ARCHITECTURE §4 — "422 VALIDATION_ERROR + fields (alan
- * anahtarları formdaki alanlarla eşleşir)".
+ * biçimi API hata sözleşmesindeki gibidir: 422 VALIDATION_ERROR + fields
+ * (alan anahtarları formdaki alanlarla eşleşir).
  */
 export class BusinessValidationError extends Error {
   readonly status = 422 as const;

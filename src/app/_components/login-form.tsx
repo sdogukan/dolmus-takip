@@ -8,7 +8,7 @@
  *
  * Bu dosya T1.2'nin araç girişi bileşenini (eski `../giris/login-form.tsx`)
  * BİREBİR davranışını KORUYARAK genelleştirir: tek kimlik alanı (plaka
- * VEYA kullanıcı adı) + şifre, DESIGN §2.1 "Yerleşim"/"Davranış"/"Sonuç"
+ * VEYA kullanıcı adı) + şifre, giriş ekranının yerleşim/davranış/sonuç
  * kurallarının TAMAMI (16px kenar boşluğu ▸ üst düzey `giris`/`yonetim/
  * giris` sayfası taşır, en fazla 480px form ▸ aynı üst düzey, alan adı her
  * zaman görünür, Göster/Gizle yalnız girilen şifreyi etkiler, beklerken
@@ -174,7 +174,7 @@ export function LoginForm({
    * kalabilir; `scrollIntoView` odaklanan alanı görünür ortaya taşır.
    * `try/catch`: `scrollIntoView`'ın `behavior`/`block` seçenekleri eski
    * bir tarayıcıda (veya test ortamında) desteklenmeyebilir — bu, giriş
-   * akışını ENGELLEMEZ (en iyi çaba, DESIGN §2.10 ilkesiyle aynı).
+   * akışını ENGELLEMEZ (en iyi çaba ilkesi).
    */
   function scrollFieldIntoView(element: HTMLElement): void {
     try {
@@ -229,7 +229,7 @@ export function LoginForm({
         try {
           clearClientStateForOtherScopes(window.localStorage, scope);
         } catch {
-          // En iyi çaba — DESIGN §2.10 ilkesi; giriş akışını ENGELLEMEZ.
+          // En iyi çaba; giriş akışını ENGELLEMEZ.
         }
       }
       // Başarı kesinleşti — form devre dışı KALIR, sayfa zaten ayrılıyor.

@@ -1,13 +1,13 @@
 /**
  * createBusinessWithOwner — T2.1, `POST /api/v1/admin/businesses`.
  *
- * ARCHITECTURE §3.4 (tek transaction, tekrar gönderim) — işletme, sahip
+ * Tek transaction ve tekrar gönderim kuralı — işletme, sahip
  * kişi kaydı, sahip bağı, admin_audit ve mutation_receipts TEK BEGIN
  * IMMEDIATE transaction içinde yazılır (risk notu — "Makbuz araması ve
  * kaydı aynı IMMEDIATE transaction içinde olmalı; aksi halde aynı
  * requestId ile paralel iki POST iki işletme üretebilir (TOCTOU)").
  *
- * Bu uçta henüz bir hedef İŞLETME YOKTUR (§3.4 risk notu — "POST
+ * Bu uçta henüz bir hedef İŞLETME YOKTUR (risk notu — "POST
  * oluşturmada Scope yoktur"); bu yüzden makbuz kapsamı `../../auth/
  * scope.ts` `StaffActorScope` (yalnız ekip aktörünün kalıcı kimliği) ile
  * kurulur — `../../data/scoped.ts` `recheckScopeInTransaction`'ın
@@ -122,7 +122,7 @@ export function createBusinessWithOwner(
 
     // admin_audit — "gerçek platform_user_id, hedef, zaman ve parola/hash/
     // token içermeyen önce/sonra JSON" (T2.1 acceptance). Oluşturmada
-    // `beforeJson` NULL (ARCH §3.2 — "ilk sürüm oluşturmayı temsil eder").
+    // `beforeJson` NULL — ilk sürüm oluşturmayı temsil eder.
     db.insert(adminAudit)
       .values({
         id: crypto.randomUUID(),

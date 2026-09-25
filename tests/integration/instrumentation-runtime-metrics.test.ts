@@ -25,7 +25,7 @@ import {
 
 /**
  * `register()` → çalışma zamanı metrik satırı. Gerçek, migrate edilmiş geçici
- * SQLite dosyası (QA-PLAN.md §1); yalnız `setInterval` sahte zamanlayıcıyla
+ * SQLite dosyası; yalnız `setInterval` sahte zamanlayıcıyla
  * ilerletilir.
  */
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "../..");

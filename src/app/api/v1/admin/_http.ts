@@ -26,7 +26,7 @@ import { SessionError } from "../../../../server/usecases/session/errors";
 
 /**
  * Her `/admin/*` mutasyon kullanım durumunun FIRLATABİLECEĞİ, ALANA ÖZGÜ
- * OLMAYAN hata sınıflarını ARCHITECTURE §4 zarfına çevirir. Bilinmeyen bir
+ * OLMAYAN hata sınıflarını API hata zarfına çevirir. Bilinmeyen bir
  * hata (alana özgü sınıflar DAHİL — ör. `BusinessValidationError`/
  * `VehicleValidationError`) için `undefined` döner; çağıranın KENDİ
  * `_http.ts`'i KENDİ alana özgü sınıflarını BUNDAN ÖNCE denetleyip, yoksa

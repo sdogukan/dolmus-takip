@@ -10,7 +10,7 @@ import { DriversManager } from "../../_components/drivers-manager";
 import { VehiclePageHeader } from "../../_components/vehicle-page-header";
 
 /**
- * /sahip/soforler — Şoförlerim (DESIGN "Şoförlerim"). T2.5. `../page.tsx` İLE
+ * /sahip/soforler — Şoförlerim. T2.5. `../page.tsx` İLE
  * AYNI oturum/rol yönlendirmesi: oturum yoksa /giris, ekip oturumu /yonetim,
  * şoför oturumu /sofor. Liste sunucuda oturumun kendi kapsamıyla okunur
  * (`scopeFromVehicleSession`); mutasyonlar `/api/v1/drivers` uçlarına gider.

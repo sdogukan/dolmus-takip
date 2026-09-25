@@ -1,7 +1,7 @@
 # Otomatik yayın: main'e gelen push'un CI koşusu yeşil bitince, o koşunun ürettiği yayın
 # paketini (release-<sha> artifact'i; yeniden derleme YOK) sunucuya kurar ve Dijji'ye haber
-# verir. Karar: docs/DECISIONS.md "Otomatik yayın (2026-09-26)". Sunucu tarafı:
-# deploy/ci/dolmus-deploy-receive (SSH zorunlu komutu) ve docs/SERVER-SETUP.md §7.
+# verir ("Otomatik yayın" kararı, 2026-09-26). Sunucu tarafı:
+# deploy/ci/dolmus-deploy-receive (SSH zorunlu komutu).
 #
 # Gerekli repo secret'ları: DEPLOY_HOST, DEPLOY_SSH_KEY (yalnız alıcı betiği çalıştırabilen
 # ed25519 anahtar), DEPLOY_KNOWN_HOSTS (sunucunun doğrulanmış host anahtarı satırı),

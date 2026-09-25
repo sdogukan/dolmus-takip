@@ -1,13 +1,13 @@
 /**
  * Günlük tutarlı SQLite kopyası — `node scripts/db-backup.ts [run|status|pre-migration]`
- * (T6.4, S6.4; ARCHITECTURE.md "Flow: Daily backup", OPS.md §4).
+ * (T6.4, S6.4).
  *
  * ## `run` (varsayılan)
  *
  * 1. Canlı DB'den SQLite Backup API (`better-sqlite3` `db.backup`) ile
  *    nokta önekli geçici bir dosyaya tutarlı görüntü alınır. Canlı DB'ye ve
  *    `-wal`/`-shm`'ine yalnız OKUMA bağlantısı açılır: checkpoint, truncate,
- *    silme, journal_mode değişikliği YOKTUR (ARCHITECTURE §3.6, OPS §3/5).
+ *    silme, journal_mode değişikliği YOKTUR.
  *    Ana dosyayı elle kopyalamak tutarlı yedek olmadığından kullanılmaz.
  * 2. KOPYA (canlı DB asla) `journal_mode=DELETE`'e çevrilir; yayımlanan dosya
  *    `-wal`/`-shm` gerektirmeyen TEK ve kendine yeten bir dosyadır. Kopya,
@@ -45,7 +45,7 @@
  *
  * Salt okunur: tutulan kopyaları, hash uyumunu ve kopyaların referans verdiği
  * release id'lerini listeler (o release dizinleri kopya tutulduğu sürece
- * silinmemelidir — SERVER-SETUP §4).
+ * silinmemelidir).
  *
  * ## Ortam
  *

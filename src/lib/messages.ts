@@ -2,8 +2,8 @@
  * Türkçe ekran metinleri — T1.4 ADIM 2/2, S1.4, görev tanımı (d).
  *
  * "hata kodu → Türkçe ekran metni ('SESSION_EXPIRED' ve 'SESSION_REVOKED'
- * → 'Oturumun sona erdi. Yeniden giriş yap.'; DESIGN §2.10 tablosundaki
- * diğer metinleri de ekle)."
+ * → 'Oturumun sona erdi. Yeniden giriş yap.'; ortak durumların diğer
+ * ekran metinlerini de ekle)."
  *
  * Bu dosya İSTEMCİ (tarayıcı) tarafı içindir — `../server/**` KODUNU HİÇ
  * İÇE AKTARMAZ; sunucu route handler'larının ürettiği `error.code` alanını
@@ -22,10 +22,9 @@
  * `../server/auth/guard.ts`). `UNSUPPORTED_MEDIA_TYPE`/`PAYLOAD_TOO_LARGE`
  * BİLEREK DIŞLANIR: bunlar gerçek bir kullanıcı eylemini değil, İSTEMCİ
  * KODUNUN KENDİ HATASINI (yanlış Content-Type/aşırı büyük gövde) yansıtır
- * ve DESIGN §2.10 tablosunda karşılığı yoktur — uydurma metin EKLENMEDİ.
- * Bu karar docs/DECISIONS.md'de AYRICA kayıtlı DEĞİLDİR ("open_issues"
- * diye bir dosya/bölüm YOKTUR — denetim bulgusu, düzeltme turu 2), yalnız
- * bu yorumda gerekçelendirilmiştir.
+ * ve ortak ekran metinleri arasında karşılığı yoktur — uydurma metin
+ * EKLENMEDİ. Bu karar yalnız bu yorumda gerekçelendirilmiştir (denetim
+ * bulgusu, düzeltme turu 2).
  */
 
 /** Şu an bilinen oturum hatası kodları — `../server/usecases/session/
@@ -57,7 +56,7 @@ const PLATFORM_INVALID_CREDENTIALS_MESSAGE = "Kullanıcı adı veya şifre yanl�
 // kaynak, iki alan-mesajı sabitinde (aşağıda) tekrar KULLANILIR, tekrar
 // YAZILMAZ.
 const PASSWORD_EMPTY_MESSAGE = "Şifreyi gir.";
-// F7/ARCHITECTURE §3.4 kanonik 409 metni — hem `ERROR_CODE_MESSAGES.
+// F7 kanonik 409 metni — hem `ERROR_CODE_MESSAGES.
 // VERSION_CONFLICT` hem `COMMON_SCREEN_MESSAGES.concurrentEditConflict`
 // AYNI kaynaktan beslenir (aşağıdaki `ERROR_CODE_MESSAGES` `COMMON_SCREEN_
 // MESSAGES`'TEN ÖNCE tanımlandığından, bu sabit dosyanın en üstünde tutulur
@@ -65,7 +64,7 @@ const PASSWORD_EMPTY_MESSAGE = "Şifreyi gir.";
 // İLERİYE referans EDEMEZ).
 const CONCURRENT_EDIT_CONFLICT_MESSAGE =
   "Bu kayıt değişmiş. Güncel halini açıp tekrar kontrol et.";
-// DESIGN §2.10 "Yetkisiz / pasif erişim" satırı — `ERROR_CODE_MESSAGES.
+// "Yetkisiz / pasif erişim" durumu — `ERROR_CODE_MESSAGES.
 // CSRF_TOKEN_INVALID`/`ORIGIN_INVALID`/`FORBIDDEN` VE `COMMON_SCREEN_
 // MESSAGES.unauthorizedOrInactiveAccess` AYNI metni taşır (yukarıdaki
 // sabitle AYNI TDZ gerekçesiyle burada tutulur).
@@ -77,29 +76,26 @@ export const ERROR_CODE_MESSAGES: Record<string, string> = {
   // kullanır (yukarıdaki dosya üstü not).
   SESSION_EXPIRED: "Oturumun sona erdi. Yeniden giriş yap.",
   SESSION_REVOKED: "Oturumun sona erdi. Yeniden giriş yap.",
-  // ARCHITECTURE §6 "CSRF" / görev tanımı (b) — kullanıcıya CSRF/origin
-  // JARGONU gösterilmez; DESIGN §2.10 "Yetkisiz / pasif erişim" satırının
-  // metniyle AYNI ("Bu işlem için erişimin yok.") kullanılır: kullanıcı
-  // açısından engellenen bir yazma isteği, yetkisi olmayan bir işlem
-  // denemesinden AYIRT EDİLEMEZ bir deneyimdir. DESIGN bu eşlemeyi birebir
-  // VERMEZ — bu bir mühendislik yorumudur; docs/DECISIONS.md'de AYRICA
-  // kayıtlı DEĞİLDİR (denetim bulgusu, düzeltme turu 2).
+  // Görev tanımı (b) — kullanıcıya CSRF/origin JARGONU gösterilmez;
+  // "Yetkisiz / pasif erişim" durumunun metniyle AYNI ("Bu işlem için
+  // erişimin yok.") kullanılır: kullanıcı açısından engellenen bir yazma
+  // isteği, yetkisi olmayan bir işlem denemesinden AYIRT EDİLEMEZ bir
+  // deneyimdir. Bu eşleme bir mühendislik yorumudur (denetim bulgusu,
+  // düzeltme turu 2).
   CSRF_TOKEN_INVALID: "Bu işlem için erişimin yok.",
   ORIGIN_INVALID: "Bu işlem için erişimin yok.",
-  // T1.2, STORIES.md S1.2 AC4 — "Biçimi geçerli ama tanımsız plaka ile
-  // yanlış şifre aynı genel 'Plaka veya şifre yanlış.' mesajını verir."
-  // ARCHITECTURE §6 "Kullanıcı/plaka tahmini" — bilinmeyen plaka, pasif
-  // araç/işletme VE yanlış parola aynı bu genel yanıtı üretir; hangi
-  // durumun gerçekleştiği (plaka yok mu, araç pasif mi, şifre yanlış mı)
-  // bu metinden ASLA ayırt edilemez.
+  // T1.2, S1.2 AC4 — "Biçimi geçerli ama tanımsız plaka ile yanlış şifre
+  // aynı genel 'Plaka veya şifre yanlış.' mesajını verir." Kullanıcı/plaka
+  // tahminine karşı bilinmeyen plaka, pasif araç/işletme VE yanlış parola
+  // aynı bu genel yanıtı üretir; hangi durumun gerçekleştiği (plaka yok
+  // mu, araç pasif mi, şifre yanlış mı) bu metinden ASLA ayırt edilemez.
   INVALID_CREDENTIALS: INVALID_CREDENTIALS_MESSAGE,
-  // T1.2, görev tanımı (2) — ARCHITECTURE §6 "Giriş saldırıları" birebir:
-  // "429/geçici bekleme ... anlaşılır mesaj." Görev tanımının verdiği
-  // BİREBİR metin.
+  // T1.2, görev tanımı (2) — giriş saldırılarına karşı 429/geçici bekleme
+  // ve anlaşılır mesaj. Görev tanımının verdiği BİREBİR metin.
   RATE_LIMITED: RATE_LIMITED_MESSAGE,
-  // T1.2, görev tanımı (3) — ARCHITECTURE §6 "Hash yükü": "Aşım 429";
-  // görev tanımı: "mesaj: sistem yoğun, tekrar dene." Kullanıcıya teknik
-  // "kuyruk/hash" ayrıntısı SIZDIRILMAZ.
+  // T1.2, görev tanımı (3) — hash yükü aşımı 429 döner; görev tanımı:
+  // "mesaj: sistem yoğun, tekrar dene." Kullanıcıya teknik "kuyruk/hash"
+  // ayrıntısı SIZDIRILMAZ.
   HASH_QUEUE_FULL: HASH_QUEUE_FULL_MESSAGE,
   // T2.1 ADIM 3, S2.1 — işletme/mal sahibi yönetim ekranlarının mutasyon
   // uçları (`POST`/`PATCH /admin/businesses`) bu üç kodu da üretebilir
@@ -168,17 +164,17 @@ export const VEHICLE_LOGIN_RESULT_MESSAGES = {
 
 /**
  * Araç girişi (POST /api/v1/auth/vehicle-login) alan doğrulama metinleri —
- * T1.2, STORIES.md S1.2 AC3: "Biçimi geçersiz veya eksik plaka için
+ * T1.2, S1.2 AC3: "Biçimi geçersiz veya eksik plaka için
  * anlaşılır alan hatası gösterilir." Görev tanımı (1): "Plaka biçimi
  * geçersiz' benzeri Türkçe metin, src/lib/messages.ts."
  *
  * Bu üç metin hem SUNUCU tarafından (422 yanıtının `error.fields.plate`/
  * `error.fields.password` değeri — bkz. `../server/usecases/auth/
  * vehicle-login.ts`) hem de (ileride, T1.6'da) EKRAN tarafından aynı
- * kaynaktan okunur; DESIGN.md §2.10'un "Eksik/geçersiz alan" satırındaki
- * ÖRNEK biçimle (ör. "Hasılatı gir.") aynı kalıptadır — boş alan ve
- * biçimsiz-ama-dolu alan AYRI, daha isabetli metinler taşır (STORIES bu
- * ikisini TEK bir metinle sınırlamaz, yalnız "anlaşılır" der).
+ * kaynaktan okunur; "Eksik/geçersiz alan" durumunun ÖRNEK biçimiyle (ör.
+ * "Hasılatı gir.") aynı kalıptadır — boş alan ve biçimsiz-ama-dolu alan
+ * AYRI, daha isabetli metinler taşır (S1.2 AC3 bu ikisini TEK bir metinle
+ * sınırlamaz, yalnız "anlaşılır" der).
  */
 export const VEHICLE_LOGIN_FIELD_MESSAGES = {
   /** `validatePlate` `reason: "empty"`. */
@@ -242,9 +238,8 @@ export const PLATFORM_ROLE_LABELS = {
  * İKİ giriş ekranında (`../app/giris/page.tsx`, `../app/yonetim/giris/
  * page.tsx`) da `LoginForm`'un `helpText` prop'una AYNI kaynaktan
  * (tekrar YAZILMADAN) geçirilir. Düzeltme turu 1 denetim bulgusu: önceki
- * sürüm bu metni yalnız araç girişinde gösteriyordu; docs/DECISIONS.md'de
- * bu dışlamayı kaydeden bir karar YOKTUR, bu yüzden kapsam daraltması
- * geri alındı.
+ * sürüm bu metni yalnız araç girişinde gösteriyordu; bu dışlamayı
+ * kaydeden bir karar YOKTUR, bu yüzden kapsam daraltması geri alındı.
  */
 export const LOGIN_HELP_TEXT =
   "Giriş yapamıyorsan hesabını açan ekipten yardım al.";
@@ -259,12 +254,11 @@ export function getErrorMessage(code: string): string | undefined {
 }
 
 /**
- * DESIGN.md §2.10 "Ortak durumlar ve ekran metinleri" tablosunun SABİT
- * (parametresiz) satırları — her anahtarın üstünde tablodaki karşılığı
- * BİREBİR alıntılanır. Alan hatası mesajları ("Hasılatı gir.", "Geçerli
- * bir saat seç." gibi) buraya EKLENMEDİ: bunlar tablonun kendi verdiği
- * SOMUT ÖRNEKLERDİR, genel bir sabit metin değil — her form kendi alan
- * mesajını üretir (T3.x).
+ * Ortak durumlar ve ekran metinleri — SABİT (parametresiz) durum
+ * satırları; her anahtarın üstünde durumun tanımı BİREBİR alıntılanır.
+ * Alan hatası mesajları ("Hasılatı gir.", "Geçerli bir saat seç." gibi)
+ * buraya EKLENMEDİ: bunlar SOMUT ÖRNEKLERDİR, genel bir sabit metin değil
+ * — her form kendi alan mesajını üretir (T3.x).
  */
 export const COMMON_SCREEN_MESSAGES = {
   /** "Yükleniyor" satırı — "'Kayıtlar yükleniyor…' / nötr yer tutucular;
@@ -285,8 +279,8 @@ export const COMMON_SCREEN_MESSAGES = {
   /** "Gönderilmediği bilinen bağlantı hatası" satırı — "'Bağlantı yok.
    * Henüz kaydedilmedi.' Mevcut sayfadaki form korunur." */
   knownDisconnectBeforeSubmit: "Bağlantı yok. Henüz kaydedilmedi.",
-  /** "İki kişinin aynı kaydı düzenlemesi" satırı — F7/ARCHITECTURE §3.4
-   * ile senkronlanmış KANONİK metin: "'Bu kayıt değişmiş. Güncel halini
+  /** "İki kişinin aynı kaydı düzenlemesi" satırı — F7 ile
+   * senkronlanmış KANONİK metin: "'Bu kayıt değişmiş. Güncel halini
    * açıp tekrar kontrol et.' Eski taslak sessizce üzerine yazılmaz." */
   concurrentEditConflict: CONCURRENT_EDIT_CONFLICT_MESSAGE,
   /** "Onaylı düzeltme başarılı" satırı — "'Kayıt düzeltildi ve
@@ -303,14 +297,14 @@ export const COMMON_SCREEN_MESSAGES = {
   sessionEnded: "Oturumun sona erdi. Yeniden giriş yap.",
   /** "Yetkisiz / pasif erişim" satırı — "Veri açılmaz; 'Bu işlem için
    * erişimin yok.' veya pasif araç açıklaması ve girişe dönüş." (pasif
-   * araç açıklamasının somut metni bu tabloda VERİLMEZ — T1.5/T1.6'ya
+   * araç açıklamasının somut metni burada VERİLMEZ — T1.5/T1.6'ya
    * bırakıldı.) */
   unauthorizedOrInactiveAccess: "Bu işlem için erişimin yok.",
 } as const;
 
 /** S5.x — sahip raporları ekranı (`../app/_components/vehicle-period-report.tsx`,
  * görünüm: `./report-ui.ts`). "Hesaplanan kalan" ve "Teslim alınan" açıklamaları
- * DESIGN "Raporlar — notes": kâr veya eldeki para gibi okunmaz. */
+ * bu tutarların kâr veya eldeki para gibi okunmamasını sağlar. */
 export const REPORT_MESSAGES = {
   title: "Raporlar",
   link: "Raporlar",
@@ -404,7 +398,7 @@ export const DRIVER_FIELD_MESSAGES = {
   notAssigned: "Bu kişi bu araca atanmamış.",
 } as const;
 
-/** T2.4 — Şoförlerim ekranı metinleri (DESIGN "Şoförlerim — notes"). */
+/** T2.4 — Şoförlerim ekranı metinleri. */
 export const DRIVER_SCREEN_MESSAGES = {
   renameNote: "Bu kişinin eski kayıtları da yeni adıyla görünür.",
   sharedPasswordWarning:

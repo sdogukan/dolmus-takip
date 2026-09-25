@@ -12,8 +12,8 @@
 # `e2e` adımı kendi `next build`'ini zaten çalıştırır; bkz. `ci.yml`
 # "Uçtan uca testler" adımı üstü not, S6.1 düzeltme turu 1.)
 #
-# Yayın SSH ile T6.2/T6.5 (RELEASE.md) kapsamında manuel yapılır; secrets
-# henüz tanımlı değil.
+# Yayın SSH ile T6.2/T6.5 kapsamında manuel yapılır; secrets henüz
+# tanımlı değil.
 name: Release
 
 on:
@@ -105,7 +105,7 @@ jobs:
           retention-days: 30
           if-no-files-found: error
 
-  # DEPLOY ADIMI YOK — Yayın SSH ile T6.2/T6.5 (RELEASE.md) kapsamında
-  # manuel yapılır; secrets henüz tanımlı değil. Bu iş akışı yalnız
+  # DEPLOY ADIMI YOK — Yayın SSH ile T6.2/T6.5 kapsamında manuel
+  # yapılır; secrets henüz tanımlı değil. Bu iş akışı yalnız
   # "verify" job'ının artifact'ını üretir; hedef Lightsail makinesine
   # kopyalama/yeniden başlatma burada OTOMATİKLEŞTİRİLMEZ (S6.1 AC7).

@@ -3,30 +3,28 @@
  * T1.5 ADIM 1/2 (izinli kapsam özeti + scopeKey), düzeltme turu 1
  * (credentialId/platformUserId geri alındı), S1.4/S1.5.
  *
- * ARCHITECTURE.md §4 — "GET | /session | Rol, izinli kapsam ve CSRF
- * bilgisi | Oturum". Yanıt "rol, izinli kapsam (kind/businessId/vehicleId/
- * role) ve CSRF token" içerir. `sessionId` bu listede YOKTUR (hiçbir
+ * GET /session rol, izinli kapsam ve CSRF bilgisini döndürür; oturum
+ * gerektirir. Yanıt rol, izinli kapsam (kind/businessId/vehicleId/role) ve
+ * CSRF token içerir. `sessionId` bu listede YOKTUR (hiçbir
  * istemci özelliği ona ihtiyaç duymaz — gereksiz iç ayrıntı yüzeyi
  * küçültülür).
  *
  * DÜZELTME (denetim bulgusu, düzeltme turu 1 — "GET /session
- * credentialId/platformUserId alanları DECISIONS.md T1.4 kararını ihlal
- * ediyor"): bu iki alan yanıttan KALDIRILDI. docs/DECISIONS.md satır 89
- * ("T1.4 uygulama kararları", ürün sahibi onaylı, 2026-09-17) BİREBİR:
- * "GET /session istemciye sessionId/credentialId/platformUserId VERMEZ.
- * client-state (F6) anahtarı için T1.5'te yanıta gizli olmayan opak
- * `scopeKey` eklenir." Önceki düzeltme turu bu kararı, kod yorumunda
- * kendi gerekçesiyle ("bu gerekçe TUTARSIZDI") tek taraflı GEÇERSİZ
- * KILMIŞTI — CLAUDE.md ("asla varsayımda bulunma, kanıta dayalı çalış")
- * ve görev talimatı (dokümanla çelişen bir davranış doküman güncellenmeden
- * eklenemez) gereği, dokümante edilmiş bir ürün sahibi kararı yalnız
- * DECISIONS.md'nin kendisi güncellenerek veya yeni bir onayla tersine
+ * credentialId/platformUserId alanları T1.4 kararını ihlal ediyor"): bu
+ * iki alan yanıttan KALDIRILDI. T1.4 uygulama kararı (ürün sahibi onaylı,
+ * 2026-09-17): GET /session istemciye sessionId/credentialId/
+ * platformUserId VERMEZ; client-state (F6) anahtarı için T1.5'te yanıta
+ * gizli olmayan opak `scopeKey` eklenir. Önceki düzeltme turu bu kararı,
+ * kod yorumunda kendi gerekçesiyle ("bu gerekçe TUTARSIZDI") tek taraflı
+ * GEÇERSİZ KILMIŞTI — CLAUDE.md ("asla varsayımda bulunma, kanıta dayalı
+ * çalış") ve görev talimatı gereği, ürün sahibinin onayladığı bir karar
+ * yalnız kararın kendisi güncellenerek veya yeni bir onayla tersine
  * çevrilebilir; bir kod yorumu bu yetkiye sahip değildir. Ayrıca bu alanlar
  * zaten GEREKSİZDİ: aşağıdaki `scopeKey` (bkz. `computeScopeKey`) tam da
  * bu ihtiyacı (client-state anahtarı, F6) karşılamak için VARDIR ve
  * `tests/integration/session-scope-summary.test.ts` scopeKey'in hem farklı
  * araç hem farklı ekip üyesi için farklı değer ürettiğini zaten kanıtlar —
- * credentialId/platformUserId'yi AYRICA açığa çıkarmak yalnız DECISIONS.md
+ * credentialId/platformUserId'yi AYRICA açığa çıkarmak yalnız T1.4
  * kararıyla çelişen, kullanılmayan bir yüzey ekler.
  *
  * GET salt okunur olduğundan `requireWrite` (CSRF/origin/Content-Type/gövde
@@ -41,7 +39,7 @@
  * genişlet: izinli kapsam özeti (actor, businessId, vehicleId, permissions
  * listesi) ve gizli OLMAYAN opak `scopeKey`." Bu ADIM'da iki alan EKLENİR:
  *
- * - `permissions`: `context.role`'ün (ARCHITECTURE §2 yetki matrisinin
+ * - `permissions`: `context.role`'ün (yetki matrisinin
  *   kod karşılığı — bkz. `../../../../server/auth/permissions.ts`) TAM
  *   izin listesi, alfabetik sırayla. "actor" AYRI bir alan olarak
  *   EKLENMEZ: `SessionRole` ("owner"|"driver"|"admin"|"support") ile
@@ -54,25 +52,24 @@
  *   server/auth/scope.ts` üst notu: staff'ın Scope'u yalnız
  *   `X-Target-Vehicle` header'ıyla bir MÜŞTERİ ucunda ÇÖZÜLÜR), bu yüzden
  *   burada DB erişimi YAPILMAZ.
- * - `scopeKey`: DECISIONS.md T1.4 notu — "client-state anahtarı için
- *   T1.5'te yanıta gizli olmayan opak `scopeKey` eklenir"; görev tanımı —
+ * - `scopeKey`: T1.4 kararı gereği client-state anahtarı için T1.5'te
+ *   yanıta gizli olmayan opak `scopeKey` eklenir; görev tanımı —
  *   "sunucuda SHA-256(kind + ':' + credentialId|platformUserId + ':' +
  *   vehicleId).slice(0,16)" (bkz. `computeScopeKey`). `../../../../
  *   lib/client-state.ts` bu opak anahtarı DOĞRUDAN kullanır; iç
  *   credentialId/platformUserId değerlerine ihtiyaç duymaz.
  *
- * T1.2 (görev tanımı (1), DECISIONS.md T1.5 notunun son cümlesi —
- * "Araç oturumu için T1.2'de `plate` (görüntü biçimi) eklenecek."): araç
- * oturumları için `plate` alanı EKLENDİ — DESIGN §2.2 "Plaka sabittir"
- * ekranının kaynağı budur (`../../../../server/auth/permissions.ts` dosya
- * üstü notundaki "KALDIRILDI" bölümünün de doğruladığı gibi, ayrı bir
+ * T1.2 (görev tanımı (1); T1.5 notu: araç oturumu için T1.2'de `plate`
+ * [görüntü biçimi] eklenecek): araç oturumları için `plate` alanı EKLENDİ —
+ * şoför ekranında sabit gösterilen plakanın kaynağı budur
+ * (`../../../../server/auth/permissions.ts` dosya üstü notundaki "KALDIRILDI" bölümünün de doğruladığı gibi, ayrı bir
  * `GET /vehicles/current` ucu YOKTUR; plaka BURADAN gelir). `SessionContext`
  * plakayı KENDİSİ TAŞIMAZ (yalnız `vehicleId` — bkz. `../../../../server/
  * usecases/session/types.ts`); bu yüzden `context.kind === "vehicle"`
  * iken `vehicles.plate_normalized` `../../../../server/auth/
  * vehicle-plate.ts` `readVehiclePlateForDisplay` ile okunup görüntü
  * biçimine (`"35 ABC 123"`) çevrilir — API'nin GERİ KALANI plakayı
- * normalize (boşluksuz) taşırken (DECISIONS.md T1.5 notu), bu ALAN
+ * normalize (boşluksuz) taşırken (T1.5 notu), bu ALAN
  * KASITLI olarak GÖRÜNTÜ biçimindedir (görev tanımı: "plate (görüntü
  * biçimi, formatPlateForDisplay)").
  *

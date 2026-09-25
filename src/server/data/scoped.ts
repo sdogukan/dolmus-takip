@@ -8,9 +8,9 @@
  * işletme/araç aktif mi, credential_version değişti mi, oturum iptal
  * edildi mi → değiştiyse işlem geri alınır ve 401/403)."
  *
- * ARCHITECTURE.md §3.1 — "Bunlar [birleşik FK'ler] yanlış işletmeye ilişki
- * kurulmasını engeller; SELECT yetkisini SAĞLAMAZ. Her okuma/yazma,
- * sunucunun ürettiği işletme ve araç kapsamıyla FİLTRELENİR." Bu dosya o
+ * Birleşik FK'ler yanlış işletmeye ilişki kurulmasını engeller; SELECT
+ * yetkisini SAĞLAMAZ. Her okuma/yazma, sunucunun ürettiği işletme ve araç
+ * kapsamıyla FİLTRELENİR. Bu dosya o
  * filtrenin TEK KAYNAĞIDır: hiçbir çağıran business_id/vehicle_id
  * değerini elle YAZMAZ, yalnız `../auth/scope.ts` `Scope` nesnesinden okur.
  */
@@ -50,8 +50,8 @@ export interface ScopedTableColumns {
  * `columns.vehicleId` verilmiş ama `scope`'ta (henüz belirli bir araca
  * İNMEMİŞ bir StaffScope — ör. `/admin/businesses/:id`) `vehicleId` YOKSA
  * fırlatılır: bu, araç seviyeli bir tabloyu araç kapsamı OLMADAN sorgulama
- * girişimidir — sessizce "tüm işletmeyi" DÖNMEK yanlış olur (ARCH §3.1
- * "yanlış işletmeye ilişki kurulmasını engeller" ilkesiyle aynı
+ * girişimidir — sessizce "tüm işletmeyi" DÖNMEK yanlış olur (birleşik
+ * FK'lerin "yanlış işletmeye ilişki kurulmasını engeller" ilkesiyle aynı
  * doğrultuda: sessiz kapsam GENİŞLEMESİ değil, açık programlama hatası).
  */
 export class ScopeMissingVehicleIdError extends Error {
@@ -121,9 +121,9 @@ export function scopedVehicleDriversFilter(scope: Scope): SQL {
 }
 
 // ---------------------------------------------------------------------------
-// recheckScopeInTransaction — ARCHITECTURE §3.4 adım 3: "Kısa yazma
-// transaction'ı içinde güncel yetki/aktiflik ... kontrol edilir." ve
-// STORIES.md S1.5 AC7: "Yetki kontrolü tekrar gönderim sonucu okunurken ve
+// recheckScopeInTransaction — yazma akışının 3. adımı: kısa yazma
+// transaction'ı içinde güncel yetki/aktiflik kontrol edilir. Ayrıca
+// S1.5 AC7: "Yetki kontrolü tekrar gönderim sonucu okunurken ve
 // yazmanın tamamlandığı noktada da korunur. Arada erişimi iptal edilen
 // kullanıcı eski başarılı işlem yanıtını kullanarak yeni yetki kazanamaz."
 //
@@ -141,8 +141,8 @@ export function scopedVehicleDriversFilter(scope: Scope): SQL {
 // (guard/scope-resolution aşamasında) var olduğu ve erişilebilir olduğu
 // DOĞRULANMIŞ bir hedefin transaction ANINDA hâlâ geçerli olup olmadığını
 // yeniden dener — "nesnenin hiç var olmaması" (404) senaryosu burada
-// OLUŞAMAZ (ARCHITECTURE §3.1 — "Kişi/araç pasife alınır; ... fiziksel
-// olarak SİLİNMEZ"; bir satır transaction'lar arasında YOK OLMAZ, yalnız
+// OLUŞAMAZ (kişi/araç pasife alınır, fiziksel olarak SİLİNMEZ; bir
+// satır transaction'lar arasında YOK OLMAZ, yalnız
 // `active` bayrağı değişebilir). Kalan iki durum:
 // - Aktörün KENDİ kimliği (oturum/credential/platform_user) artık geçersiz
 //   → 401 (SessionError kodlarıyla BİREBİR aynı anlam — `../usecases/
@@ -166,9 +166,9 @@ export class ScopeTargetInactiveError extends Error {
 
 /**
  * `recheckScopeInTransaction`in hedef aktiflik denetimini SEÇEREK atlamak
- * için — denetim bulgusu (düzeltme turu 1, `mimari` merceği): "ARCH §2
- * yetki matrisi 'İşletme/araç açma' işlemini staff'a veriyor; aynı
- * transaction içinde ARCH §3.4 adım 3'ün istediği şekilde
+ * için — denetim bulgusu (düzeltme turu 1, `mimari` merceği): "yetki
+ * matrisi 'İşletme/araç açma' işlemini staff'a veriyor; aynı transaction
+ * içinde yazma akışının 3. adımının istediği şekilde
  * `recheckScopeInTransaction` çağrılırsa, staff'ın PATCH /admin/vehicles/:id
  * veya /admin/businesses/:id ile tam da PASİF olan bir hedefi `active: true`
  * yapma isteği, hedefin O AN pasif olması YÜZÜNDEN 403 ile reddedilir" —

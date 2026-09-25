@@ -3,8 +3,8 @@
 /**
  * Yeni araç oluşturma formu (istemci bileşeni) — T2.2, S2.2.
  *
- * `../new-business-form.tsx`'in (bkz. o dosyanın üst notu — dosya üstü
- * "ARCHITECTURE §3.4" açıklaması BİREBİR burada da geçerlidir: aynı
+ * `../new-business-form.tsx`'in (bkz. o dosyanın üst notu — dosya üstündeki
+ * tekrar gönderim açıklaması BİREBİR burada da geçerlidir: aynı
  * `requestId`nin korunması, belirsiz sonuçta dondurma, kesin sonuçtan
  * sonraki değişiklikte yeni `requestId`) AYNI deseni izler — TEK fark, bu
  * formun İKİ GİZLİ alanı (mal sahibi/şoför şifresi) taşımasıdır.
@@ -323,7 +323,7 @@ export function NewVehicleForm({
   const canRetry = phase === "ambiguous" && ownerPassword.trim() !== "" && driverPassword.trim() !== "";
   // C2 (istemci yarısı) — belirsiz sonuçta gönderilen şifreler bu bileşenin
   // `useState`'inde (yukarıda) HAYATTA kalır (dosya üstü notu); "Tekrar
-  // kontrol et" AYNI şifrelerle AYNI requestId'yi göndermelidir (ARCH §3.4).
+  // kontrol et" AYNI şifrelerle AYNI requestId'yi göndermelidir.
   // Alanlar hâlâ DOLU iken (sayfa yenilenmediyse) düzenlenebilir bırakmak,
   // ekip üyesinin YANLIŞLIKLA farklı bir şifre yazıp göndermesine — ve
   // `verifyReplayPasswords`'ün bunu 409 REQUEST_ID_REUSED'e düşürmesine —

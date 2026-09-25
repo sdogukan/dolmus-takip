@@ -163,7 +163,7 @@ describe("POST /api/v1/auth/platform-login (T1.3 ADIM 1/2)", () => {
     expect(body.kind).toBe("platform");
     expect(body.role).toBe("admin");
     expect(body.username).toBe(SEED_USERNAMES.admin);
-    // Ekip oturumunda businessId/vehicleId YOK (ARCH §6, T1.5 notu).
+    // Ekip oturumunda businessId/vehicleId YOK (T1.5 notu).
     expect(body.businessId).toBeUndefined();
     expect(body.vehicleId).toBeUndefined();
   });
@@ -455,7 +455,7 @@ describe("POST /api/v1/auth/platform-login (T1.3 ADIM 1/2)", () => {
 
   // -------------------------------------------------------------------
   // reset-admin-password sonrası eski oturum 401 SESSION_REVOKED; yeni
-  // parola ile giriş çalışır (DECISIONS.md F11 — `bumpPlatformUserVersion`
+  // parola ile giriş çalışır (F11 — `bumpPlatformUserVersion`
   // yeniden kullanımı üzerinden). `scripts/platform-admin.ts`'in GERÇEK
   // `resetAdminPassword` fonksiyonu (CLI'ın kendisinin çağırdığı AYNI
   // kod) doğrudan çağrılır; `tests/integration/platform-admin-cli.test.ts`

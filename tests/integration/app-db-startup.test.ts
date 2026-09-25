@@ -11,9 +11,9 @@ import {
 } from "../../src/server/data/db";
 
 /**
- * `getAppDb()` açılış kapısı — gerçek geçici dosyalar (QA-PLAN.md §1).
- * ARCHITECTURE.md §8.1 (eksik dosya sessizce oluşturulmaz) ve §3.6 (PRAGMA
- * değerleri). Migration klasörü `process.cwd()/drizzle`'dır (proje kökü).
+ * `getAppDb()` açılış kapısı — gerçek geçici dosyalar. Eksik dosya sessizce
+ * oluşturulmaz; PRAGMA değerleri de sınanır. Migration klasörü
+ * `process.cwd()/drizzle`'dır (proje kökü).
  */
 describe("getAppDb() açılış kapısı", () => {
   let dir: string;
@@ -95,7 +95,7 @@ describe("getAppDb() açılış kapısı", () => {
     expect(() => getAppDb()).toThrow(UninitializedDatabaseError);
   });
 
-  it("migrate edilmiş DB'de açılır ve §3.6 PRAGMA değerlerini raporlar", async () => {
+  it("migrate edilmiş DB'de açılır ve beklenen PRAGMA değerlerini raporlar", async () => {
     const { migrate } = await import("drizzle-orm/better-sqlite3/migrator");
     const { createDb } = await import("../../src/server/data/db");
     const setup = openDatabaseConnection(dbPath, { createIfMissing: true });

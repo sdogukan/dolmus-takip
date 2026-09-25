@@ -11,7 +11,7 @@
  */
 import { COMMON_SCREEN_MESSAGES } from "../../../lib/messages";
 
-/** ARCHITECTURE §3.4 / F7 / DECISIONS.md T1.4 notu — kanonik 409 metni TEK
+/** F7 / T1.4 notu — kanonik 409 metni TEK
  * kaynaktan (`../../../lib/messages.ts`) alınır. */
 export class VehicleVersionConflictError extends Error {
   readonly status = 409 as const;
@@ -28,7 +28,7 @@ export class VehicleVersionConflictError extends Error {
  * durumuna veya iş kuralına bağlı) durumlar için: plaka biçimi/tekilliği,
  * hedef işletmenin bulunamaması/sahipsiz olması, sahip/şoför şifrelerinin
  * aynı olması, model yılı aralığı, "değişiklik yok" gibi. Gövde biçimi
- * ARCHITECTURE §4 — "422 VALIDATION_ERROR + fields".
+ * API hata sözleşmesindeki gibidir: 422 VALIDATION_ERROR + fields.
  */
 export class VehicleValidationError extends Error {
   readonly status = 422 as const;

@@ -541,3 +541,22 @@ rm -f ~/app-*.sqlite ~/runtime-metrics.log ~/health.log ~/load-wal.log
 Bu belge kaynak oluşturmaz ve AWS'ye komut çalıştırmaz; kurulum, sertifika alma ve yeniden başlatma denemeleri elle kurulum sırasında yapılır (§5). Önceki gerçek makine denemeleri (ISSUE-24/25/26/28) elle kurulum tamamlanana dek ertelenmiştir ([PROGRESS](PROGRESS.md)). 30 saniyelik sağlık zamanlayıcısı, kalıcı kurtarma kilidi, journald sınırı ve Caddy erişim günlüğü **hazırlandı, denenmedi** (`deploy/health/`, §3.3, §5 satır 10–16; işleyiş ve kilit kaldırma yordamı [OPS](OPS.md) §2, §5-B). Günlük yedek birimi ve zamanlayıcısı ile Lightsail otomatik snapshot da **hazırlandı, denenmedi** (§3.3, §3.5, §5 satır 17–21; [OPS](OPS.md) §4). Caddy bakım kapısı (işaret varken dışarıya 503) ve `release-state`/`preserved` dizinleri de **hazırlandı, denenmedi** (§2, §3.1, §5 satır 22–24). Yük kabulü için ayrı yük DB'si, süreç öldürme denemesi ve üretim DB'sine dönüş adımları da **hazırlandı, denenmedi** (§5.1, §5 satır 28–33); yük üreticisi hazırlıkta ve koşu boyunca Caddy üzerinden oturumsuz `GET /giris` ile erişilebilirliği sınar (503 = bakım kapısı), sağlık uçları yalnız localhost içinde kalır ve DB hazırlığı koşu sırasında `dolmus-health` `event=probe` `ready` / `event=metrics` `ready_ms` satırlarından okunur ([QA-PLAN](QA-PLAN.md) §3). Hedef makine olmadığı için hiçbir yük koşusu yapılmadı. Bakım işaretini koyan/kaldıran yayın aracı (`scripts/release-apply.ts`, §4) da **hazırlandı, denenmedi** (§5 satır 25–27); işaret varken sağlık görevi restart yapmaz, başlatmadan sonra 90 saniyelik tolerans işler. Uygulama servis dosyası `Restart=on-failure`, `RestartSec=10s`, `StartLimitIntervalSec=900`, `StartLimitBurst=3` değerlerini taşır; sağlık görevi systemd'nin start sınırını hiçbir zaman sıfırlamaz.
 
 Sürüm dizini `ProtectSystem=strict` ile salt okunurdur ve `ReadWritePaths` yalnız `/var/lib/dolmus-takip/data`'dır. Uygulama `next/image` veya ISR kullanmadığı için çalışma anında sürüm dizinine yazması beklenmez; bu **gerçek makinede doğrulanmamıştır** (manuel kurulumda servis kullanıcısıyla ilk istekler sonrası `journalctl` ile izlenir).
+
+## 7. Otomatik yayın (GitHub Actions → SSH zorunlu komut)
+
+2026-09-26'dan beri sürüm değişimi (§4) elle değil, `.github/workflows/deploy.yml` ile yapılır: `main` push'unun CI koşusu yeşil bitince o koşunun `release-<sha>` paketi SSH stdin'inden sunucuya akar ve `/usr/local/sbin/dolmus-deploy-receive` §4 adımlarını uygular. Karar: [DECISIONS](DECISIONS.md) "Otomatik yayın". Sunucuda bir kez (denendi, 2026-09-26):
+
+```bash
+sudo useradd --create-home --shell /bin/sh --comment "GitHub Actions otomatik yayin" deploy && sudo passwd -l deploy
+sudo install -m 0755 -o root -g root deploy/ci/dolmus-deploy-receive /usr/local/sbin/dolmus-deploy-receive
+sudo visudo -cf deploy/ci/sudoers-dolmus-deploy && sudo install -m 0440 -o root -g root deploy/ci/sudoers-dolmus-deploy /etc/sudoers.d/dolmus-deploy
+sudo install -d -m 0700 -o deploy -g deploy /home/deploy/.ssh
+# yalnız alıcıyı çalıştırabilen anahtar (özel anahtar yalnız GitHub secret DEPLOY_SSH_KEY'de):
+echo 'restrict,command="sudo -n /usr/local/sbin/dolmus-deploy-receive" ssh-ed25519 <açık-anahtar> github-actions-deploy@dolmus-takip' \
+  | sudo tee /home/deploy/.ssh/authorized_keys && sudo chown deploy:deploy /home/deploy/.ssh/authorized_keys && sudo chmod 0600 /home/deploy/.ssh/authorized_keys
+```
+
+- Repo secret'ları: `DEPLOY_HOST`, `DEPLOY_SSH_KEY`, `DEPLOY_KNOWN_HOSTS` (sunucunun doğrulanmış ed25519 host anahtarı satırı), `DIJJI_DEPLOY_KEY`.
+- Güvenlik duvarı: 22 GitHub runner'ları için herkese açık (parola girişi kapalı; `sshd -T`: `passwordauthentication no`).
+- Aynı paket tekrar gelirse alıcı `deploy_already_current` yazar ve hiçbir şeye dokunmaz. Başarısızlıkta §4'teki kurallar geçerlidir (bakım işareti yerinde kalır, geri dönüş RELEASE §7 kararıyla elle).
+- Günlük: `sudo journalctl -t dolmus-deploy` (alıcı) ve `-t dolmus-release` (yayın aracı).

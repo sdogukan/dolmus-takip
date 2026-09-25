@@ -213,3 +213,24 @@ describe(".github/workflows dosyaları (T6.1 ADIM 2/2, S6.1)", () => {
     expect(readme).toMatch(/kota/i);
   });
 });
+
+describe("deploy.yml — otomatik yayın (DECISIONS 2026-09-26)", () => {
+  test("yalnız main'e push'un CI koşusu yeşil bitince çalışır", () => {
+    const deploy = readWorkflow("deploy.yml");
+    expect(extractTriggerBlock(deploy)).toMatch(/workflow_run:/);
+    expect(deploy).toMatch(/workflows:\s*\[CI\]/);
+    expect(deploy).toMatch(/branches:\s*\[main\]/);
+    expect(deploy).toMatch(/workflow_run\.conclusion == 'success'/);
+    expect(deploy).toMatch(/workflow_run\.event == 'push'/);
+    expect(deploy).toMatch(/cancel-in-progress:\s*false/);
+  });
+
+  test("CI'ın paketini kurar (yeniden derlemez), host anahtarı doğrulanır", () => {
+    const deploy = readWorkflow("deploy.yml");
+    expect(deploy).toMatch(/actions\/download-artifact@v4/);
+    expect(deploy).toMatch(/name:\s*release-\$\{\{ github\.event\.workflow_run\.head_sha \}\}/);
+    expect(deploy).not.toMatch(/release:build|npm ci/);
+    expect(deploy).toMatch(/StrictHostKeyChecking=yes/);
+    expect(deploy).not.toMatch(/StrictHostKeyChecking=no/);
+  });
+});

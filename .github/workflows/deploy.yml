@@ -1,0 +1,98 @@
+# Otomatik yayın: main'e gelen push'un CI koşusu yeşil bitince, o koşunun ürettiği yayın
+# paketini (release-<sha> artifact'i; yeniden derleme YOK) sunucuya kurar ve Dijji'ye haber
+# verir. Karar: docs/DECISIONS.md "Otomatik yayın (2026-09-26)". Sunucu tarafı:
+# deploy/ci/dolmus-deploy-receive (SSH zorunlu komutu) ve docs/SERVER-SETUP.md §7.
+#
+# Gerekli repo secret'ları: DEPLOY_HOST, DEPLOY_SSH_KEY (yalnız alıcı betiği çalıştırabilen
+# ed25519 anahtar), DEPLOY_KNOWN_HOSTS (sunucunun doğrulanmış host anahtarı satırı),
+# DIJJI_DEPLOY_KEY (Dijji deploy webhook anahtarı).
+name: Deploy
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+  actions: read
+
+# Aynı anda tek yayın; bekleyen daha yeni bir koşu eskisinin yerini alır.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Canlıya kur ve Dijji'ye bildir
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      SHA: ${{ github.event.workflow_run.head_sha }}
+      DIJJI_DEPLOY_URL: https://dev-ai.dijitales.io/_api/webhooks/deploy
+    steps:
+      - name: Kodu al (birinci-ebeveyn geçmişiyle)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 0
+
+      - name: Yalnız main'in en son commit'i kurulur
+        id: tip
+        run: |
+          git fetch -q origin main
+          if [ "$(git rev-parse origin/main)" = "$SHA" ]; then
+            echo "latest=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "main ilerledi; $SHA kurulmuyor, yeni commit'in kendi koşusu kuracak."
+            echo "latest=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Yayın paketini CI koşusundan al
+        if: steps.tip.outputs.latest == 'true'
+        uses: actions/download-artifact@v4
+        with:
+          name: release-${{ github.event.workflow_run.head_sha }}
+          run-id: ${{ github.event.workflow_run.id }}
+          github-token: ${{ github.token }}
+          path: bundle
+
+      - name: SSH anahtarı ve doğrulanmış host anahtarı
+        if: steps.tip.outputs.latest == 'true'
+        env:
+          DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          DEPLOY_KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          install -d -m 0700 ~/.ssh
+          printf '%s\n' "$DEPLOY_SSH_KEY" > ~/.ssh/deploy_key && chmod 600 ~/.ssh/deploy_key
+          printf '%s\n' "$DEPLOY_KNOWN_HOSTS" > ~/.ssh/known_hosts && chmod 600 ~/.ssh/known_hosts
+
+      - name: Sunucuya kur
+        id: deploy
+        if: steps.tip.outputs.latest == 'true'
+        env:
+          DEPLOY_HOST: ${{ secrets.DEPLOY_HOST }}
+        run: |
+          set -o pipefail
+          ls -l bundle
+          tar -C bundle -cf - . \
+            | ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes \
+                  -o UserKnownHostsFile=~/.ssh/known_hosts -o ConnectTimeout=20 \
+                  "deploy@${DEPLOY_HOST}" \
+            | tee deploy.log
+          prev="$(sed -n 's/^previous_source_commit=//p' deploy.log | tail -1)"
+          echo "previous=$prev" >> "$GITHUB_OUTPUT"
+
+      - name: Dijji'ye bildir (başarılı)
+        if: steps.tip.outputs.latest == 'true' && success()
+        env:
+          DIJJI_DEPLOY_KEY: ${{ secrets.DIJJI_DEPLOY_KEY }}
+        run: bash scripts/notify-dijji-deploy.sh "${{ steps.deploy.outputs.previous }}" "$SHA" success
+
+      - name: Dijji'ye bildir (başarısız)
+        if: steps.tip.outputs.latest == 'true' && failure() && steps.deploy.outcome == 'failure'
+        env:
+          DIJJI_DEPLOY_KEY: ${{ secrets.DIJJI_DEPLOY_KEY }}
+        run: bash scripts/notify-dijji-deploy.sh "" "$SHA" failure

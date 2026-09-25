@@ -1,0 +1,81 @@
+#!/bin/bash
+# /usr/local/sbin/dolmus-deploy-receive  (root:root 0755)
+#
+# Otomatik yayın alıcısı. GitHub Actions `deploy.yml`, CI'ın ürettiği yayın paketini
+# (dolmus-takip-<id>-linux-x64.tar.gz + .manifest.json) tar akışı olarak SSH stdin'ine
+# yazar. `deploy` kullanıcısının authorized_keys satırı bu betiği ZORLA çalıştırır
+# (restrict,command="sudo -n /usr/local/sbin/dolmus-deploy-receive"); anahtar başka hiçbir
+# komut çalıştıramaz. Betik SERVER-SETUP.md §4 adımlarını birebir uygular:
+# hash kontrolü → yeni releases/<id> dizini → release-apply deploy → dış kontrol →
+# mark-verified → cleanup. Çıktının son satırları iş akışının okuduğu anahtar=değer satırlarıdır.
+set -euo pipefail
+umask 022
+
+REL_ROOT=/opt/dolmus-takip/releases
+CURRENT=/opt/dolmus-takip/current
+MAX_BYTES=$((200 * 1024 * 1024))
+
+log() { echo "$*"; logger -t dolmus-deploy -- "$*"; }
+fail() { log "event=deploy_failed reason=$1"; exit "${2:-1}"; }
+
+exec 9>/run/dolmus-deploy-receive.lock
+flock -n 9 || fail "busy" 75
+
+WORK="$(mktemp -d /var/tmp/dolmus-deploy.XXXXXX)"
+trap 'rm -rf "$WORK"' EXIT
+
+# Girdi: yalnız tar akışı, en çok 200 MB; dosyalar yalnız WORK içine açılır.
+head -c "$MAX_BYTES" | tar -x -C "$WORK" --no-same-owner --no-same-permissions \
+  || fail "bad_stream"
+
+mapfile -t ARCHIVES < <(find "$WORK" -maxdepth 1 -type f -name 'dolmus-takip-*-linux-x64.tar.gz')
+[[ ${#ARCHIVES[@]} -eq 1 ]] || fail "archive_count_${#ARCHIVES[@]}"
+ARCHIVE="${ARCHIVES[0]}"
+BASE="$(basename "$ARCHIVE" .tar.gz)"
+[[ "$BASE" =~ ^dolmus-takip-([0-9a-f]{7})-linux-x64$ ]] || fail "bad_archive_name"
+ID="${BASH_REMATCH[1]}"
+MANIFEST="$WORK/$BASE.manifest.json"
+[[ -f "$MANIFEST" && ! -L "$MANIFEST" ]] || fail "manifest_missing"
+
+read -r SRC WANT PLATFORM ARCH < <(/usr/bin/node -e '
+  const m = JSON.parse(require("fs").readFileSync(process.argv[1], "utf8"));
+  console.log([m.source_commit, m.artifact_sha256, m.platform, m.arch].join(" "));
+' "$MANIFEST") || fail "manifest_unreadable"
+[[ "$SRC" =~ ^[0-9a-f]{40}$ && "$SRC" == "$ID"* ]] || fail "manifest_commit_mismatch"
+[[ "$PLATFORM" == "linux" && "$ARCH" == "x64" ]] || fail "manifest_platform"
+GOT="$(sha256sum "$ARCHIVE" | cut -d' ' -f1)"
+[[ "$GOT" == "$WANT" ]] || fail "hash_mismatch"
+
+PREV_ID="$(basename "$(readlink -f "$CURRENT")")"
+PREV_SRC=""
+if [[ -f "$REL_ROOT/$PREV_ID.manifest.json" ]]; then
+  PREV_SRC="$(/usr/bin/node -e 'console.log(JSON.parse(require("fs").readFileSync(process.argv[1],"utf8")).source_commit)' "$REL_ROOT/$PREV_ID.manifest.json")"
+fi
+echo "previous_source_commit=$PREV_SRC"
+
+REL="$REL_ROOT/$ID"
+if [[ "$PREV_ID" == "$ID" ]]; then
+  log "event=deploy_already_current release_id=$ID"
+  echo "deployed_source_commit=$SRC"
+  exit 0
+fi
+[[ ! -e "$REL" ]] || fail "release_dir_exists"
+
+log "event=deploy_receive release_id=$ID previous_release_id=$PREV_ID source_commit=$SRC"
+install -d -m 0755 -o root -g root "$REL"
+tar -xzf "$ARCHIVE" -C "$REL"
+install -m 0644 -o root -g root "$MANIFEST" "$REL_ROOT/$ID.manifest.json"
+
+cd "$REL"
+/usr/bin/node scripts/release-apply.ts deploy || fail "release_apply_deploy_exit_$?"
+
+# Dış kontrol: Caddy + sertifika + uygulama uçtan uca (RELEASE §6 kısa doğrulama).
+set -a; . /etc/dolmus-takip/domain.env; set +a
+CODE="$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 "https://${DOLMUS_DOMAIN}/giris" || true)"
+[[ "$CODE" == "200" ]] || fail "external_check_$CODE"
+
+/usr/bin/node scripts/release-apply.ts mark-verified || fail "mark_verified"
+/usr/bin/node scripts/release-apply.ts cleanup || log "event=deploy_cleanup_warning"
+
+log "event=deploy_done release_id=$ID source_commit=$SRC"
+echo "deployed_source_commit=$SRC"

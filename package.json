@@ -15,6 +15,7 @@
     "test:integration": "vitest run --project integration",
     "test:release": "vitest run --project release",
     "test:e2e": "next build && node scripts/prepare-standalone.ts && playwright test",
+    "quality-gate": "node scripts/quality-gate.ts",
     "db:init": "node --env-file-if-exists=.env scripts/db-init.ts",
     "db:generate": "drizzle-kit generate",
     "db:seed-dev": "node --env-file-if-exists=.env scripts/db-seed-dev.ts",

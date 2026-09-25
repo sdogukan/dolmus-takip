@@ -184,6 +184,22 @@ describe(".github/workflows dosyaları (T6.1 ADIM 2/2, S6.1)", () => {
     assertSubsequence(runCommands, expectedOrder, "release.yml adım sırası");
   });
 
+  test("ci-steps.json: kalite kapısı tek `quality-gate` adımıdır, test:release ve release:build'ten önce koşar", () => {
+    const ids = readCiSteps().map((step) => step.id);
+    for (const gateStep of ["typecheck", "lint", "test:unit", "test:integration"]) {
+      expect(ids).not.toContain(gateStep);
+    }
+    expect(ids.indexOf("quality-gate")).toBe(0);
+    expect(ids.indexOf("quality-gate")).toBeLessThan(ids.indexOf("test:release"));
+    expect(ids.indexOf("quality-gate")).toBeLessThan(ids.indexOf("release:build"));
+
+    const scripts = JSON.parse(fs.readFileSync(path.join(projectRoot, "package.json"), "utf8")).scripts as Record<
+      string,
+      string
+    >;
+    expect(scripts["quality-gate"]).toBe("node scripts/quality-gate.ts");
+  });
+
   test("scripts/ci-local.ts adım listesini KENDİ İÇİNDE tekrarlamaz; scripts/ci-steps.json'ı okur (tek kaynak)", () => {
     const ciLocalPath = path.join(projectRoot, "scripts", "ci-local.ts");
     const ciLocal = fs.readFileSync(ciLocalPath, "utf8");

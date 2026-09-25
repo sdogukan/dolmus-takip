@@ -58,12 +58,29 @@
  * ile başarılı arşiv+manifest üretiyordu; ardından `release:verify` de
  * (yalnız hash/health kontrolü yaptığından) BAŞARILI dönüyordu — yani
  * testleri geçmemiş bir commit'ten "sağlıklı görünen" dağıtılabilir bir
- * çıktı elde edilebiliyordu. Bu yüzden `runQualityGate()` (aşağıda),
- * `assertCleanWorkingTree()`'den HEMEN sonra, standalone derlemesinden
- * ÖNCE, typecheck/lint/test:unit/test:integration'ı bu script'in KENDİSİ
- * çalıştırır ve herhangi biri başarısız olursa `buildStandalone()`'a HİÇ
- * girmeden `exit 1` ile durur — script'i çağıran şeyin (CI, ci:local,
- * elle) TÜRÜNE bakılmaksızın.
+ * çıktı elde edilebiliyordu.
+ *
+ * Kural (2026-09-25, kapı kaydı): script'i çağıran şeyin (CI, ci:local,
+ * elle) TÜRÜNE bakılmaksızın, kapının BU commit'in içeriği (git tree
+ * hash'i) için geçtiği kanıtlanmadan arşiv üretilmez. `ensureQualityGate()`
+ * (aşağıda) `assertCleanWorkingTree()`'den HEMEN sonra,
+ * `cleanStaleDistArtifacts()` ve standalone derlemesinden ÖNCE çalışır:
+ *
+ * - `.quality-gate/<HEAD^{tree}>.json` kaydı, ŞİMDİ hesaplanan tree, güncel
+ *   adım listesi (`./lib/quality-gate.ts` `QUALITY_GATE_STEPS`) ve
+ *   `process.version` ile birebir eşleşiyorsa kapı yeniden çalıştırılmaz ve
+ *   bunu söyleyen satır basılır. Kaydı yalnız dört adımın hepsini exit 0 ile
+ *   bitiren ve ağacı kapı boyunca temiz/HEAD'i sabit gören bir koşu yazar
+ *   (`npm run quality-gate` ya da bu script'in kendi tam kapısı).
+ * - Kayıt yoksa ya da herhangi bir alanı tutmuyorsa (başka tree, farklı
+ *   adım listesi, başka Node sürümü, ayrıştırılamayan JSON) typecheck/lint/
+ *   test:unit/test:integration bu script'in KENDİSİ tarafından eskisi gibi
+ *   çalıştırılır; herhangi biri başarısız olursa `buildStandalone()`'a HİÇ
+ *   girmeden `exit 1` ile durur ve kayıt yazılmaz.
+ *
+ * Kayıt bir KAZA korumasıdır, kurcalamaya karşı koruma değildir: checkout'a
+ * yazabilen biri kaydı da taklit edebilir — bu dosyayı düzenleyebileceği
+ * gibi. İmzanın dayanacağı bir anahtar yoktur; bu yüzden imza eklenmedi.
  *
  * Kalite kapısı `npm run test:integration`'ı OLDUĞU GİBİ çağırır. Bu
  * script'in kendi uçtan uca meta-testi (`tests/release/release-build.test.ts`,
@@ -72,8 +89,8 @@
  * DEĞİLDİR. Dahil olsaydı kapı, klondaki iç içe `release:build` üzerinden
  * kendini sonsuz derinlikte çağırırdı. Önceden bu, dosyayı `--exclude` ile
  * dışlayarak önleniyordu; dosya ayrı projeye taşınınca dışlamaya gerek
- * kalmadı. Meta-test CI'da (`scripts/ci-steps.json`) ayrı adım olarak
- * koşar.
+ * kalmadı. Meta-test CI'da (`scripts/ci-steps.json`) ayrı adım olarak,
+ * `quality-gate` adımından sonra koşar.
  */
 import { spawnSync } from "node:child_process";
 import fs from "node:fs";
@@ -83,6 +100,7 @@ import {
   compareVersions,
   MINIMUM_SQLITE_VERSION,
 } from "../src/server/data/db.ts";
+import { qualityGateStepIds, readRecord, recordPathFor, runQualityGate } from "./lib/quality-gate.ts";
 import { assertNoSecretOrDataFiles, manifestPathFor, sha256Buffer, sha256File } from "./lib/release-shared.ts";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -137,41 +155,39 @@ function assertCleanWorkingTree(): void {
 
 /**
  * S6.1 AC3 kapısı — bkz. dosya üstü not "Kalite kapısı NEDEN bu script'in
- * KENDİSİNDE var". `assertCleanWorkingTree()`'den SONRA (kirli ağaçta bu
- * adımlara hiç girmeden hızlı reddetmek için), `buildStandalone()`'dan
- * ÖNCE çağrılır. Her adım TAM çıktısını (`stdio: "inherit"`) gösterir;
- * başarısız olan İLK adımda durur (sonraki adımlar ÇALIŞTIRILMAZ).
+ * KENDİSİNDE var". `assertCleanWorkingTree()`'den SONRA (kirli ağaçta kayıt
+ * ve kapı mantığına hiç girmeden hızlı reddetmek için),
+ * `cleanStaleDistArtifacts()` ve `buildStandalone()`'dan ÖNCE çağrılır. Bu commit'in
+ * ağacı için geçerli bir `.quality-gate` kaydı varsa kapı yeniden
+ * çalıştırılmaz; yoksa kapı tam çalışır, ilk başarısız adımda `fail()`.
  */
-function runQualityGate(): void {
-  console.log(
-    "[release:build] Kalite kapısı (S6.1 AC3): typecheck → lint → " +
-      "test:unit → test:integration.",
-  );
-
-  type GateStep = { id: string; cmd: string; args: string[] };
-  const steps: GateStep[] = [
-    { id: "typecheck", cmd: "npm", args: ["run", "typecheck"] },
-    { id: "lint", cmd: "npm", args: ["run", "lint"] },
-    { id: "test:unit", cmd: "npm", args: ["run", "test:unit"] },
-    // Meta-test `release` projesinde olduğu için özyineleme yok — bkz.
-    // dosya üstü not.
-    { id: "test:integration", cmd: "npm", args: ["run", "test:integration"] },
-  ];
-
-  for (const step of steps) {
-    console.log(`[release:build]   $ ${step.cmd} ${step.args.join(" ")}`);
-    const result = run(step.cmd, step.args);
-    if (result.status !== 0) {
-      fail(
-        `Kalite kapısı "${step.id}" adımında başarısız oldu (exit ` +
-          `${result.status}). S6.1 AC3 gereği derleme, tip kontrolü ve ` +
-          "iş kuralı/yetki/veri testleri geçmeden yayınlanabilir çıktı " +
-          "üretilmez; önce bu adımı düzeltip commit edin.",
-      );
-    }
+function ensureQualityGate(): void {
+  const tree = gitOutput(["rev-parse", "HEAD^{tree}"]);
+  const check = readRecord(projectRoot, {
+    tree,
+    steps: qualityGateStepIds(),
+    nodeVersion: process.version,
+  });
+  if (check.valid) {
+    console.log(
+      `[release:build] Kalite kapısı yeniden çalıştırılmıyor: ` +
+        `${path.relative(projectRoot, recordPathFor(projectRoot, tree))} bu ağacın ` +
+        `(${check.record.steps.join("/")}, Node ${check.record.node_version}) ` +
+        `kapıdan geçtiğini kaydediyor (commit ${check.record.commit}, ${check.record.passed_at}).`,
+    );
+    return;
   }
 
-  console.log("[release:build] Kalite kapısı geçti (typecheck/lint/unit/integration).");
+  console.log(`[release:build] Geçerli kalite kapısı kaydı yok (${check.reason}); kapı tam çalıştırılıyor.`);
+  const outcome = runQualityGate({ root: projectRoot, logPrefix: "[release:build]" });
+  if (!outcome.ok) {
+    fail(outcome.message);
+  }
+  if (outcome.recordPath !== undefined) {
+    console.log(`[release:build] Kalite kapısı kaydı yazıldı: ${path.relative(projectRoot, outcome.recordPath)}`);
+  } else {
+    console.log(`[release:build] Kalite kapısı kaydı yazılmadı: ${outcome.noRecordReason}.`);
+  }
 }
 
 function gitOutput(args: string[]): string {
@@ -379,7 +395,7 @@ function cleanStaleDistArtifacts(): void {
 
 function main(): void {
   assertCleanWorkingTree();
-  runQualityGate();
+  ensureQualityGate();
   cleanStaleDistArtifacts();
 
   const sourceCommit = gitOutput(["rev-parse", "HEAD"]);

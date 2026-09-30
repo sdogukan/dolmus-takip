@@ -1,7 +1,7 @@
 import { defineConfig } from "vitest/config";
 
 /**
- * İki ayrı Vitest projesi (Vitest 5 `test.projects` API'si; eski
+ * Dört ayrı Vitest projesi (Vitest 5 `test.projects` API'si; eski
  * `vitest.workspace.ts` dosyası artık gerekmiyor — bkz.
  * `node_modules/vitest/dist/chunks/plugin.d.CN87HSxv.d.ts`
  * `TestProjectConfiguration`/`UserWorkspaceConfig` tanımları):
@@ -17,19 +17,25 @@ import { defineConfig } from "vitest/config";
  *   mock veya :memory: üzerinde kabul edilmez; bu proje gerçek
  *   `better-sqlite3` dosya bağlantısı kullanır.
  * - `release`: `tests/release/**\/*.test.ts` (`npm run test:release`) —
- *   `release:build`/`release:verify` boru hattının uçtan uca meta-testi
- *   (`release-build.test.ts`) ve kontrollü yayın aracı
- *   `scripts/release-apply.ts`'in testleri (`release-apply.test.ts`;
- *   2026-09-25'te `integration`'dan taşındı, bkz. `docs/qa.md` Run frequency).
- *   Meta-test geçici bir klonda `release:build` koşar; klon, kendi
- *   ağacı için yazılmış hazır bir `.quality-gate` kaydıyla başlar, kalite
- *   kapısı (typecheck/lint/unit/integration) yalnız kayıtsız ağaç testinde
- *   tam koşar (bkz. `scripts/lib/quality-gate.ts`). Rutin
- *   `test:integration`'a dahil olsaydı kapı, klondaki iç içe `release:build` üzerinden kendini
+ *   yalnız `release:build`/`release:verify` boru hattının uçtan uca
+ *   meta-testi (`release-build.test.ts`). Meta-test geçici bir klonda
+ *   `release:build` koşar; klon, kendi ağacı için yazılmış hazır bir
+ *   `.quality-gate` kaydıyla başlar, kalite kapısı yalnız kayıtsız ağaç
+ *   testinde tam koşar (bkz. `scripts/lib/quality-gate.ts`). Kapının bir
+ *   adımı olsaydı kapı, klondaki iç içe `release:build` üzerinden kendini
  *   çağırırdı (ölçülen, kayıttan önce: dosya tek başına ~20 dk, paketin
  *   %72'si). Bu yüzden `perf:reports` gibi ayrı bir komuttur; CI
  *   (`scripts/ci-steps.json`) onu `quality-gate` adımından sonra ayrı adım
  *   olarak koşar.
+ * - `release-ops`: `tests/release-ops/**\/*.test.ts` (`npm run
+ *   test:release-ops`) — kontrollü yayın aracı `scripts/release-apply.ts`'in
+ *   testleri (`release-apply.test.ts`; 2026-09-25'te `integration`'dan
+ *   `release`'e, 2026-09-30'da buraya taşındı). Kalite kapısının beşinci
+ *   adımıdır (`test:integration`'dan sonra), bu yüzden elle çağrılan
+ *   `release:build`'in kapısı da onu koşar. Kendi `os.tmpdir()` altındaki
+ *   geçici dizinlerinde çalışır, proje ağacına yazmaz. Deseni BİLEREK
+ *   `tests/release-ops/**` ile sınırlıdır: `tests/release/` altındaki
+ *   meta-test kapıya girerse kapı kendini özyinelemeli çağırır.
  *
  * `passWithNoTests` kullanılmaz: her proje gerçek test içerir.
  */
@@ -59,6 +65,15 @@ export default defineConfig({
           name: "release",
           environment: "node",
           include: ["tests/release/**/*.test.ts"],
+          fileParallelism: false,
+        },
+      },
+      {
+        extends: true,
+        test: {
+          name: "release-ops",
+          environment: "node",
+          include: ["tests/release-ops/**/*.test.ts"],
           fileParallelism: false,
         },
       },

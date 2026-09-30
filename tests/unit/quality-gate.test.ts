@@ -30,7 +30,7 @@ import {
 const TREE = "a".repeat(40);
 const OTHER_TREE = "b".repeat(40);
 const COMMIT = "c".repeat(40);
-const STEPS = ["typecheck", "lint", "test:unit", "test:integration"];
+const STEPS = ["typecheck", "lint", "test:unit", "test:integration", "test:release-ops"];
 const NODE = "v24.21.0";
 const EXPECTED = { tree: TREE, steps: STEPS, nodeVersion: NODE };
 
@@ -53,7 +53,7 @@ function invalidReason(text: string, expected = EXPECTED): string {
 }
 
 describe("QUALITY_GATE_STEPS", () => {
-  test("kapı, release:build'in eskiden kendi içinde çalıştırdığı dört adımdır, bu sırayla", () => {
+  test("kapı beş adımdır — typecheck, lint, test:unit, test:integration, test:release-ops — bu sırayla", () => {
     expect(qualityGateStepIds()).toEqual(STEPS);
     for (const step of QUALITY_GATE_STEPS) {
       expect([step.cmd, ...step.args]).toEqual(["npm", "run", step.id]);
@@ -82,10 +82,10 @@ describe("validateRecord", () => {
   });
 
   test.each([
-    ["eksik adım", ["typecheck", "lint", "test:unit"]],
+    ["eksik adım", ["typecheck", "lint", "test:unit", "test:integration"]],
     ["fazla adım", [...STEPS, "test:release"]],
-    ["farklı sıra", ["lint", "typecheck", "test:unit", "test:integration"]],
-    ["dizi değil", "typecheck,lint,test:unit,test:integration"],
+    ["farklı sıra", ["typecheck", "lint", "test:unit", "test:release-ops", "test:integration"]],
+    ["dizi değil", "typecheck,lint,test:unit,test:integration,test:release-ops"],
   ])("farklı adım listesiyle yazılmış kayıt geçersizdir (%s)", (_label, steps) => {
     expect(invalidReason(record({ steps }))).toMatch(/adım listesi/);
   });

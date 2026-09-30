@@ -2,8 +2,8 @@
  * Kalite kapısı (S6.1 AC3) ve ağaç anahtarlı kapı kaydı — `release:build`
  * ile `npm run quality-gate`'in ORTAK modülü (2026-09-25).
  *
- * Kapı adımları (typecheck → lint → test:unit → test:integration) YALNIZ
- * burada tanımlıdır. Tüm adımlar exit 0 verdiğinde, çalışma ağacı kapı
+ * Kapı adımları (typecheck → lint → test:unit → test:integration →
+ * test:release-ops) YALNIZ burada tanımlıdır. Tüm adımlar exit 0 verdiğinde, çalışma ağacı kapı
  * başlarken ve bittiğinde temizse ve HEAD kapı sırasında kıpırdamadıysa
  * `.quality-gate/<tree>.json` yazılır: "bu commit İÇERİĞİ (git tree hash'i,
  * lockfile dahil) bu Node sürümüyle bu adım listesinden geçti".
@@ -41,6 +41,9 @@ export const QUALITY_GATE_STEPS: readonly QualityGateStep[] = [
   // `release:build`'in meta-testi ayrı `release` projesinde olduğu için
   // özyineleme yok — bkz. `../release-build.ts` üst notu.
   { id: "test:integration", cmd: "npm", args: ["run", "test:integration"] },
+  // Kontrollü yayın aracının (`scripts/release-apply.ts`) testleri; ayrı
+  // `release-ops` projesinde, meta-testin `release` projesinden ayrı.
+  { id: "test:release-ops", cmd: "npm", args: ["run", "test:release-ops"] },
 ];
 
 export const QUALITY_GATE_RECORD_VERSION = 1;

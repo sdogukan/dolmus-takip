@@ -14,6 +14,7 @@
     "test:unit": "vitest run --project unit",
     "test:integration": "vitest run --project integration",
     "test:release": "vitest run --project release",
+    "test:release-ops": "vitest run --project release-ops",
     "test:e2e": "next build && node scripts/prepare-standalone.ts && playwright test",
     "quality-gate": "node scripts/quality-gate.ts",
     "db:init": "node --env-file-if-exists=.env scripts/db-init.ts",

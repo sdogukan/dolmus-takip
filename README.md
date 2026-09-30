@@ -15,7 +15,7 @@ Kesin sürümler ve gerekçeleri için `docs/tech-stack.md`'ye bakın
 (`better-sqlite3`, `argon2`, `drizzle-orm` gibi native/kritik bağımlılıklar
 dahil).
 
-## Kurulum
+## Geliştirme kurulumu
 
 ```bash
 npm install

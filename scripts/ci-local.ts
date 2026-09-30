@@ -5,10 +5,13 @@
  * adımlarını aynı sırada yerelde koşturur (typecheck → lint → unit →
  * integration → e2e → release:build → release:verify); scripts/
  * ci-local.ts ile (her adımın çıkış kodunu raporlar, ilk hatada durur)."
- * Kapı kaydından (2026-09-25) beri ilk dört kontrol tek `quality-gate`
- * adımıdır; sıra: quality-gate → test:release → e2e → release:build →
- * release:verify. Kirli ağaçta `quality-gate` adımları yine koşar, yalnız
- * kapı kaydı yazılmaz.
+ * Kapı kaydından (2026-09-25) beri bu kontroller tek `quality-gate`
+ * adımıdır; 2026-09-30'dan beri bu adım kontrollü yayın aracının testlerini
+ * (`test:release-ops`) de beşinci kontrol olarak koşar. Sıra: quality-gate
+ * (typecheck → lint → unit → integration → release-ops) → test:release
+ * (release:build/verify meta-testi) → e2e → release:build → release:verify.
+ * Kirli ağaçta `quality-gate` adımları yine koşar, yalnız kapı kaydı
+ * yazılmaz.
  * (Ayrı bir "build" adımı BİLEREK YOKTUR — bkz. `ci-steps.json`
  * `$comment`, S6.1 düzeltme turu 1: `e2e` adımının kendi komutu zaten tam
  * bir `next build` çalıştırır; bağımsız bir "npm run build" adımının

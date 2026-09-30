@@ -1,10 +1,10 @@
 /**
  * Kalite kapısı — `npm run quality-gate` (S6.1 AC3, 2026-09-25).
  *
- * typecheck → lint → test:unit → test:integration'ı `./lib/quality-gate.ts`
- * üzerinden sırayla çalıştırır; çıkış kodu kapının sonucudur. CI
- * (`ci-steps.json`, `ci.yml`, `release.yml`) ve `ci:local` bu dört adımı
- * ayrı ayrı değil bu tek komutla koşar.
+ * typecheck → lint → test:unit → test:integration → test:release-ops'u
+ * `./lib/quality-gate.ts` üzerinden sırayla çalıştırır; çıkış kodu kapının
+ * sonucudur. CI (`ci-steps.json`, `ci.yml`, `release.yml`) ve `ci:local` bu
+ * beş adımı ayrı ayrı değil bu tek komutla koşar.
  *
  * Tüm adımlar geçerse ve çalışma ağacı kapı başlarken ve bittiğinde temiz,
  * HEAD de aynıysa `.quality-gate/<tree>.json` kaydı yazılır; aynı içerik

@@ -68,13 +68,13 @@
  * - `.quality-gate/<HEAD^{tree}>.json` kaydı, ŞİMDİ hesaplanan tree, güncel
  *   adım listesi (`./lib/quality-gate.ts` `QUALITY_GATE_STEPS`) ve
  *   `process.version` ile birebir eşleşiyorsa kapı yeniden çalıştırılmaz ve
- *   bunu söyleyen satır basılır. Kaydı yalnız dört adımın hepsini exit 0 ile
+ *   bunu söyleyen satır basılır. Kaydı yalnız beş adımın hepsini exit 0 ile
  *   bitiren ve ağacı kapı boyunca temiz/HEAD'i sabit gören bir koşu yazar
  *   (`npm run quality-gate` ya da bu script'in kendi tam kapısı).
  * - Kayıt yoksa ya da herhangi bir alanı tutmuyorsa (başka tree, farklı
  *   adım listesi, başka Node sürümü, ayrıştırılamayan JSON) typecheck/lint/
- *   test:unit/test:integration bu script'in KENDİSİ tarafından eskisi gibi
- *   çalıştırılır. Kapıdan önce, kaydı yalnız `npm run quality-gate`'in ya da
+ *   test:unit/test:integration/test:release-ops bu script'in KENDİSİ
+ *   tarafından eskisi gibi çalıştırılır. Kapıdan önce, kaydı yalnız `npm run quality-gate`'in ya da
  *   bu script'in temiz ağaçtaki tam kapısının yazdığını, ayrı adım
  *   koşularının kayıt bırakmadığını söyleyen bir satır basılır. Adımlardan
  *   biri başarısız olursa `buildStandalone()`'a HİÇ girmeden `exit 1` ile
@@ -84,14 +84,16 @@
  * yazabilen biri kaydı da taklit edebilir — bu dosyayı düzenleyebileceği
  * gibi. İmzanın dayanacağı bir anahtar yoktur; bu yüzden imza eklenmedi.
  *
- * Kalite kapısı `npm run test:integration`'ı OLDUĞU GİBİ çağırır. Bu
- * script'in kendi uçtan uca meta-testi (`tests/release/release-build.test.ts`,
- * geçici bir klonda `npm run release:build` çağırır) ayrı `release` Vitest
- * projesindedir (`npm run test:release`) ve `test:integration`'a dahil
- * DEĞİLDİR. Dahil olsaydı kapı, klondaki iç içe `release:build` üzerinden
- * kendini sonsuz derinlikte çağırırdı. Önceden bu, dosyayı `--exclude` ile
- * dışlayarak önleniyordu; dosya ayrı projeye taşınınca dışlamaya gerek
- * kalmadı. Meta-test CI'da (`scripts/ci-steps.json`) ayrı adım olarak,
+ * Kalite kapısı `npm run test:integration`'ı ve `npm run test:release-ops`'u
+ * (kontrollü yayın aracı `scripts/release-apply.ts`'in testleri,
+ * `tests/release-ops/`) OLDUĞU GİBİ çağırır. Bu script'in kendi uçtan uca
+ * meta-testi (`tests/release/release-build.test.ts`, geçici bir klonda
+ * `npm run release:build` çağırır) ayrı `release` Vitest projesindedir
+ * (`npm run test:release`) ve kapının hiçbir adımına dahil DEĞİLDİR. Dahil
+ * olsaydı kapı, klondaki iç içe `release:build` üzerinden kendini sonsuz
+ * derinlikte çağırırdı. Önceden bu, dosyayı `--exclude` ile dışlayarak
+ * önleniyordu; dosya ayrı projeye taşınınca dışlamaya gerek kalmadı.
+ * Meta-test CI'da (`scripts/ci-steps.json`) ayrı adım olarak,
  * `quality-gate` adımından sonra koşar.
  */
 import { spawnSync } from "node:child_process";

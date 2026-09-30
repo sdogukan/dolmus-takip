@@ -73,19 +73,20 @@ jobs:
       - name: Bağımlılıkları kur (lockfile ile sabit)
         run: npm ci
 
-      # typecheck → lint → test:unit → test:integration tek adımda
-      # (scripts/lib/quality-gate.ts). Geçerse bu commit'in ağacı için
+      # typecheck → lint → test:unit → test:integration → test:release-ops
+      # tek adımda (scripts/lib/quality-gate.ts). Geçerse bu commit'in ağacı için
       # .quality-gate kaydı yazılır; release:build aynı içerik için kapıyı
       # yeniden çalıştırmaz. test:release bu kayda bakmaz, klonuna kendi
       # hazır kaydını yazar.
-      - name: Kalite kapısı (typecheck/lint/birim/entegrasyon)
+      - name: Kalite kapısı (typecheck/lint/birim/entegrasyon/release-apply aracı)
         run: npm run quality-gate
 
-      # release:build/release:verify boru hattının uçtan uca meta-testi ve
-      # kontrollü yayın aracının (scripts/release-apply.ts) testleri —
-      # rutin test:integration'dan ayrı (bkz. vitest.config.mts `release`
-      # projesi); burada ayrı adım olarak koşar.
-      - name: Yayın boru hattı testleri (release:build/verify meta-testi + release-apply aracı)
+      # release:build/release:verify boru hattının uçtan uca meta-testi —
+      # kalite kapısından ayrı (bkz. vitest.config.mts `release` projesi);
+      # burada ayrı adım olarak koşar. Kontrollü yayın aracının
+      # (scripts/release-apply.ts) testleri bir önceki adımda, kapının
+      # test:release-ops adımında koşar.
+      - name: Yayın boru hattı testleri (release:build/verify meta-testi)
         run: npm run test:release
 
       - name: Playwright tarayıcısını kur (chromium)

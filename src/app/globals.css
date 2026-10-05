@@ -1,42 +1,718 @@
 @import "tailwindcss";
 
+/*
+ * Dolmuş Takip tasarım sistemi — petrol mavisi, Atkinson Hyperlegible Next,
+ * açık tema. Kaynak: "Dolmuş Takip" Design System (docs/design.md "Design
+ * System" bölümü). Token ADLARI önceki sürümle aynıdır; bileşenler token'ları
+ * `var(--…)` ile okur. Metin/zemin çiftlerinin kontrastı
+ * `src/lib/contrast.test.ts`te sınanır (WCAG AA: metin ≥ 4,5:1; kontrol
+ * kenarı ve odak halkası ≥ 3:1).
+ *
+ * Katmanlar: token'lar `:root`ta; temel öğe stilleri `@layer base`te;
+ * `ds-*` bileşen sınıfları `@layer components`te. Tailwind yardımcı
+ * sınıfları (`utilities`) bileşen sınıflarının ÜSTÜNDE kalır, yani yerleşim
+ * (flex, gap, margin, genişlik) bileşen sınıfıyla birlikte kullanılabilir.
+ */
 :root {
-  --color-primary: #1d4ed8;
-  --color-on-primary: #ffffff;
-  --color-page: #f8fafc;
+  /* Renk — zemin ve yüzey */
+  --color-page: #f3f6f7;
   --color-surface: #ffffff;
-  --color-text: #0f172a;
-  --color-text-secondary: #475569;
-  --color-input-border: #64748b;
-  --color-divider: #cbd5e1;
-  --color-success: #166534;
-  --color-success-surface: #f0fdf4;
-  --color-warning: #92400e;
-  --color-warning-surface: #fffbeb;
-  --color-error: #b91c1c;
-  --color-error-surface: #fef2f2;
-  --font-body: system-ui, -apple-system, "Segoe UI", sans-serif;
+  --color-surface-muted: #e8eef0;
+
+  /* Renk — metin ve çizgi */
+  --color-text: #0f2a33;
+  --color-text-secondary: #4b616a;
+  --color-input-border: #6e838c;
+  --color-divider: #d4dee2;
+
+  /* Renk — tek marka rengi; yalnız eylem taşır (ana buton, bağlantı, seçili sekme, odak) */
+  --color-primary: #0f5168;
+  --color-primary-hover: #0a3e50;
+  --color-primary-soft: #e0eef3;
+  --color-on-primary: #ffffff;
+  --color-focus: #0f5168;
+
+  /* Renk — durumlar; yalnız durum anlatır, kırmızı bakiye/borç için asla kullanılmaz */
+  --color-success: #14663f;
+  --color-on-success: #ffffff;
+  --color-success-surface: #e3f3ea;
+  --color-warning: #8a4a00;
+  --color-warning-surface: #fcefd9;
+  --color-error: #b3261e;
+  --color-error-surface: #fcebea;
+  --color-scrim: #0f2a3399;
+
+  /* Yazı — tek aile. `--font-atkinson` kök öğede next/font/local ile tanımlanır
+   * (src/app/layout.tsx); dosya aynı kökenden gelir (CSP font-src 'self'). */
+  --font-body: var(--font-atkinson, "Atkinson Hyperlegible Next"), system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-size-body: 1.125rem;
-  --line-height-body: 1.5;
+  --line-height-body: 1.75rem;
+
+  /* Boşluk — 4 px taban; adlar Tailwind ölçeğiyle aynı (space-4 = 16 px = p-4) */
   --space-unit: 0.25rem;
-  --radius-control: 0.5rem;
-  --radius-card: 0.75rem;
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-12: 3rem;
+
+  /* Köşe — yumuşak ama yuvarlak değil */
+  --radius-sm: 0.375rem;
+  --radius-control: 0.625rem;
+  --radius-card: 1rem;
+
+  /* Gölge ve odak */
+  --shadow-card: 0 1px 2px #0f2a330f, 0 1px 1px #0f2a330a;
+  --shadow-overlay: 0 12px 32px -4px #0f2a3333, 0 4px 8px #0f2a331a;
+  --focus-ring: 0 0 0 2px #ffffff, 0 0 0 5px var(--color-focus);
+
+  /* Ölçü — dokunma alanı en az 48×48 */
   --control-min-height: 3rem;
   --primary-min-height: 3.5rem;
   --form-max-width: 35rem;
+  --login-max-width: 30rem;
+  --content-max-width: 70rem;
+
+  /* İkonlar — 24'lük ızgara, 2 px yuvarlak uçlu çizgi; maske olarak kullanılır,
+   * rengi `background-color` (çoğunlukla currentColor) verir. */
+  --ds-icon-alert: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M12 7v5.5'/%3E%3Ccircle cx='12' cy='16.25' r='1.25' fill='black' stroke='none'/%3E%3C/svg%3E");
+  --ds-icon-warning: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3.5L21.5 20h-19z'/%3E%3Cpath d='M12 9.5v4.5'/%3E%3Ccircle cx='12' cy='17' r='1.25' fill='black' stroke='none'/%3E%3C/svg%3E");
+  --ds-icon-info: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M12 11v5.5'/%3E%3Ccircle cx='12' cy='7.75' r='1.25' fill='black' stroke='none'/%3E%3C/svg%3E");
+  --ds-icon-check: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E");
+  --ds-icon-clock: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='8.5'/%3E%3Cpath d='M12 7.5V12l3 2'/%3E%3C/svg%3E");
+  --ds-icon-dot: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='5' fill='black' stroke='none'/%3E%3C/svg%3E");
+  --ds-icon-ring: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='5'/%3E%3C/svg%3E");
+  --ds-icon-minus: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 12h12'/%3E%3C/svg%3E");
+  --ds-icon-chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  --ds-icon-chevron-down: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%230f2a33' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
 }
 
-body {
-  background-color: var(--color-page);
-  color: var(--color-text);
-  font-family: var(--font-body);
-  font-size: var(--font-size-body);
-  line-height: var(--line-height-body);
-  /* T1.6, S1.6 — Türkçe karakterler ve uzun metinler kesilmez. Türkçe
-   * uzun kelimeler (ör. "İşletmeler", uzun soyadları) dar 320 px
-   * görünümde taşma/yatay kaydırma üretmeden satır sonunda kırılır;
-   * kelimenin ortasından KESİLMEZ (`overflow-wrap: break-word` yalnız
-   * gerektiğinde, tek harflere BÖLMEZ — `word-break: break-all`
-   * KULLANILMAZ). */
-  overflow-wrap: break-word;
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+  }
+
+  body {
+    background-color: var(--color-page);
+    color: var(--color-text);
+    font-family: var(--font-body);
+    font-size: var(--font-size-body);
+    line-height: var(--line-height-body);
+    /* T1.6, S1.6 — Türkçe karakterler ve uzun metinler kesilmez. Türkçe
+     * uzun kelimeler (ör. "İşletmeler", uzun soyadları) dar 320 px
+     * görünümde taşma/yatay kaydırma üretmeden satır sonunda kırılır;
+     * kelimenin ortasından KESİLMEZ (`overflow-wrap: break-word` yalnız
+     * gerektiğinde, tek harflere BÖLMEZ — `word-break: break-all`
+     * KULLANILMAZ). */
+    overflow-wrap: break-word;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Klavye odağı: 2 px beyaz boşluk + 3 px düz odak halkası (her zeminde
+   * ≥ 3:1). `outline` saydam kalır; Windows yüksek kontrast modunda görünür.
+   * Odak halkasını kaldıran bir sınıf yazılmaz. */
+  :where(a, button, input, select, textarea, summary, [tabindex]):focus-visible {
+    outline: 2px solid transparent;
+    outline-offset: 2px;
+    box-shadow: var(--focus-ring);
+  }
+
+  input[type="checkbox"],
+  input[type="radio"] {
+    accent-color: var(--color-primary);
+  }
+
+  ::selection {
+    background-color: var(--color-primary-soft);
+    color: var(--color-text);
+  }
+}
+
+/* Süs animasyonu yok; yalnız 120 ms renk geçişleri. Azaltılmış harekette onlar da kapanır. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
+
+@layer components {
+  /* ---------- Yazı stilleri ---------- */
+  .ds-title {
+    color: var(--color-text);
+    font-size: 1.75rem;
+    line-height: 2.25rem;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+  .ds-section-title {
+    color: var(--color-text);
+    font-size: 1.375rem;
+    line-height: 1.875rem;
+    font-weight: 700;
+  }
+  .ds-card-title {
+    color: var(--color-text);
+    font-size: 1.125rem;
+    line-height: 1.75rem;
+    font-weight: 700;
+  }
+  .ds-label {
+    color: var(--color-text);
+    font-size: 1.125rem;
+    line-height: 1.5rem;
+    font-weight: 600;
+  }
+  .ds-hint {
+    color: var(--color-text-secondary);
+    font-size: 1rem;
+    line-height: 1.5rem;
+  }
+  .ds-amount-key {
+    font-size: 2rem;
+    line-height: 2.5rem;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+  }
+  .ds-error-text {
+    color: var(--color-error);
+    font-size: 1rem;
+    line-height: 1.5rem;
+    font-weight: 600;
+  }
+  .ds-error-icon::before {
+    content: "";
+    display: inline-block;
+    width: 1.125rem;
+    height: 1.125rem;
+    margin-right: 0.375rem;
+    vertical-align: -0.1875rem;
+    background-color: currentColor;
+    -webkit-mask: var(--ds-icon-alert) center / contain no-repeat;
+    mask: var(--ds-icon-alert) center / contain no-repeat;
+  }
+
+  /* ---------- Buton ---------- */
+  .ds-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-2);
+    min-height: var(--control-min-height);
+    padding: var(--space-2) var(--space-4);
+    border: 2px solid transparent;
+    border-radius: var(--radius-control);
+    background-color: transparent;
+    color: var(--color-text);
+    font-family: inherit;
+    font-size: 1.125rem;
+    line-height: 1.5rem;
+    font-weight: 700;
+    text-align: center;
+    text-decoration: none;
+    cursor: pointer;
+    transition:
+      background-color 120ms ease,
+      border-color 120ms ease,
+      color 120ms ease;
+  }
+  .ds-btn-lg {
+    min-height: var(--primary-min-height);
+  }
+  .ds-btn-primary {
+    padding-inline: var(--space-6);
+    background-color: var(--color-primary);
+    color: var(--color-on-primary);
+  }
+  .ds-btn-primary:hover {
+    background-color: var(--color-primary-hover);
+  }
+  .ds-btn-secondary {
+    border-color: var(--color-primary);
+    background-color: var(--color-surface);
+    color: var(--color-primary);
+  }
+  .ds-btn-secondary:hover {
+    background-color: var(--color-primary-soft);
+  }
+  .ds-btn-text {
+    padding-inline: var(--space-2);
+    color: var(--color-primary);
+    text-decoration-line: underline;
+    text-decoration-thickness: 2px;
+    text-underline-offset: 4px;
+  }
+  .ds-btn-text:hover {
+    background-color: var(--color-primary-soft);
+  }
+  /* Sola yaslı metin butonu, yanındaki metinle aynı çizgide başlar; üzerine gelme zemini taşar. */
+  .ds-btn-text.self-start {
+    margin-inline-start: calc(-1 * var(--space-2));
+  }
+  .ds-btn-danger {
+    border-color: var(--color-error);
+    background-color: var(--color-surface);
+    color: var(--color-error);
+  }
+  .ds-btn-danger:hover {
+    background-color: var(--color-error-surface);
+  }
+  .ds-btn-danger-solid {
+    background-color: var(--color-error);
+    color: var(--color-on-primary);
+  }
+  /* Kilitli buton: neden kilitli olduğu yanında yazılır (Notice/yardım metni). */
+  .ds-btn:disabled,
+  .ds-btn[aria-disabled="true"] {
+    border-color: transparent;
+    background-color: var(--color-surface-muted);
+    color: var(--color-text-secondary);
+    cursor: not-allowed;
+  }
+  .ds-btn-text:disabled {
+    background-color: transparent;
+  }
+
+  /* ---------- Bağlantı ---------- */
+  .ds-link {
+    color: var(--color-primary);
+    font-weight: 600;
+    text-decoration-line: underline;
+    text-decoration-thickness: 2px;
+    text-underline-offset: 4px;
+  }
+  .ds-link:hover {
+    text-decoration-thickness: 3px;
+  }
+  .ds-link-block {
+    display: inline-flex;
+    align-items: center;
+    min-height: var(--control-min-height);
+  }
+
+  /* ---------- Alanlar: metin, açılır liste, çok satırlı ---------- */
+  .ds-input {
+    display: block;
+    min-height: var(--control-min-height);
+    padding: var(--space-2) var(--space-3);
+    border: 2px solid var(--color-input-border);
+    border-radius: var(--radius-control);
+    background-color: var(--color-surface);
+    color: var(--color-text);
+    font-family: inherit;
+    font-size: var(--font-size-body);
+    line-height: 1.75rem;
+  }
+  .ds-input::placeholder {
+    color: var(--color-text-secondary);
+    opacity: 1;
+  }
+  .ds-input:focus-visible {
+    border-color: var(--color-primary);
+  }
+  .ds-input[aria-invalid="true"] {
+    border-color: var(--color-error);
+  }
+  .ds-input:disabled {
+    border-color: var(--color-divider);
+    background-color: var(--color-surface-muted);
+    color: var(--color-text-secondary);
+    cursor: not-allowed;
+  }
+  select.ds-input {
+    appearance: none;
+    padding-right: 2.75rem;
+    background-image: var(--ds-icon-chevron-down);
+    background-position: right 0.75rem center;
+    background-repeat: no-repeat;
+    background-size: 1.25rem 1.25rem;
+    cursor: pointer;
+  }
+  textarea.ds-input {
+    min-height: 6rem;
+    resize: vertical;
+  }
+
+  /* ---------- Onay kutusu ve seçim satırları ---------- */
+  .ds-check {
+    flex: none;
+    width: 1.5rem;
+    height: 1.5rem;
+    accent-color: var(--color-primary);
+    cursor: pointer;
+  }
+  .ds-check-label {
+    min-height: var(--control-min-height);
+    color: var(--color-text);
+    font-size: var(--font-size-body);
+    line-height: 1.75rem;
+    cursor: pointer;
+  }
+  .ds-choice-row {
+    min-height: var(--control-min-height);
+    padding: var(--space-2) var(--space-3);
+    border: 2px solid var(--color-input-border);
+    border-radius: var(--radius-control);
+    background-color: var(--color-surface);
+    color: var(--color-text);
+    font-size: var(--font-size-body);
+    line-height: 1.5rem;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .ds-choice-row:has(input:checked) {
+    border-color: var(--color-primary);
+    background-color: var(--color-primary-soft);
+  }
+  .ds-choice-row:has(input:disabled) {
+    border-color: var(--color-divider);
+    color: var(--color-text-secondary);
+    cursor: not-allowed;
+  }
+
+  /* ---------- Bölümlü seçim (aria-pressed / aria-selected düğmeler) ----------
+   * 2–3 kısa seçenek yan yana. Seçili seçenek yalnız renkle ayrışmaz:
+   * beyaz zemin ve 2 px çerçeve alır. 320 px'de etiket iki satıra inebilir. */
+  .ds-seg {
+    display: grid;
+    grid-auto-columns: minmax(0, 1fr);
+    grid-auto-flow: column;
+    gap: var(--space-1);
+    padding: var(--space-1);
+    border-radius: var(--radius-control);
+    background-color: var(--color-surface-muted);
+  }
+  .ds-seg-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 0;
+    min-height: var(--control-min-height);
+    padding: var(--space-1) var(--space-2);
+    border: 0;
+    border-radius: calc(var(--radius-control) - 0.25rem);
+    background-color: transparent;
+    color: var(--color-text);
+    font-family: inherit;
+    font-size: var(--font-size-body);
+    line-height: 1.5rem;
+    font-weight: 600;
+    text-align: center;
+    cursor: pointer;
+    transition:
+      background-color 120ms ease,
+      color 120ms ease;
+  }
+  .ds-seg-btn:hover {
+    background-color: rgb(255 255 255 / 0.6);
+  }
+  .ds-seg-btn[aria-pressed="true"] {
+    background-color: var(--color-surface);
+    color: var(--color-primary);
+    box-shadow:
+      inset 0 0 0 2px var(--color-primary),
+      var(--shadow-card);
+  }
+  .ds-seg-btn:focus-visible {
+    box-shadow: var(--focus-ring);
+  }
+  .ds-seg-btn[aria-pressed="true"]:focus-visible {
+    box-shadow:
+      inset 0 0 0 2px var(--color-primary),
+      var(--focus-ring);
+  }
+  .ds-seg-btn:disabled {
+    background-color: transparent;
+    color: var(--color-text-secondary);
+    cursor: not-allowed;
+  }
+
+  /* ---------- Sekmeler (sayfa gezinmesi ya da tablist) ---------- */
+  .ds-tabs {
+    display: flex;
+    gap: var(--space-1);
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    border-bottom: 1px solid var(--color-divider);
+  }
+  .ds-tab {
+    display: flex;
+    flex: 1 1 0;
+    align-items: center;
+    justify-content: center;
+    min-width: 0;
+    min-height: var(--control-min-height);
+    margin-bottom: -1px;
+    padding: 0 var(--space-2);
+    border: 0;
+    border-bottom: 3px solid transparent;
+    border-radius: var(--radius-control) var(--radius-control) 0 0;
+    background-color: transparent;
+    color: var(--color-text-secondary);
+    font-family: inherit;
+    font-size: var(--font-size-body);
+    line-height: 1.5rem;
+    font-weight: 600;
+    text-align: center;
+    text-decoration: none;
+    cursor: pointer;
+  }
+  .ds-tab:hover {
+    background-color: var(--color-surface-muted);
+    color: var(--color-text);
+  }
+  .ds-tab[aria-current="page"],
+  .ds-tab[aria-selected="true"] {
+    border-bottom-color: var(--color-primary);
+    color: var(--color-primary);
+    font-weight: 700;
+  }
+  @media (max-width: 374px) {
+    .ds-tab {
+      padding-inline: 0.125rem;
+      font-size: 1rem;
+    }
+  }
+
+  /* ---------- Kart, panel, tutar özeti ---------- */
+  .ds-card {
+    border-radius: var(--radius-card);
+    background-color: var(--color-surface);
+    box-shadow: var(--shadow-card);
+    color: var(--color-text);
+  }
+  .ds-card-link {
+    text-decoration: none;
+    transition: background-color 120ms ease;
+  }
+  .ds-card-link:hover {
+    background-color: var(--color-primary-soft);
+  }
+  .ds-card-link:focus-visible {
+    box-shadow: var(--focus-ring);
+  }
+  /* Açılır döküm: başlık satırının sağında yön oku; açıkken döner. */
+  details.ds-card > summary {
+    list-style: none;
+  }
+  details.ds-card > summary::-webkit-details-marker {
+    display: none;
+  }
+  details.ds-card > summary::after {
+    content: "";
+    flex: none;
+    width: 1.25rem;
+    height: 1.25rem;
+    margin-left: auto;
+    background-color: currentColor;
+    -webkit-mask: var(--ds-icon-chevron) center / contain no-repeat;
+    mask: var(--ds-icon-chevron) center / contain no-repeat;
+    transition: transform 120ms ease;
+  }
+  details.ds-card[open] > summary::after {
+    transform: rotate(180deg);
+  }
+  .ds-sum {
+    margin: 0;
+    padding: var(--space-1) var(--space-4);
+    border-radius: var(--radius-card);
+    background-color: var(--color-surface);
+    box-shadow: var(--shadow-card);
+  }
+  .ds-sum-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    column-gap: var(--space-4);
+    padding: var(--space-3) 0;
+    border-top: 1px solid var(--color-divider);
+  }
+  .ds-sum-row:first-child {
+    border-top: 0;
+  }
+  .ds-sum-amount {
+    margin: 0 0 0 auto;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+    white-space: nowrap;
+  }
+
+  /* ---------- Bildirim ----------
+   * Ton zeminle ve ikonla verilir; metin her zaman color-text. */
+  .ds-notice {
+    --ds-tone: var(--color-primary);
+    --ds-icon: var(--ds-icon-info);
+    position: relative;
+    padding: var(--space-3) var(--space-4) var(--space-3) 3rem;
+    border-radius: var(--radius-card);
+    background-color: var(--color-primary-soft);
+    color: var(--color-text);
+    font-size: var(--font-size-body);
+    line-height: 1.75rem;
+  }
+  .ds-notice::before {
+    content: "";
+    position: absolute;
+    top: 0.875rem;
+    left: 0.875rem;
+    width: 1.5rem;
+    height: 1.5rem;
+    background-color: var(--ds-tone);
+    -webkit-mask: var(--ds-icon) center / contain no-repeat;
+    mask: var(--ds-icon) center / contain no-repeat;
+  }
+  .ds-notice-info {
+    --ds-tone: var(--color-primary);
+    --ds-icon: var(--ds-icon-info);
+    background-color: var(--color-primary-soft);
+  }
+  .ds-notice-success {
+    --ds-tone: var(--color-success);
+    --ds-icon: var(--ds-icon-check);
+    background-color: var(--color-success-surface);
+  }
+  .ds-notice-warning {
+    --ds-tone: var(--color-warning);
+    --ds-icon: var(--ds-icon-warning);
+    background-color: var(--color-warning-surface);
+  }
+  .ds-notice-error {
+    --ds-tone: var(--color-error);
+    --ds-icon: var(--ds-icon-alert);
+    background-color: var(--color-error-surface);
+  }
+  .ds-notice-noicon {
+    padding-left: var(--space-4);
+  }
+  .ds-notice-noicon::before {
+    content: none;
+  }
+
+  /* ---------- Durum etiketi ----------
+   * Bekleyen açık amber zemin, doğrulanan dolu yeşil: renk körlüğünde de
+   * açıklık ve ikonla ayrışır. */
+  .ds-badge {
+    --ds-icon: var(--ds-icon-minus);
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    padding: 0.25rem 0.625rem 0.25rem 0.5rem;
+    border-radius: var(--radius-sm);
+    background-color: var(--color-surface-muted);
+    color: var(--color-text-secondary);
+    font-size: 1rem;
+    line-height: 1.25rem;
+    font-weight: 600;
+    white-space: nowrap;
+    vertical-align: middle;
+  }
+  .ds-badge::before {
+    content: "";
+    flex: none;
+    width: 1rem;
+    height: 1rem;
+    background-color: currentColor;
+    -webkit-mask: var(--ds-icon) center / contain no-repeat;
+    mask: var(--ds-icon) center / contain no-repeat;
+  }
+  .ds-badge-pending {
+    --ds-icon: var(--ds-icon-clock);
+    background-color: var(--color-warning-surface);
+    color: var(--color-warning);
+  }
+  .ds-badge-confirmed {
+    --ds-icon: var(--ds-icon-check);
+    background-color: var(--color-success);
+    color: var(--color-on-success);
+  }
+  .ds-badge-neutral {
+    --ds-icon: var(--ds-icon-minus);
+    background-color: var(--color-surface-muted);
+    color: var(--color-text-secondary);
+  }
+  .ds-badge-active {
+    --ds-icon: var(--ds-icon-dot);
+    background-color: var(--color-success-surface);
+    color: var(--color-success);
+  }
+  .ds-badge-inactive {
+    --ds-icon: var(--ds-icon-ring);
+    background-color: var(--color-surface-muted);
+    color: var(--color-text-secondary);
+  }
+  .ds-badge-current {
+    --ds-icon: var(--ds-icon-check);
+    background-color: var(--color-primary-soft);
+    color: var(--color-primary);
+  }
+
+  /* ---------- Plaka ---------- */
+  .ds-plate {
+    display: inline-flex;
+    align-items: center;
+    padding: 0 var(--space-2);
+    border: 2px solid var(--color-text);
+    border-radius: var(--radius-sm);
+    background-color: var(--color-surface);
+    color: var(--color-text);
+    font-weight: 700;
+    line-height: 1.5rem;
+    letter-spacing: 0.04em;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  /* ---------- Sayfa başlığı ve destek bandı ---------- */
+  .ds-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    padding-bottom: var(--space-3);
+    border-bottom: 1px solid var(--color-divider);
+  }
+  .ds-header-who {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--space-1) var(--space-2);
+    min-width: 0;
+    color: var(--color-text);
+    font-size: var(--font-size-body);
+    line-height: 1.5rem;
+    font-weight: 600;
+  }
+  .ds-header-role {
+    color: var(--color-text-secondary);
+    font-weight: 400;
+  }
+  .ds-target {
+    border-radius: var(--radius-card);
+    background-color: var(--color-primary-soft);
+    box-shadow: var(--shadow-overlay);
+    color: var(--color-text);
+  }
+
+  /* ---------- Onay penceresi ---------- */
+  .ds-dialog {
+    padding: 0;
+    border: 0;
+    border-radius: var(--radius-card);
+    background-color: var(--color-surface);
+    box-shadow: var(--shadow-overlay);
+    color: var(--color-text);
+  }
+  .ds-dialog::backdrop {
+    background-color: rgb(15 42 51 / 0.6);
+  }
 }

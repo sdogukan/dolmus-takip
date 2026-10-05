@@ -1,6 +1,22 @@
 import type { Metadata } from "next";
+import localFont from "next/font/local";
 import { connection } from "next/server";
 import "./globals.css";
+
+/**
+ * Tek yazı ailesi: Atkinson Hyperlegible Next (değişken ağırlık 200–800;
+ * SIL Open Font License 1.1 — `./fonts/OFL.txt`). Dosya derlemede
+ * `/_next/static/media` altına kopyalanır ve aynı kökenden yüklenir (CSP
+ * `font-src 'self'`); harici yazı tipi servisi yoktur. `--font-atkinson`
+ * değişkeni `globals.css`teki `--font-body` yığınının başına girer.
+ */
+const atkinson = localFont({
+  src: "./fonts/AtkinsonHyperlegibleNext-Variable.woff2",
+  weight: "200 800",
+  style: "normal",
+  display: "swap",
+  variable: "--font-atkinson",
+});
 
 export const metadata: Metadata = {
   title: "Dolmuş Takip",
@@ -23,7 +39,7 @@ export default async function RootLayout({
   await connection();
 
   return (
-    <html lang="tr">
+    <html lang="tr" className={atkinson.variable}>
       <body>{children}</body>
     </html>
   );

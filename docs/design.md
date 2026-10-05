@@ -728,32 +728,33 @@ _Permission matrix: 'Ekip hesabı/yetkisi yönetme — Yalnız platform yönetic
 
 **Repos:** dolmus-takip
 
-primary #1D4ED8 (on-primary #FFFFFF, 6.70:1)
-page #F8FAFC · surface #FFFFFF
-text #0F172A (17.85:1 on white) · text-secondary #475569
-input-border #64748B · divider #CBD5E1 (never as a form border)
-success #166534 on #F0FDF4 · warning #92400E on #FFFBEB · error #B91C1C on #FEF2F2 (status pairs ≥ 5.91:1)
-info: not defined (primary blue used for informational text)
+Source: the "Dolmuş Takip" design system — petrol blue, Atkinson Hyperlegible Next, one light theme.
+page #F3F6F7 · surface #FFFFFF · surface-muted #E8EEF0 (amount summary panel, segmented-control track, disabled button)
+text #0F2A33 (15.01:1 on white; ≥ 12.64:1 on every surface) · text-secondary #4B616A (≥ 5.50:1 on page, surface, surface-muted, primary-soft)
+input-border #6E838C (≥ 3.66:1, control borders) · divider #D4DEE2 (decorative only, never a form border)
+primary #0F5168 — the only brand colour, carries actions only (the one primary button of a form, links, selected tab, focus); on-primary #FFFFFF (8.76:1) · primary-hover #0A3E50 · primary-soft #E0EEF3 (support band, info notices)
+success #14663F on #E3F3EA (6.09:1; filled badge with white text 7.00:1) · warning #8A4A00 on #FCEFD9 (6.04:1) · error #B3261E on #FCEBEA (5.67:1; white on error 6.54:1)
+focus ring: 2 px white gap + 3 px #0F5168 (≥ 8.07:1 on page and surface) · scrim #0F2A33 at 60 %
 
-_WCAG AA ≥ 4.5:1 verified by src/lib/contrast.ts unit tests; red only for consequential actions, never for balances._
+_WCAG AA (text ≥ 4.5:1, control borders and focus ≥ 3:1) verified by src/lib/contrast.ts unit tests, which also check that the tested values equal the src/app/globals.css tokens. Red only for errors and irreversible actions, never for balances or debts; pending vs confirmed also differ in lightness and icon (light amber vs filled green), not hue alone._
 
 ### Typography
 
 **Repos:** dolmus-takip
 
-Font: system-ui, -apple-system, "Segoe UI", sans-serif (no web font download).
-Scale: helper 16 px/400 · label 18 px/500 · body/input 18 px/400 · button 18 px/600 · section 24 px/600 · page title 28 px/600 · key amount 28–32 px/600.
-Line height 1.5; tabular numerals for amounts; Turkish formatting "6.200,00 TL"; no all-caps headings; long Turkish words wrap (overflow-wrap: break-word).
+Font: Atkinson Hyperlegible Next (variable 200–800, SIL OFL 1.1 — src/app/fonts/OFL.txt), self-hosted through next/font/local and served from the app's own origin (CSP font-src 'self'); no third-party font service; fallback system-ui, -apple-system, "Segoe UI", sans-serif.
+Scale: helper 16/24 400 · label 18/24 600 · body/input 18/28 400 · button 18/24 700 · section 22/30 700 · page title 28/36 700 · key amount 32/40 700. Nothing below 16 px; inputs at 18 px so iOS does not zoom.
+Tabular numerals for amounts; Turkish formatting "6.200,00 TL"; no all-caps headings; long Turkish words wrap (overflow-wrap: break-word). The font has no ← → or ₺ glyphs: arrows in labels fall back to the system font, amounts always use "TL".
 
-_Template xs→4xl mapped to the project's px scale._
+_Text styles: ds-title, ds-section-title, ds-card-title, ds-label, ds-hint, ds-error-text (src/app/globals.css)._
 
 ### Spacing
 
 **Repos:** dolmus-takip
 
-Base unit 4 px (--space-unit 0.25rem); scale 8 / 12 / 16 / 24 / 32 px.
-Page side padding 16 px phone, 24 px wide; field groups 24 px apart.
-Controls ≥ 48 px (--control-min-height 3rem); primary button ≥ 56 px (--primary-min-height 3.5rem); touch targets 48 × 48 px.
+Base unit 4 px; tokens space-1 4 · space-2 8 · space-3 12 · space-4 16 · space-6 24 · space-8 32 · space-12 48 (names match the Tailwind scale).
+Page side padding 16 px on phone, 24 px from 640 px; field groups 24 px apart, sections 32 px, cards 12 px.
+Controls ≥ 48 px (--control-min-height 3rem); primary form button ≥ 56 px (--primary-min-height 3.5rem); touch targets 48 × 48 px, standalone text links included.
 
 _Above WCAG 24 px minimum by product choice._
 
@@ -761,22 +762,26 @@ _Above WCAG 24 px minimum by product choice._
 
 **Repos:** dolmus-takip
 
-sm/control 8 px (--radius-control 0.5rem) · md/card 12 px (--radius-card 0.75rem) · lg/xl/full: not used.
+radius-sm 6 px (badge, checkbox, plate) · radius-control 10 px (buttons, fields, segmented control) · radius-card 16 px (cards, notices, amount summary, dialog).
 
-_DESIGN §3 'Köşe'._
+_Soft but not round; no pill shapes._
 
 ### Component patterns
 
 **Repos:** dolmus-takip
 
-Buttons: primary filled blue; secondary outlined/text; one dominant action per form; destructive red only for deactivation.
-Inputs: label above, placeholder never replaces label, TL unit visible, error text linked via aria-describedby.
-Cards/lists: fixed order title → amount → status; explicit "Kaydı aç" action (no invisible row click).
-Modal: accessible ConfirmDialog only for short decisions; focus returns to trigger.
-Shared components: LoginForm, ConfirmDialog, LogoutButton, TeamPageHeader, VehiclePageHeader.
-Focus visible; results announced to screen readers; sticky bars never hide focus.
+Buttons (ds-btn): primary filled petrol, one per form; secondary outlined petrol on white; text (underlined petrol) for link-like actions; danger outlined red only for deactivation and anonymisation triggers; danger-solid only inside ConfirmDialog. Disabled = surface-muted with secondary text.
+Inputs (ds-input): label above, 2 px input-border; focus = petrol border + focus ring; error = red border and an error text with an alert icon linked via aria-describedby; placeholder never replaces the label; TL unit visible.
+Choices: 2–3 short options as a segmented control (ds-seg; aria-pressed buttons such as 'Bu hafta / Bu ay / Bu yıl' and 'Kendim çalıştım / Şoför adına'); radio lists as bordered choice rows (ds-choice-row); page sections as tabs (ds-tabs: 'Özet / Raporlar / Şoförlerim', 'Kişiler / Gün gün').
+Cards (ds-card): white on the page background with a hairline shadow, no coloured left border; fixed order title → info → amount → status → explicit action ("Kaydı aç"); no invisible row click.
+Status (ds-badge): 'Henüz doğrulanmadı' light amber + clock · 'Teslim doğrulandı' filled green + check · 'Onay gerekmiyor' grey + dash · 'Aktif' light green + dot · 'Pasif' grey + ring · 'Güncel' petrol-soft + check.
+Notices (ds-notice): tone from background and icon (info, success, warning, error); text always color-text; the server's own error message is never shown.
+Amount summary (ds-sum): label/amount rows separated by dividers, amounts right-aligned with tabular numerals.
+Header (ds-header): plate chip (ds-plate) or username · role, and 'Çıkış'; support mode adds the sticky support band (ds-target, primary-soft).
+Modal: accessible ConfirmDialog (native dialog, ds-dialog) only for short decisions; focus returns to the trigger.
+Focus visible everywhere through one base rule; results announced to screen readers; sticky bars never hide focus.
 
-_Shared components exist in src/app/_components._
+_Shared components live in src/app/_components; the design-system classes live in src/app/globals.css (@layer components) and are combined with Tailwind utilities for layout. Delivery-status badge mapping: src/app/_components/status-badge.ts. Shared components: LoginForm, ConfirmDialog, LogoutButton, TeamPageHeader, VehiclePageHeader, SupportTargetHeader._
 
 ### Responsive breakpoints
 
@@ -794,7 +799,7 @@ _Breakpoints are visual only; no device-based permissions._
 
 **Repos:** dolmus-takip
 
-No decorative animation, carousels or charts in v1. Optional 100–150 ms focus/status transitions respecting prefers-reduced-motion. Main actions remain usable at 200% zoom and enlarged fonts.
+No decorative animation, carousels or charts in v1. Only 120 ms colour transitions on buttons, tabs, cards and segmented controls; prefers-reduced-motion turns them off. Main actions remain usable at 200% zoom and enlarged fonts.
 
 _DESIGN §3 'Responsive yerleşim ve hareket'._
 
@@ -807,40 +812,16 @@ _DESIGN §3 'Responsive yerleşim ve hareket'._
 /* src/app/globals.css (Tailwind CSS 4.3.3 via @tailwindcss/postcss) */
 @import "tailwindcss";
 
-:root {
-  --color-primary: #1d4ed8;
-  --color-on-primary: #ffffff;
-  --color-page: #f8fafc;
-  --color-surface: #ffffff;
-  --color-text: #0f172a;
-  --color-text-secondary: #475569;
-  --color-input-border: #64748b;
-  --color-divider: #cbd5e1;
-  --color-success: #166534;
-  --color-success-surface: #f0fdf4;
-  --color-warning: #92400e;
-  --color-warning-surface: #fffbeb;
-  --color-error: #b91c1c;
-  --color-error-surface: #fef2f2;
-  --font-body: system-ui, -apple-system, "Segoe UI", sans-serif;
-  --font-size-body: 1.125rem;
-  --line-height-body: 1.5;
-  --space-unit: 0.25rem;
-  --radius-control: 0.5rem;
-  --radius-card: 0.75rem;
-  --control-min-height: 3rem;
-  --primary-min-height: 3.5rem;
-  --form-max-width: 35rem;
+:root { /* design tokens */
+  colour: --color-page, --color-surface, --color-surface-muted, --color-text, --color-text-secondary, --color-input-border, --color-divider, --color-primary(-hover|-soft), --color-on-primary, --color-focus, --color-success(-surface), --color-on-success, --color-warning(-surface), --color-error(-surface), --color-scrim;
+  type: --font-body (var(--font-atkinson) first), --font-size-body 1.125rem, --line-height-body 1.75rem;
+  spacing: --space-unit, --space-1 … --space-12; radius: --radius-sm, --radius-control, --radius-card;
+  shadow: --shadow-card, --shadow-overlay, --focus-ring; size: --control-min-height, --primary-min-height, --form-max-width, --login-max-width, --content-max-width;
+  icons: --ds-icon-* (data: SVG masks; CSP img-src allows data:)
 }
+@layer base { body: page colour, Atkinson 18/28, overflow-wrap: break-word; one :focus-visible ring for a, button, input, select, textarea, summary, [tabindex] }
+@layer components { ds-btn(-primary|-secondary|-text|-danger|-danger-solid|-lg), ds-link, ds-input, ds-check, ds-check-label, ds-choice-row, ds-seg / ds-seg-btn, ds-tabs / ds-tab, ds-card(-link), ds-sum, ds-notice(-info|-success|-warning|-error|-noicon), ds-badge(-pending|-confirmed|-neutral|-active|-inactive|-current), ds-plate, ds-header, ds-target, ds-dialog, text styles }
 
-body {
-  background-color: var(--color-page);
-  color: var(--color-text);
-  font-family: var(--font-body);
-  font-size: var(--font-size-body);
-  line-height: var(--line-height-body);
-  overflow-wrap: break-word;
-}
-/* Components consume tokens via arbitrary values, e.g. text-[var(--color-text)]; no @theme block. */
+/* src/app/layout.tsx — next/font/local loads src/app/fonts/AtkinsonHyperlegibleNext-Variable.woff2 as --font-atkinson on <html>. */
 
-_Tokens are plain CSS variables referenced from Tailwind arbitrary-value classes; no Tailwind @theme mapping exists in src._
+_Token names are unchanged from the first version, so components keep reading var(--…); Tailwind utilities remain for layout (flex, gap, margins, widths) and sit above the component layer. No Tailwind @theme mapping exists in src._

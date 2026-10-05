@@ -28,7 +28,7 @@ _TECH-STACK.md explicitly refuses invented 1-5 scores ('deneyim, piyasa ve ölç
 **Repos:** dolmus-takip
 
 - Django server-rendered HTML — not chosen for v1; a single TypeScript project for UI + server was preferred
-- Heavy UI kit / downloaded web fonts — not required; Tailwind + system font keep the phone UI light
+- Heavy UI kit / third-party web font services — not required; Tailwind + one self-hosted variable font (Atkinson Hyperlegible Next, ~48 KB woff2 via next/font/local, same origin) keep the phone UI light
 
 _Kept so the settled debate is not reopened._
 

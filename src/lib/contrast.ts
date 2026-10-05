@@ -6,10 +6,11 @@
  * Renk paleti hedefi: normal yazıda en az 4,5:1 kontrast hedeflenir
  * ([WCAG kontrast açıklaması]
  * (https://www.w3.org/WAI/WCAG22/Understanding/contrast-minimum.html)).
- * Seçilen ana düğmenin beyaz yazısı yaklaşık 6,70:1; ana metin/beyaz
- * 17,85:1; durum metni/kendi açık zemini en az 5,91:1'dir. Bunlar renk
- * hesabıdır; çalışan ekran için erişilebilirlik doğrulamasının yerine
- * geçmez.
+ * Tasarım sisteminin (petrol mavisi) ana düğmesinin beyaz yazısı yaklaşık
+ * 8,76:1; ana metin/beyaz 15,01:1; durum metni/kendi açık zemini en az
+ * 5,67:1; kontrol kenarı ve odak halkası sayfa ve kart zemininde en az
+ * 3,66:1'dir. Bunlar renk hesabıdır; çalışan ekran için erişilebilirlik
+ * doğrulamasının yerine geçmez.
  *
  * Bu dosya bu kontrast sayılarını KANITLAR (bkz. `./contrast.test.ts`) —
  * DB/ağ/React YOK, yalnız iki hex renk arasındaki WCAG bağıl parlaklık

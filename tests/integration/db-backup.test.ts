@@ -6,7 +6,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import Database from "better-sqlite3";
 import { migrate } from "drizzle-orm/better-sqlite3/migrator";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { seedDevData, SEED_IDS } from "../../scripts/db-seed-dev";
 import { calculateWorkEntryAmounts } from "../../src/lib/work-calculation";
 import { createDb, openDatabaseConnection } from "../../src/server/data/db";
@@ -33,6 +33,8 @@ interface CliResult {
   stderr: string;
 }
 
+let template: string;
+let templateDb: string;
 let root: string;
 let dbPath: string;
 let backupDir: string;
@@ -137,17 +139,33 @@ function readManifest(stem: string): Record<string, any> {
   return JSON.parse(fs.readFileSync(path.join(backupDir, `${stem}.manifest.json`), "utf8"));
 }
 
-beforeEach(async () => {
-  root = fs.mkdtempSync(path.join(os.tmpdir(), "dolmus-takip-db-backup-"));
-  dbPath = path.join(root, "data", "app.sqlite");
-  backupDir = path.join(root, "backup-ready");
-  fs.mkdirSync(backupDir);
-  const sqlite = openDatabaseConnection(dbPath, { createIfMissing: true });
+beforeAll(async () => {
+  // Her testin başladığı DB bir kez kurulur; seedDevData sabit id'li ve saatsizdir, her test bu dosyanın bağımsız
+  // kopyasıyla başlar. Bağlantı WAL kipinde açılır: kapatılınca checkpoint yapılır, kopya tek dosyadır.
+  template = fs.mkdtempSync(path.join(os.tmpdir(), "dolmus-takip-db-backup-template-"));
+  templateDb = path.join(template, "app.sqlite");
+  const sqlite = openDatabaseConnection(templateDb, { createIfMissing: true });
   migrate(createDb(sqlite), { migrationsFolder });
   await seedDevData(sqlite);
   insertEntry(sqlite, "entry-1", 100_000, 10_000, 5_000, "driver");
   insertEntry(sqlite, "entry-2", 250_050, 0, 1_234, "owner");
   sqlite.close();
+  expect(fs.existsSync(`${templateDb}-wal`)).toBe(false);
+  expect(fs.existsSync(`${templateDb}-shm`)).toBe(false);
+});
+
+afterAll(() => {
+  fs.rmSync(template, { recursive: true, force: true });
+});
+
+beforeEach(() => {
+  root = fs.mkdtempSync(path.join(os.tmpdir(), "dolmus-takip-db-backup-"));
+  dbPath = path.join(root, "data", "app.sqlite");
+  backupDir = path.join(root, "backup-ready");
+  fs.mkdirSync(backupDir);
+  // Bağımsız bayt kopyası (sabit bağlantı değil): testin yazdıkları şablona ve sonraki testlere sızmaz.
+  fs.mkdirSync(path.dirname(dbPath));
+  fs.copyFileSync(templateDb, dbPath);
 });
 
 afterEach(() => {

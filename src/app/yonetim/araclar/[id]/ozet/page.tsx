@@ -66,7 +66,7 @@ export default async function VehicleSupportSummaryPage({
   const inactive = !detail.vehicle.active || !detail.business.active;
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-[35rem] flex-col gap-6 px-4 py-6">
+    <main className="mx-auto flex min-h-dvh w-full max-w-[35rem] flex-col gap-6 px-4 sm:px-6 py-6">
       <TeamPageHeader
         username={username ?? "—"}
         roleLabel={roleLabel}
@@ -85,13 +85,13 @@ export default async function VehicleSupportSummaryPage({
       </UnsavedChangesProvider>
       <Link
         href={`/yonetim/araclar/${vehicleId}/destek`}
-        className="inline-flex min-h-[var(--control-min-height)] items-center self-start text-base font-medium text-[var(--color-primary)] underline"
+        className="ds-btn ds-btn-text inline-flex items-center self-start"
       >
         ← {SUPPORT_MESSAGES.pageTitle}
       </Link>
-      <h1 className="text-2xl font-semibold text-[var(--color-text)]">{REPORT_MESSAGES.summary.title}</h1>
+      <h1 className="ds-title">{REPORT_MESSAGES.summary.title}</h1>
       {inactive && (
-        <p role="status" className="rounded-[var(--radius-control)] bg-[var(--color-warning-surface)] px-3 py-2 text-base text-[var(--color-warning)]">
+        <p role="status" className="ds-notice ds-notice-warning">
           {SUPPORT_MESSAGES.inactiveTarget}
         </p>
       )}

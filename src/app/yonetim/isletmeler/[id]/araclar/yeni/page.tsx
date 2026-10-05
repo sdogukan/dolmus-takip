@@ -81,7 +81,7 @@ export default async function NewVehiclePage({
   const canCreateVehicle = business.business.active && business.owner !== null;
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-[var(--form-max-width)] flex-col gap-8 px-4 py-6">
+    <main className="mx-auto flex min-h-dvh w-full max-w-[var(--form-max-width)] flex-col gap-8 px-4 sm:px-6 py-6">
       <TeamPageHeader
         username={username ?? "—"}
         roleLabel={roleLabel}
@@ -97,7 +97,7 @@ export default async function NewVehiclePage({
         />
       ) : (
         <div className="flex flex-col gap-3">
-          <h1 className="text-2xl font-semibold text-[var(--color-text)]">Araç ekle</h1>
+          <h1 className="ds-title">Araç ekle</h1>
           <p className="text-base text-[var(--color-text-secondary)]">
             {business.business.active
               ? "Bu işletmenin sahibi yok; önce sahip ata."
@@ -105,7 +105,7 @@ export default async function NewVehiclePage({
           </p>
           <Link
             href={`/yonetim/isletmeler/${businessId}`}
-            className="min-h-[var(--control-min-height)] inline-flex w-fit items-center rounded-[var(--radius-control)] border border-[var(--color-input-border)] px-4 text-base font-medium text-[var(--color-text)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]"
+            className="ds-btn ds-btn-secondary inline-flex w-fit items-center"
           >
             İşletmeye dön
           </Link>

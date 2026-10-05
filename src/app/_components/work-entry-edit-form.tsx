@@ -87,6 +87,7 @@ import {
   type FetchResult,
   type WorkEntryMode,
 } from "./work-entry-form";
+import { deliveryBadgeClass } from "./status-badge";
 
 type ListState =
   | { status: "loading" }
@@ -187,7 +188,7 @@ function EntryDetail({ entry, mode }: { entry: WorkEntryDetail; mode: WorkEntryM
     <section
       id="entry-detail"
       aria-label={TEXT.currentValuesTitle}
-      className="flex flex-col gap-2 rounded-[var(--radius-card)] border border-[var(--color-divider)] bg-[var(--color-surface)] p-4"
+      className="ds-card flex flex-col gap-2 p-4"
     >
       <DetailRow label={TEXT.kindLabel} value={entry.workKind === "owner" ? TEXT.kindOwner : TEXT.kindDriver} />
       <DetailRow label={TEXT.detailPerson} value={entry.person.fullName} />
@@ -214,7 +215,9 @@ function EntryDetail({ entry, mode }: { entry: WorkEntryDetail; mode: WorkEntryM
             label={entry.workKind === "owner" ? TEXT.detailOwnerRemainder : TEXT.detailRemainder}
             value={formatCents(entry.remainderCents)}
           />
-          <p className="text-lg font-medium text-[var(--color-text)]">{statusText(entry.status)}</p>
+          <p>
+            <span className={deliveryBadgeClass(entry.status)}>{statusText(entry.status)}</span>
+          </p>
         </>
       )}
       <p className="text-base text-[var(--color-text-secondary)]">{TEXT.versionLabel(entry.version)}</p>
@@ -229,14 +232,16 @@ function EntryDetail({ entry, mode }: { entry: WorkEntryDetail; mode: WorkEntryM
 function OwnerEntrySummary({ entry, plate }: { entry: WorkEntryDetail; plate: string }) {
   return (
     <section id="entry-detail" aria-label={TEXT.currentValuesTitle} className="flex flex-col gap-2">
-      <p className="text-xl font-semibold text-[var(--color-text)]">{TEXT.savedWho(entry.person.fullName, plate)}</p>
+      <p className="ds-section-title">{TEXT.savedWho(entry.person.fullName, plate)}</p>
       <p className="text-lg tabular-nums text-[var(--color-text)]">
         {TEXT.savedWhen(formatWorkDate(entry.workDate), formatWorkTimeRange(entry.startsAt, entry.endsAt))}
       </p>
-      <p role="status" className="text-lg font-medium text-[var(--color-text)]">
-        {entry.status === "confirmed" ? TEXT.deliveryConfirmed : statusText(entry.status)}
+      <p role="status">
+        <span className={deliveryBadgeClass(entry.status)}>
+          {entry.status === "confirmed" ? TEXT.deliveryConfirmed : statusText(entry.status)}
+        </span>
       </p>
-      <div className="flex flex-col gap-2 rounded-[var(--radius-card)] border border-[var(--color-divider)] bg-[var(--color-surface)] p-4">
+      <div className="ds-card flex flex-col gap-2 p-4">
         <DetailRow label={TEXT.detailGross} value={formatCents(entry.grossCents)} />
         <DetailRow label={TEXT.detailFuel} value={formatCents(entry.fuelCents)} />
         {(entry.otherExpenseCents !== "0" || entry.otherExpenseNote !== null) && (
@@ -601,7 +606,7 @@ export function WorkEntryEditForm({
           {statusRefresh.status === "error" && (
             <p
               role="alert"
-              className="rounded-[var(--radius-control)] bg-[var(--color-error-surface)] px-3 py-2 text-base text-[var(--color-error)]"
+              className="ds-notice ds-notice-error"
             >
               {statusRefresh.message}
             </p>
@@ -637,7 +642,7 @@ export function WorkEntryEditForm({
       )}
 
       {saved && (
-        <p role="status" className="text-2xl font-semibold text-[var(--color-success)]">
+        <p role="status" className="ds-title text-[var(--color-success)]">
           {TEXT.updated}
         </p>
       )}
@@ -645,7 +650,7 @@ export function WorkEntryEditForm({
       {!editable && (
         <div className="flex flex-col gap-3">
           {formMessage && (
-            <p role="alert" className="rounded-[var(--radius-control)] bg-[var(--color-error-surface)] px-3 py-2 text-base text-[var(--color-error)]">
+            <p role="alert" className="ds-notice ds-notice-error">
               {formMessage}
             </p>
           )}
@@ -657,9 +662,9 @@ export function WorkEntryEditForm({
           {keptDraft && (
             <section
               aria-label={TEXT.yourDraftTitle}
-              className="flex flex-col gap-2 rounded-[var(--radius-card)] border border-[var(--color-divider)] p-4"
+              className="ds-card flex flex-col gap-2 p-4"
             >
-              <p className="text-lg font-medium text-[var(--color-text)]">{TEXT.yourDraftTitle}</p>
+              <p className="ds-label">{TEXT.yourDraftTitle}</p>
               <p className="text-base text-[var(--color-text-secondary)]">{TEXT.confirmedDraftKept}</p>
               <p className="text-base tabular-nums">
                 {formatWorkDate(draft.date)} · {draft.startTime} – {draft.endTime}
@@ -697,7 +702,7 @@ export function WorkEntryEditForm({
         <button
           type="button"
           onClick={() => setEditOpen(true)}
-          className="inline-flex min-h-[var(--control-min-height)] items-center self-start rounded-[var(--radius-control)] px-1 text-base font-medium text-[var(--color-primary)] underline focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]"
+          className="ds-btn ds-btn-text inline-flex items-center self-start"
         >
           {TEXT.editTitle}
         </button>
@@ -705,12 +710,12 @@ export function WorkEntryEditForm({
 
       {editable && editVisible && (
         <form noValidate onSubmit={(event) => void handleSubmit(event)} className="flex flex-col gap-6">
-          <h2 className="text-xl font-semibold text-[var(--color-text)]">{TEXT.editTitle}</h2>
+          <h2 className="ds-section-title">{TEXT.editTitle}</h2>
 
           {stale && (
             <div
               role="alert"
-              className="flex flex-col gap-3 rounded-[var(--radius-control)] bg-[var(--color-error-surface)] px-3 py-3 text-base text-[var(--color-error)]"
+              className="ds-notice ds-notice-error flex flex-col gap-3"
             >
               <p>{COMMON_SCREEN_MESSAGES.concurrentEditConflict}</p>
               <p className="font-medium">{TEXT.yourDraftTitle}</p>
@@ -787,7 +792,7 @@ export function WorkEntryEditForm({
                 </select>
                 {list.status === "error" && (
                   <div className="mt-2 flex flex-col gap-2">
-                    <p id="edit-person-list-error" role="alert" className="text-base text-[var(--color-error)]">
+                    <p id="edit-person-list-error" role="alert" className="ds-error-text ds-error-icon">
                       {list.message}
                     </p>
                     {list.retryable && (
@@ -846,7 +851,7 @@ export function WorkEntryEditForm({
               />
               <label
                 htmlFor="edit-next-day"
-                className="mt-2 flex min-h-[var(--control-min-height)] items-center gap-3 text-base text-[var(--color-text)]"
+                className="ds-check-label mt-2 flex items-center gap-3"
               >
                 <input
                   id="edit-next-day"
@@ -866,7 +871,7 @@ export function WorkEntryEditForm({
                 </p>
               )}
               {evaluation.ok && (
-                <p role="status" className="mt-2 text-lg font-medium text-[var(--color-text)]">
+                <p role="status" className="ds-label mt-2">
                   {TEXT.duration(formatDuration(evaluation.durationMinutes))}
                 </p>
               )}
@@ -919,7 +924,7 @@ export function WorkEntryEditForm({
             </div>
 
             {draft.expenseOpen ? (
-              <div className="flex flex-col gap-4 rounded-[var(--radius-card)] border border-[var(--color-divider)] p-4">
+              <div className="ds-card flex flex-col gap-4 p-4">
                 <div>
                   <label htmlFor="edit-other" className={labelClass}>
                     {TEXT.otherExpenseLabel}
@@ -981,7 +986,7 @@ export function WorkEntryEditForm({
               role="status"
               aria-live="polite"
               aria-label={TEXT.summaryTitle}
-              className="flex flex-col gap-2 rounded-[var(--radius-card)] border border-[var(--color-divider)] bg-[var(--color-surface)] p-4 text-lg tabular-nums"
+              className="ds-card flex flex-col gap-2 p-4 text-lg tabular-nums"
             >
               <p className="flex justify-between gap-4">
                 <span>{shareLabel}</span>
@@ -996,7 +1001,7 @@ export function WorkEntryEditForm({
                 </span>
               </p>
               {summary.status === "ready" && summary.remainderCents < 0 && (
-                <p className="rounded-[var(--radius-control)] bg-[var(--color-warning-surface)] px-3 py-2 text-base text-[var(--color-warning)]">
+                <p className="ds-notice ds-notice-warning">
                   {TEXT.remainderNegative}
                 </p>
               )}
@@ -1014,12 +1019,12 @@ export function WorkEntryEditForm({
           />
 
           {formMessage && !stale && (
-            <p role="alert" className="rounded-[var(--radius-control)] bg-[var(--color-error-surface)] px-3 py-2 text-base text-[var(--color-error)]">
+            <p role="alert" className="ds-notice ds-notice-error">
               {formMessage}
             </p>
           )}
           {draft.pending && !submitting && (
-            <p role="alert" className="rounded-[var(--radius-control)] bg-[var(--color-warning-surface)] px-3 py-2 text-base text-[var(--color-warning)]">
+            <p role="alert" className="ds-notice ds-notice-warning">
               {TEXT.editUnknownResult}
             </p>
           )}

@@ -166,7 +166,7 @@ interface Banner {
  * sayesinde alan içinde KALIR. */
 function ErrorBanner({ banner }: { banner: Banner }) {
   return (
-    <p role="alert" className="rounded-[var(--radius-control)] bg-[var(--color-error-surface)] px-3 py-2 text-base text-[var(--color-error)]">
+    <p role="alert" className="ds-notice ds-notice-error">
       {banner.message}
       {banner.code === "VERSION_CONFLICT" && (
         <>
@@ -266,12 +266,12 @@ export function BusinessDetailForm({
     <div className="flex flex-col gap-10">
       <div className="flex flex-col gap-2">
         <div className="flex flex-wrap items-center gap-3">
-          <h1 className="text-2xl font-semibold text-[var(--color-text)]">{detail.business.name}</h1>
+          <h1 className="ds-title">{detail.business.name}</h1>
           <span
             className={
               detail.business.active
-                ? "rounded-full bg-[var(--color-success-surface)] px-2 py-0.5 text-base font-medium text-[var(--color-success)]"
-                : "rounded-full bg-[var(--color-warning-surface)] px-2 py-0.5 text-base font-medium text-[var(--color-warning)]"
+                ? "ds-badge ds-badge-active"
+                : "ds-badge ds-badge-inactive"
             }
           >
             {detail.business.active ? "Aktif" : "Pasif"}
@@ -408,10 +408,10 @@ function NameSection({
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-      <h2 className="text-xl font-semibold text-[var(--color-text)]">İşletme adı</h2>
+      <h2 className="ds-section-title">İşletme adı</h2>
       {banner && <ErrorBanner banner={banner} />}
       {phase === "ambiguous" && (
-        <div role="status" className="flex flex-col gap-3 rounded-[var(--radius-control)] bg-[var(--color-warning-surface)] px-3 py-2 text-base text-[var(--color-warning)]">
+        <div role="status" className="ds-notice ds-notice-warning flex flex-col gap-3">
           <p>Kaydın sonucu kontrol ediliyor.</p>
           <button
             type="button"
@@ -420,7 +420,7 @@ function NameSection({
               await run(draft);
               setIsFetching(false);
             }}
-            className="min-h-[var(--control-min-height)] self-start rounded-[var(--radius-control)] border border-[var(--color-input-border)] px-4 text-base font-medium text-[var(--color-text)]"
+            className="ds-btn ds-btn-secondary self-start"
           >
             Tekrar kontrol et
           </button>
@@ -428,7 +428,7 @@ function NameSection({
       )}
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
         <div className="flex-1">
-          <label htmlFor="business-name-edit" className="block text-lg font-medium text-[var(--color-text)]">
+          <label htmlFor="business-name-edit" className="ds-label block">
             Ad
           </label>
           <input
@@ -440,10 +440,10 @@ function NameSection({
             onChange={(event) => handleChange(event.target.value)}
             aria-invalid={fieldError ? true : undefined}
             aria-describedby={fieldError ? "business-name-edit-error" : undefined}
-            className="mt-1 min-h-[var(--control-min-height)] w-full rounded-[var(--radius-control)] border border-[var(--color-input-border)] bg-[var(--color-surface)] px-3 text-[length:var(--font-size-body)] text-[var(--color-text)] disabled:opacity-70"
+            className="ds-input mt-1 w-full"
           />
           {fieldError && (
-            <p id="business-name-edit-error" role="alert" className="mt-1 text-base text-[var(--color-error)]">
+            <p id="business-name-edit-error" role="alert" className="ds-error-text ds-error-icon mt-1">
               {fieldError}
             </p>
           )}
@@ -451,7 +451,7 @@ function NameSection({
         <button
           type="submit"
           disabled={disabled || draft.value.trim() === detail.business.name}
-          className="min-h-[var(--control-min-height)] shrink-0 rounded-[var(--radius-control)] bg-[var(--color-primary)] px-4 text-base font-semibold text-[var(--color-on-primary)] disabled:opacity-70"
+          className="ds-btn ds-btn-primary shrink-0"
         >
           {phase === "submitting" ? "Kaydediliyor…" : "Adı kaydet"}
         </button>
@@ -548,13 +548,13 @@ function OwnerRenameSection({
   if (owner.anonymized) {
     return (
       <div className="flex flex-col gap-3">
-        <h2 className="text-xl font-semibold text-[var(--color-text)]">Mal sahibi</h2>
+        <h2 className="ds-section-title">Mal sahibi</h2>
         {anonymizedNotice && (
-          <p role="status" className="rounded-[var(--radius-control)] bg-[var(--color-success-surface)] px-3 py-2 text-base text-[var(--color-success)]">
+          <p role="status" className="ds-notice ds-notice-success">
             {PERSON_ANONYMIZE_MESSAGES.done}
           </p>
         )}
-        <p className="text-lg font-medium text-[var(--color-text)]">{owner.fullName}</p>
+        <p className="ds-label">{owner.fullName}</p>
         <p className="text-base text-[var(--color-text-secondary)]">{PERSON_ANONYMIZE_MESSAGES.anonymizedNote}</p>
       </div>
     );
@@ -614,10 +614,10 @@ function OwnerRenameSection({
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-      <h2 className="text-xl font-semibold text-[var(--color-text)]">Mal sahibi</h2>
+      <h2 className="ds-section-title">Mal sahibi</h2>
       {banner && <ErrorBanner banner={banner} />}
       {phase === "ambiguous" && (
-        <div role="status" className="flex flex-col gap-3 rounded-[var(--radius-control)] bg-[var(--color-warning-surface)] px-3 py-2 text-base text-[var(--color-warning)]">
+        <div role="status" className="ds-notice ds-notice-warning flex flex-col gap-3">
           <p>Kaydın sonucu kontrol ediliyor.</p>
           <button
             type="button"
@@ -626,7 +626,7 @@ function OwnerRenameSection({
               await run(draft);
               setIsFetching(false);
             }}
-            className="min-h-[var(--control-min-height)] self-start rounded-[var(--radius-control)] border border-[var(--color-input-border)] px-4 text-base font-medium text-[var(--color-text)]"
+            className="ds-btn ds-btn-secondary self-start"
           >
             Tekrar kontrol et
           </button>
@@ -634,7 +634,7 @@ function OwnerRenameSection({
       )}
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
         <div className="flex-1">
-          <label htmlFor="owner-name-edit" className="block text-lg font-medium text-[var(--color-text)]">
+          <label htmlFor="owner-name-edit" className="ds-label block">
             Ad soyad
           </label>
           <input
@@ -646,10 +646,10 @@ function OwnerRenameSection({
             onChange={(event) => handleChange(event.target.value)}
             aria-invalid={fieldError ? true : undefined}
             aria-describedby={fieldError ? "owner-name-edit-error" : undefined}
-            className="mt-1 min-h-[var(--control-min-height)] w-full rounded-[var(--radius-control)] border border-[var(--color-input-border)] bg-[var(--color-surface)] px-3 text-[length:var(--font-size-body)] text-[var(--color-text)] disabled:opacity-70"
+            className="ds-input mt-1 w-full"
           />
           {fieldError && (
-            <p id="owner-name-edit-error" role="alert" className="mt-1 text-base text-[var(--color-error)]">
+            <p id="owner-name-edit-error" role="alert" className="ds-error-text ds-error-icon mt-1">
               {fieldError}
             </p>
           )}
@@ -657,7 +657,7 @@ function OwnerRenameSection({
         <button
           type="submit"
           disabled={disabled || draft.value.trim() === owner.fullName}
-          className="min-h-[var(--control-min-height)] shrink-0 rounded-[var(--radius-control)] bg-[var(--color-primary)] px-4 text-base font-semibold text-[var(--color-on-primary)] disabled:opacity-70"
+          className="ds-btn ds-btn-primary shrink-0"
         >
           {phase === "submitting" ? "Kaydediliyor…" : "Adı kaydet"}
         </button>
@@ -665,7 +665,7 @@ function OwnerRenameSection({
       {canAnonymize && (
         <>
           {anonymizePhase === "ambiguous" && anonymizeDraft && (
-            <div role="status" className="flex flex-col gap-3 rounded-[var(--radius-control)] bg-[var(--color-warning-surface)] px-3 py-2 text-base text-[var(--color-warning)]">
+            <div role="status" className="ds-notice ds-notice-warning flex flex-col gap-3">
               <p>Kaydın sonucu kontrol ediliyor.</p>
               <button
                 type="button"
@@ -674,7 +674,7 @@ function OwnerRenameSection({
                   await runAnonymize(anonymizeDraft);
                   setAnonymizeFetching(false);
                 }}
-                className="min-h-[var(--control-min-height)] self-start rounded-[var(--radius-control)] border border-[var(--color-input-border)] px-4 text-base font-medium text-[var(--color-text)]"
+                className="ds-btn ds-btn-secondary self-start"
               >
                 Tekrar kontrol et
               </button>
@@ -692,7 +692,7 @@ function OwnerRenameSection({
               });
               setAnonymizeDialogOpen(true);
             }}
-            className="min-h-[var(--control-min-height)] self-start rounded-[var(--radius-control)] border border-[var(--color-input-border)] px-4 text-base font-medium text-[var(--color-text)] disabled:opacity-70"
+            className="ds-btn ds-btn-secondary self-start"
           >
             {PERSON_ANONYMIZE_MESSAGES.action}
           </button>
@@ -812,19 +812,19 @@ function OwnerAssignSection({
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-      <h2 className="text-xl font-semibold text-[var(--color-text)]">Mal sahibi</h2>
+      <h2 className="ds-section-title">Mal sahibi</h2>
       <p className="text-base text-[var(--color-text-secondary)]">
         Bu işletmenin henüz sahibi yok. Aynı işletmede tanımlı aktif bir kişiyi seç veya yeni sahip
         ad soyadı gir.
       </p>
       {banner && <ErrorBanner banner={banner} />}
       {fieldError && (
-        <p role="alert" className="rounded-[var(--radius-control)] bg-[var(--color-error-surface)] px-3 py-2 text-base text-[var(--color-error)]">
+        <p role="alert" className="ds-notice ds-notice-error">
           {fieldError}
         </p>
       )}
       {phase === "ambiguous" && (
-        <div role="status" className="flex flex-col gap-3 rounded-[var(--radius-control)] bg-[var(--color-warning-surface)] px-3 py-2 text-base text-[var(--color-warning)]">
+        <div role="status" className="ds-notice ds-notice-warning flex flex-col gap-3">
           <p>Kaydın sonucu kontrol ediliyor.</p>
           <button
             type="button"
@@ -833,7 +833,7 @@ function OwnerAssignSection({
               await run(draft);
               setIsFetching(false);
             }}
-            className="min-h-[var(--control-min-height)] self-start rounded-[var(--radius-control)] border border-[var(--color-input-border)] px-4 text-base font-medium text-[var(--color-text)]"
+            className="ds-btn ds-btn-secondary self-start"
           >
             Tekrar kontrol et
           </button>
@@ -841,7 +841,7 @@ function OwnerAssignSection({
       )}
 
       {detail.eligiblePeople.length > 0 && (
-        <label className="flex items-start gap-2 text-base text-[var(--color-text)]">
+        <label className="ds-check-label flex items-start gap-2">
           <input
             type="radio"
             name="owner-assign-mode"
@@ -856,7 +856,7 @@ function OwnerAssignSection({
               value={draft.existingPersonRef}
               disabled={disabled || draft.mode !== "existing"}
               onChange={(event) => handleFieldChange({ mode: "existing", existingPersonRef: event.target.value })}
-              className="min-h-[var(--control-min-height)] rounded-[var(--radius-control)] border border-[var(--color-input-border)] bg-[var(--color-surface)] px-3 text-[length:var(--font-size-body)] disabled:opacity-70"
+              className="ds-input"
             >
               {detail.eligiblePeople.map((person) => (
                 <option key={person.id} value={person.id}>
@@ -868,7 +868,7 @@ function OwnerAssignSection({
         </label>
       )}
 
-      <label className="flex items-start gap-2 text-base text-[var(--color-text)]">
+      <label className="ds-check-label flex items-start gap-2">
         <input
           type="radio"
           name="owner-assign-mode"
@@ -885,7 +885,7 @@ function OwnerAssignSection({
             value={draft.newFullName}
             disabled={disabled || draft.mode !== "new"}
             onChange={(event) => handleFieldChange({ mode: "new", newFullName: event.target.value })}
-            className="min-h-[var(--control-min-height)] rounded-[var(--radius-control)] border border-[var(--color-input-border)] bg-[var(--color-surface)] px-3 text-[length:var(--font-size-body)] disabled:opacity-70"
+            className="ds-input"
           />
         </span>
       </label>
@@ -893,7 +893,7 @@ function OwnerAssignSection({
       <button
         type="submit"
         disabled={disabled || !canSubmit}
-        className="min-h-[var(--control-min-height)] self-start rounded-[var(--radius-control)] bg-[var(--color-primary)] px-4 text-base font-semibold text-[var(--color-on-primary)] disabled:opacity-70"
+        className="ds-btn ds-btn-primary self-start"
       >
         {phase === "submitting" ? "Kaydediliyor…" : "Sahibi kaydet"}
       </button>
@@ -913,13 +913,13 @@ function VehiclesSection({ businessId, detail }: { businessId: string; detail: B
   return (
     <div className="flex flex-col gap-2">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="text-xl font-semibold text-[var(--color-text)]">
+        <h2 className="ds-section-title">
           Araçlar ({detail.vehicles.length})
         </h2>
         {canAddVehicle && (
           <Link
             href={`/yonetim/isletmeler/${businessId}/araclar/yeni`}
-            className="min-h-[var(--control-min-height)] flex items-center rounded-[var(--radius-control)] bg-[var(--color-primary)] px-4 text-base font-semibold text-[var(--color-on-primary)] focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--color-primary)]"
+            className="ds-btn ds-btn-primary flex items-center"
           >
             + Araç ekle
           </Link>
@@ -933,7 +933,7 @@ function VehiclesSection({ businessId, detail }: { businessId: string; detail: B
             <li key={vehicle.id}>
               <Link
                 href={`/yonetim/araclar/${vehicle.id}`}
-                className="flex items-center justify-between gap-4 rounded-[var(--radius-control)] px-2 py-1 text-base text-[var(--color-text)] hover:bg-[var(--color-page)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]"
+                className="flex items-center justify-between gap-4 rounded-[var(--radius-control)] px-2 py-1 text-base text-[var(--color-text)] hover:bg-[var(--color-page)]"
               >
                 <span>{vehicle.plateNormalized}</span>
                 <span className="text-[var(--color-text-secondary)]">
@@ -1032,10 +1032,10 @@ function ActiveSection({
 
   return (
     <div className="flex flex-col gap-3 border-t border-[var(--color-divider)] pt-6">
-      <h2 className="text-xl font-semibold text-[var(--color-text)]">Aktiflik</h2>
+      <h2 className="ds-section-title">Aktiflik</h2>
       {banner && <ErrorBanner banner={banner} />}
       {phase === "ambiguous" && draft && (
-        <div role="status" className="flex flex-col gap-3 rounded-[var(--radius-control)] bg-[var(--color-warning-surface)] px-3 py-2 text-base text-[var(--color-warning)]">
+        <div role="status" className="ds-notice ds-notice-warning flex flex-col gap-3">
           <p>Kaydın sonucu kontrol ediliyor.</p>
           <button
             type="button"
@@ -1044,7 +1044,7 @@ function ActiveSection({
               await run(draft);
               setIsFetching(false);
             }}
-            className="min-h-[var(--control-min-height)] self-start rounded-[var(--radius-control)] border border-[var(--color-input-border)] px-4 text-base font-medium text-[var(--color-text)]"
+            className="ds-btn ds-btn-secondary self-start"
           >
             Tekrar kontrol et
           </button>
@@ -1061,7 +1061,7 @@ function ActiveSection({
             type="button"
             disabled={disabled}
             onClick={() => startAction(false)}
-            className="min-h-[var(--control-min-height)] self-start rounded-[var(--radius-control)] bg-[var(--color-error)] px-4 text-base font-semibold text-white disabled:opacity-70"
+            className="ds-btn ds-btn-danger self-start"
           >
             {phase === "submitting" && draft?.target === false ? "Pasifleştiriliyor…" : "İşletmeyi pasifleştir"}
           </button>
@@ -1076,7 +1076,7 @@ function ActiveSection({
             type="button"
             disabled={disabled}
             onClick={() => startAction(true)}
-            className="min-h-[var(--control-min-height)] self-start rounded-[var(--radius-control)] bg-[var(--color-primary)] px-4 text-base font-semibold text-[var(--color-on-primary)] disabled:opacity-70"
+            className="ds-btn ds-btn-primary self-start"
           >
             {phase === "submitting" && draft?.target === true ? "Aktifleştiriliyor…" : "İşletmeyi yeniden aktifleştir"}
           </button>

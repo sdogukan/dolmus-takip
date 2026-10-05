@@ -14,15 +14,15 @@ export default async function NewTeamUserPage() {
   const page = await readTeamPageContext();
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-[var(--form-max-width)] flex-col gap-8 px-4 py-6">
+    <main className="mx-auto flex min-h-dvh w-full max-w-[var(--form-max-width)] flex-col gap-8 px-4 sm:px-6 py-6">
       <TeamPageHeader username={page.username} roleLabel={page.roleLabel} csrfToken={page.csrfToken} />
-      <Link href="/yonetim/ekip" className="text-base font-medium text-[var(--color-primary)] underline">
+      <Link href="/yonetim/ekip" className="ds-link ds-link-block">
         {TEXT.backToList}
       </Link>
       {page.isAdmin ? (
         <NewTeamUserForm csrfToken={page.csrfToken} scopeKey={page.scopeKey} />
       ) : (
-        <p role="alert" className="rounded-[var(--radius-control)] bg-[var(--color-error-surface)] px-3 py-2 text-base text-[var(--color-error)]">
+        <p role="alert" className="ds-notice ds-notice-error">
           {TEXT.unauthorized}
         </p>
       )}

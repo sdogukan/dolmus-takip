@@ -188,17 +188,17 @@ async function fetchSavedEntry(
   return entry ? { ok: true, entry: savedEntryFromDetail(entry) } : failed;
 }
 
-export const labelClass = "block text-lg font-medium text-[var(--color-text)]";
+export const labelClass = "ds-label block";
 export const controlClass =
-  "mt-1 min-h-[var(--control-min-height)] w-full rounded-[var(--radius-control)] border border-[var(--color-input-border)] bg-[var(--color-surface)] px-3 text-[length:var(--font-size-body)] text-[var(--color-text)] disabled:opacity-70 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]";
-export const errorTextClass = "mt-1 text-base text-[var(--color-error)]";
+  "ds-input mt-1 w-full";
+export const errorTextClass = "ds-error-text ds-error-icon mt-1";
 export const secondaryButtonClass =
-  "min-h-[var(--control-min-height)] self-start rounded-[var(--radius-control)] border border-[var(--color-input-border)] px-4 text-base font-medium text-[var(--color-text)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)] disabled:opacity-70";
+  "ds-btn ds-btn-secondary self-start";
 export const primaryButtonClass =
-  "min-h-14 w-full rounded-[var(--radius-control)] bg-[var(--color-primary)] px-4 text-lg font-semibold text-[var(--color-on-primary)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)] focus-visible:ring-offset-2 disabled:opacity-70";
+  "ds-btn ds-btn-primary ds-btn-lg w-full";
 
 export const linkButtonClass =
-  "inline-flex min-h-[var(--control-min-height)] items-center self-start rounded-[var(--radius-control)] px-1 text-base font-medium text-[var(--color-primary)] underline focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]";
+  "ds-btn ds-btn-text inline-flex items-center self-start";
 
 export const OTHER_NOTE_MAX_LENGTH = 200;
 export const amountInputProps = { type: "text", inputMode: "decimal", autoComplete: "off" } as const;
@@ -655,11 +655,11 @@ export function WorkEntryForm({
           ref={savedHeadingRef}
           tabIndex={-1}
           role="status"
-          className="text-2xl font-semibold text-[var(--color-success)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]"
+          className="ds-title text-[var(--color-success)]"
         >
           {TEXT.saved}
         </p>
-        <p className={`text-lg font-medium text-[var(--color-text)] ${wrapClass}`}>
+        <p className={`ds-label ${wrapClass}`}>
           {TEXT.savedWho(saved.personName, plate)}
         </p>
         <p className={`text-lg text-[var(--color-text)] ${wrapClass}`}>
@@ -674,7 +674,7 @@ export function WorkEntryForm({
         {refresh?.status === "error" && (
           <p
             role="alert"
-            className="rounded-[var(--radius-control)] bg-[var(--color-error-surface)] px-3 py-2 text-base text-[var(--color-error)]"
+            className="ds-notice ds-notice-error"
           >
             {refresh.message}
           </p>
@@ -719,7 +719,7 @@ export function WorkEntryForm({
           <p id="work-type-label" className={labelClass}>
             {TEXT.workTypeLabel}
           </p>
-          <div className="mt-1 grid grid-cols-2 gap-2">
+          <div className="mt-2 ds-seg">
             {(
               [
                 ["owner", mode === "staff" ? TEXT.staffOwnerWorked : TEXT.ownerWorked],
@@ -731,11 +731,7 @@ export function WorkEntryForm({
                 type="button"
                 aria-pressed={workType === kind}
                 onClick={() => chooseWorkType(kind)}
-                className={`min-h-[var(--control-min-height)] rounded-[var(--radius-control)] border px-3 text-base font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)] disabled:opacity-70 ${
-                  workType === kind
-                    ? "border-[var(--color-primary)] bg-[var(--color-primary)] text-[var(--color-on-primary)]"
-                    : "border-[var(--color-input-border)] text-[var(--color-text)]"
-                }`}
+                className="ds-seg-btn"
               >
                 {text}
               </button>
@@ -747,7 +743,7 @@ export function WorkEntryForm({
             </p>
           )}
           {workKind === "owner" && (
-            <p className="mt-2 text-lg font-medium text-[var(--color-text)]">
+            <p className="ds-label mt-2">
               {TEXT.ownerEmployee(ownerName ?? "—")}
             </p>
           )}
@@ -818,7 +814,7 @@ export function WorkEntryForm({
         )}
         {list.status === "error" && (
           <div className="mt-2 flex flex-col gap-2">
-            <p id="work-person-list-error" role="alert" className="text-base text-[var(--color-error)]">
+            <p id="work-person-list-error" role="alert" className="ds-error-text ds-error-icon">
               {list.message}
             </p>
             {list.retryable && (
@@ -882,7 +878,7 @@ export function WorkEntryForm({
         />
         <label
           htmlFor="work-next-day"
-          className="mt-2 flex min-h-[var(--control-min-height)] items-center gap-3 text-base text-[var(--color-text)]"
+          className="ds-check-label mt-2 flex items-center gap-3"
         >
           <input
             id="work-next-day"
@@ -960,7 +956,7 @@ export function WorkEntryForm({
       </div>
 
       {expenseOpen ? (
-        <div className="flex flex-col gap-4 rounded-[var(--radius-card)] border border-[var(--color-divider)] p-4">
+        <div className="ds-card flex flex-col gap-4 p-4">
           <div>
             <label htmlFor="work-other" className={labelClass}>
               {TEXT.otherExpenseLabel}
@@ -1023,7 +1019,7 @@ export function WorkEntryForm({
         role="status"
         aria-live="polite"
         aria-label={TEXT.summaryTitle}
-        className="flex flex-col gap-2 rounded-[var(--radius-card)] border border-[var(--color-divider)] bg-[var(--color-surface)] p-4 text-lg tabular-nums"
+        className="ds-card flex flex-col gap-2 p-4 text-lg tabular-nums"
       >
         <p className="flex justify-between gap-4">
           <span>{shareLabel}</span>
@@ -1038,7 +1034,7 @@ export function WorkEntryForm({
           </span>
         </p>
         {summary.status === "ready" && summary.remainderCents < 0 && (
-          <p className="rounded-[var(--radius-control)] bg-[var(--color-warning-surface)] px-3 py-2 text-base text-[var(--color-warning)]">
+          <p className="ds-notice ds-notice-warning">
             {TEXT.remainderNegative}
           </p>
         )}
@@ -1063,7 +1059,7 @@ export function WorkEntryForm({
       />
 
       {formMessage && (
-        <p role="alert" className="rounded-[var(--radius-control)] bg-[var(--color-error-surface)] px-3 py-2 text-base text-[var(--color-error)]">
+        <p role="alert" className="ds-notice ds-notice-error">
           {formMessage}
         </p>
       )}
@@ -1077,7 +1073,7 @@ export function WorkEntryForm({
           <p className="text-base text-[var(--color-text)]">{TEXT.submitting}</p>
         )}
         {(checking || (draft.pending && !submitting)) && (
-          <div className="flex flex-col gap-1 rounded-[var(--radius-control)] bg-[var(--color-warning-surface)] px-3 py-2 text-base text-[var(--color-warning)]">
+          <div className="ds-notice ds-notice-warning flex flex-col gap-1">
             <p>{TEXT.checking}</p>
             <p>{TEXT.checkHint}</p>
           </div>

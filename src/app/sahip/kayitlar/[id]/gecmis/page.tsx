@@ -46,15 +46,15 @@ export default async function SahipEntryHistoryPage({ params }: { params: Promis
   const plate = (await readVehiclePlateForDisplay(db, context.vehicleId)) ?? "—";
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-[35rem] flex-col gap-6 px-4 py-6">
+    <main className="mx-auto flex min-h-dvh w-full max-w-[35rem] flex-col gap-6 px-4 sm:px-6 py-6">
       <VehiclePageHeader plate={plate} csrfToken={context.csrfToken} />
       <Link
         href={`/sahip/kayitlar/${entryId}`}
-        className="text-base font-medium text-[var(--color-primary)] underline"
+        className="ds-link ds-link-block"
       >
         {WORK_ENTRY_MESSAGES.historyBack}
       </Link>
-      <h1 className="text-2xl font-semibold text-[var(--color-text)]">{WORK_ENTRY_MESSAGES.historyTitle}</h1>
+      <h1 className="ds-title">{WORK_ENTRY_MESSAGES.historyTitle}</h1>
       <WorkEntryHistory view={view} />
     </main>
   );

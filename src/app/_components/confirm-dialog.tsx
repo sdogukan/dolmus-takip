@@ -60,7 +60,7 @@ export function ConfirmDialog({
     <dialog
       ref={dialogRef}
       aria-labelledby={titleId}
-      className="w-[calc(100%-2rem)] max-w-[28rem] rounded-[var(--radius-card)] border-none p-0 text-[var(--color-text)] backdrop:bg-black/40"
+      className="ds-dialog w-[calc(100%-2rem)] max-w-[28rem]"
       onCancel={(event) => {
         // Escape — Vazgeç ile AYNI (yalnız iptal), sonuçlu işlem TETİKLENMEZ.
         // Tarayıcının kendi kapatması ENGELLENİR: kapanış, çağıranın `open`
@@ -78,20 +78,16 @@ export function ConfirmDialog({
       // SONUCUDUR; ayrıca bir geri bildirim GEREKMEZ.
     >
       <div className="flex flex-col gap-4 p-6">
-        <h2 id={titleId} className="text-xl font-semibold">
+        <h2 id={titleId} className="ds-section-title">
           {title}
         </h2>
-        <div className="text-base text-[var(--color-text-secondary)]">{description}</div>
+        <div className="text-[var(--color-text)]">{description}</div>
         <div className="flex flex-col gap-3 sm:flex-row-reverse">
           <button
             type="button"
             onClick={onConfirm}
             disabled={isSubmitting}
-            className={`min-h-[var(--control-min-height)] flex-1 rounded-[var(--radius-control)] text-lg font-semibold transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:opacity-70 ${
-              danger
-                ? "bg-[var(--color-error)] text-white focus-visible:ring-[var(--color-error)]"
-                : "bg-[var(--color-primary)] text-[var(--color-on-primary)] focus-visible:ring-[var(--color-primary)]"
-            }`}
+            className={`ds-btn flex-1 ${danger ? "ds-btn-danger-solid" : "ds-btn-primary"}`}
           >
             {confirmLabel}
           </button>
@@ -99,7 +95,7 @@ export function ConfirmDialog({
             type="button"
             onClick={onCancel}
             disabled={isSubmitting}
-            className="min-h-[var(--control-min-height)] flex-1 rounded-[var(--radius-control)] border border-[var(--color-input-border)] text-base font-medium text-[var(--color-text)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)] disabled:opacity-70"
+            className="ds-btn ds-btn-secondary flex-1"
           >
             {cancelLabel}
           </button>

@@ -301,7 +301,7 @@ export function LoginForm({
   return (
     <div className="flex flex-col gap-8">
       <div>
-        <h1 className="break-words text-2xl font-semibold text-[var(--color-text)]">
+        <h1 className="ds-title break-words">
           {heading}
         </h1>
         {subheading && (
@@ -320,7 +320,7 @@ export function LoginForm({
         {formError && (
           <p
             role="alert"
-            className="flex items-start gap-2 rounded-[var(--radius-control)] bg-[var(--color-error-surface)] px-3 py-2 text-base break-words text-[var(--color-error)]"
+            className="ds-notice ds-notice-error ds-notice-noicon flex items-start gap-2 break-words"
           >
             <AlertIcon />
             {formError}
@@ -339,7 +339,7 @@ export function LoginForm({
         <div>
           <label
             htmlFor={identifierField.id}
-            className="block break-words text-lg font-medium text-[var(--color-text)]"
+            className="ds-label block break-words"
           >
             {identifierField.label}
           </label>
@@ -361,12 +361,12 @@ export function LoginForm({
             aria-describedby={
               fieldErrors.identifier ? `${identifierField.id}-error` : undefined
             }
-            className="mt-1 min-h-[var(--control-min-height)] w-full rounded-[var(--radius-control)] border border-[var(--color-input-border)] bg-[var(--color-surface)] px-3 text-[length:var(--font-size-body)] text-[var(--color-text)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]"
+            className="ds-input mt-1 w-full"
           />
           {fieldErrors.identifier && (
             <p
               id={`${identifierField.id}-error`}
-              className="mt-1 flex items-start gap-1.5 break-words text-base text-[var(--color-error)]"
+              className="ds-error-text mt-1 flex items-start gap-1.5 break-words"
             >
               <AlertIcon />
               {fieldErrors.identifier}
@@ -377,7 +377,7 @@ export function LoginForm({
         <div>
           <label
             htmlFor="password"
-            className="block break-words text-lg font-medium text-[var(--color-text)]"
+            className="ds-label block break-words"
           >
             Şifre
           </label>
@@ -394,13 +394,13 @@ export function LoginForm({
               onFocus={(event) => scrollFieldIntoView(event.currentTarget)}
               aria-invalid={fieldErrors.password ? true : undefined}
               aria-describedby={fieldErrors.password ? "password-error" : undefined}
-              className="min-h-[var(--control-min-height)] w-full flex-1 rounded-[var(--radius-control)] border border-[var(--color-input-border)] bg-[var(--color-surface)] px-3 text-[length:var(--font-size-body)] text-[var(--color-text)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]"
+              className="ds-input w-full flex-1"
             />
             <button
               type="button"
               onClick={() => setShowPassword((prev) => !prev)}
               aria-pressed={showPassword}
-              className="min-h-[var(--control-min-height)] min-w-[3rem] shrink-0 rounded-[var(--radius-control)] border border-[var(--color-input-border)] px-3 text-base font-medium text-[var(--color-text)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]"
+              className="ds-btn ds-btn-secondary min-w-[3rem] shrink-0"
             >
               {showPassword ? "Gizle" : "Göster"}
             </button>
@@ -408,7 +408,7 @@ export function LoginForm({
           {fieldErrors.password && (
             <p
               id="password-error"
-              className="mt-1 flex items-start gap-1.5 break-words text-base text-[var(--color-error)]"
+              className="ds-error-text mt-1 flex items-start gap-1.5 break-words"
             >
               <AlertIcon />
               {fieldErrors.password}
@@ -420,7 +420,7 @@ export function LoginForm({
           type="submit"
           disabled={isSubmitting}
           aria-busy={isSubmitting}
-          className="min-h-[var(--primary-min-height)] w-full rounded-[var(--radius-control)] bg-[var(--color-primary)] text-lg font-semibold text-[var(--color-on-primary)] transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--color-primary)] disabled:opacity-70"
+          className="ds-btn ds-btn-primary ds-btn-lg w-full"
         >
           {isSubmitting ? "Giriş yapılıyor…" : "Giriş yap"}
         </button>

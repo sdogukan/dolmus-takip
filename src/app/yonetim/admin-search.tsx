@@ -94,8 +94,8 @@ function ActiveBadge({ active }: { active: boolean }) {
     <span
       className={
         active
-          ? "rounded-full bg-[var(--color-success-surface)] px-2 py-0.5 text-[length:1rem] font-medium text-[var(--color-success)]"
-          : "rounded-full bg-[var(--color-warning-surface)] px-2 py-0.5 text-[length:1rem] font-medium text-[var(--color-warning)]"
+          ? "ds-badge ds-badge-active"
+          : "ds-badge ds-badge-inactive"
       }
     >
       {active ? TEXT.activeBadge : TEXT.inactiveBadge}
@@ -104,11 +104,11 @@ function ActiveBadge({ active }: { active: boolean }) {
 }
 
 const cardClass =
-  "rounded-[var(--radius-card)] border border-[var(--color-divider)] bg-[var(--color-surface)] px-4 py-3 text-base text-[var(--color-text)]";
+  "ds-card px-4 py-3 text-base";
 const actionLinkClass =
-  "flex min-h-[var(--control-min-height)] items-center rounded-[var(--radius-control)] border border-[var(--color-input-border)] px-4 text-base font-medium text-[var(--color-text)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]";
+  "ds-btn ds-btn-secondary flex items-center";
 const secondaryButtonClass =
-  "min-h-[var(--control-min-height)] self-start rounded-[var(--radius-control)] border border-[var(--color-input-border)] px-4 text-base font-medium text-[var(--color-text)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)] disabled:opacity-70";
+  "ds-btn ds-btn-secondary self-start";
 
 const DEBOUNCE_MS = 300;
 
@@ -220,7 +220,7 @@ export function AdminSearch({
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <label htmlFor="yonetim-arama" className="block text-lg font-medium text-[var(--color-text)]">
+        <label htmlFor="yonetim-arama" className="ds-label block">
           {TEXT.label}
         </label>
         <input
@@ -230,18 +230,18 @@ export function AdminSearch({
           maxLength={100}
           value={input}
           onChange={(event) => handleInputChange(event.target.value)}
-          className="mt-1 min-h-[var(--control-min-height)] w-full rounded-[var(--radius-control)] border border-[var(--color-input-border)] bg-[var(--color-surface)] px-3 text-[length:var(--font-size-body)] text-[var(--color-text)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]"
+          className="ds-input mt-1 w-full"
         />
       </div>
       <div>
-        <label htmlFor="yonetim-durum" className="block text-lg font-medium text-[var(--color-text)]">
+        <label htmlFor="yonetim-durum" className="ds-label block">
           {TEXT.activeLabel}
         </label>
         <select
           id="yonetim-durum"
           value={active}
           onChange={(event) => handleActiveChange(event.target.value as ActiveFilter)}
-          className="mt-1 min-h-[var(--control-min-height)] w-full rounded-[var(--radius-control)] border border-[var(--color-input-border)] bg-[var(--color-surface)] px-3 text-[length:var(--font-size-body)] text-[var(--color-text)]"
+          className="ds-input mt-1 w-full"
         >
           <option value="all">{TEXT.activeAll}</option>
           <option value="active">{TEXT.activeOnly}</option>
@@ -259,7 +259,7 @@ export function AdminSearch({
 
       {state.status === "error" && (
         <div className="flex flex-col gap-3">
-          <p role="alert" className="rounded-[var(--radius-control)] bg-[var(--color-error-surface)] px-3 py-2 text-base text-[var(--color-error)]">
+          <p role="alert" className="ds-notice ds-notice-error">
             {state.message}
           </p>
           <button type="button" onClick={() => startSearch(queryRef.current)} className={secondaryButtonClass}>
@@ -280,7 +280,7 @@ export function AdminSearch({
             <li key={business.id}>
               <Link
                 href={`/yonetim/isletmeler/${business.id}`}
-                className={`flex items-center justify-between gap-4 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)] ${cardClass}`}
+                className={`ds-card-link flex items-center justify-between gap-4 ${cardClass}`}
               >
                 <span className="flex flex-col">
                   <span className="font-medium">{business.name}</span>
@@ -330,7 +330,7 @@ export function AdminSearch({
       )}
 
       {state.status === "results" && state.moreError && (
-        <p role="alert" className="rounded-[var(--radius-control)] bg-[var(--color-error-surface)] px-3 py-2 text-base text-[var(--color-error)]">
+        <p role="alert" className="ds-notice ds-notice-error">
           {state.moreError}
         </p>
       )}

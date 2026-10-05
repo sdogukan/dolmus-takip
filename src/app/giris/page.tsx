@@ -22,7 +22,7 @@ export const metadata: Metadata = {
 
 export default function GirisPage() {
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-[30rem] flex-col justify-center gap-4 px-4 py-10">
+    <main className="mx-auto flex min-h-dvh w-full max-w-[30rem] flex-col justify-center gap-4 px-4 sm:px-6 py-10">
       <LoginForm
         heading="Dolmuş Takip"
         subheading="Günlük hesabını kolayca kaydet"

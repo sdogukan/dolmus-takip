@@ -54,7 +54,7 @@ export default async function NewBusinessPage() {
       : context.role;
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-[var(--form-max-width)] flex-col gap-8 px-4 py-6">
+    <main className="mx-auto flex min-h-dvh w-full max-w-[var(--form-max-width)] flex-col gap-8 px-4 sm:px-6 py-6">
       <TeamPageHeader
         username={username ?? "—"}
         roleLabel={roleLabel}

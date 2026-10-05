@@ -54,9 +54,9 @@ export default async function YonetimGirisPage({
   const { oturum } = await searchParams;
   const sessionEnded = (Array.isArray(oturum) ? oturum[0] : oturum) === "bitti";
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-[30rem] flex-col justify-center gap-4 px-4 py-10">
+    <main className="mx-auto flex min-h-dvh w-full max-w-[30rem] flex-col justify-center gap-4 px-4 sm:px-6 py-10">
       {sessionEnded && (
-        <p role="status" className="rounded-[var(--radius-control)] bg-[var(--color-warning-surface)] px-3 py-2 text-base text-[var(--color-warning)]">
+        <p role="status" className="ds-notice ds-notice-warning">
           {COMMON_SCREEN_MESSAGES.sessionEnded}
         </p>
       )}

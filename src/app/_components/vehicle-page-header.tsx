@@ -17,8 +17,16 @@ export function VehiclePageHeader({
   csrfToken: string;
 }) {
   return (
-    <header className="flex items-center justify-between gap-4 border-b border-[var(--color-divider)] pb-4">
-      <span className="text-lg font-medium text-[var(--color-text)]">{ownerName === undefined ? plate : `${plate} · ${ownerName}`}</span>
+    <header className="ds-header">
+      <span className="ds-header-who">
+        <span className="ds-plate">{plate}</span>
+        {ownerName !== undefined && (
+          <>
+            {" "}
+            <span>· {ownerName}</span>
+          </>
+        )}
+      </span>
       <LogoutButton csrfToken={csrfToken} />
     </header>
   );

@@ -206,7 +206,7 @@ export function NewBusinessForm({
   return (
     <div className="flex flex-col gap-8">
       <div>
-        <h1 className="text-2xl font-semibold text-[var(--color-text)]">İşletme aç</h1>
+        <h1 className="ds-title">İşletme aç</h1>
         <p className="mt-1 text-base text-[var(--color-text-secondary)]">
           İşletme adı ve mal sahibinin ad soyadını gir. Kişisel araç giriş hesabı bu adımda
           oluşturulmaz.
@@ -217,7 +217,7 @@ export function NewBusinessForm({
         {formError && (
           <p
             role="alert"
-            className="rounded-[var(--radius-control)] bg-[var(--color-error-surface)] px-3 py-2 text-base break-words text-[var(--color-error)]"
+            className="ds-notice ds-notice-error break-words"
           >
             {formError}
           </p>
@@ -226,13 +226,13 @@ export function NewBusinessForm({
         {phase === "ambiguous" && (
           <div
             role="status"
-            className="flex flex-col gap-3 rounded-[var(--radius-control)] bg-[var(--color-warning-surface)] px-3 py-2 text-base text-[var(--color-warning)]"
+            className="ds-notice ds-notice-warning flex flex-col gap-3"
           >
             <p>Kaydın sonucu kontrol ediliyor.</p>
             <button
               type="button"
               onClick={handleRetryCheck}
-              className="min-h-[var(--control-min-height)] rounded-[var(--radius-control)] border border-[var(--color-input-border)] px-4 text-base font-medium text-[var(--color-text)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]"
+              className="ds-btn ds-btn-secondary"
             >
               Tekrar kontrol et
             </button>
@@ -240,7 +240,7 @@ export function NewBusinessForm({
         )}
 
         <div>
-          <label htmlFor="business-name" className="block text-lg font-medium text-[var(--color-text)]">
+          <label htmlFor="business-name" className="ds-label block">
             İşletme adı
           </label>
           <input
@@ -253,17 +253,17 @@ export function NewBusinessForm({
             onChange={(event) => handleFieldChange("name", event.target.value)}
             aria-invalid={fieldErrors.name ? true : undefined}
             aria-describedby={fieldErrors.name ? "business-name-error" : undefined}
-            className="mt-1 min-h-[var(--control-min-height)] w-full rounded-[var(--radius-control)] border border-[var(--color-input-border)] bg-[var(--color-surface)] px-3 text-[length:var(--font-size-body)] text-[var(--color-text)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)] disabled:opacity-70"
+            className="ds-input mt-1 w-full"
           />
           {fieldErrors.name && (
-            <p id="business-name-error" role="alert" className="mt-1 text-base text-[var(--color-error)]">
+            <p id="business-name-error" role="alert" className="ds-error-text ds-error-icon mt-1">
               {fieldErrors.name}
             </p>
           )}
         </div>
 
         <div>
-          <label htmlFor="owner-full-name" className="block text-lg font-medium text-[var(--color-text)]">
+          <label htmlFor="owner-full-name" className="ds-label block">
             Sahibin ad soyadı
           </label>
           <input
@@ -276,17 +276,17 @@ export function NewBusinessForm({
             onChange={(event) => handleFieldChange("ownerFullName", event.target.value)}
             aria-invalid={fieldErrors.ownerFullName ? true : undefined}
             aria-describedby={fieldErrors.ownerFullName ? "owner-full-name-error" : undefined}
-            className="mt-1 min-h-[var(--control-min-height)] w-full rounded-[var(--radius-control)] border border-[var(--color-input-border)] bg-[var(--color-surface)] px-3 text-[length:var(--font-size-body)] text-[var(--color-text)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)] disabled:opacity-70"
+            className="ds-input mt-1 w-full"
           />
           {fieldErrors.ownerFullName && (
-            <p id="owner-full-name-error" role="alert" className="mt-1 text-base text-[var(--color-error)]">
+            <p id="owner-full-name-error" role="alert" className="ds-error-text ds-error-icon mt-1">
               {fieldErrors.ownerFullName}
             </p>
           )}
         </div>
 
         {(draft.name.trim() || draft.ownerFullName.trim()) && (
-          <p className="rounded-[var(--radius-control)] bg-[var(--color-page)] px-3 py-2 text-base text-[var(--color-text-secondary)]">
+          <p className="ds-notice ds-notice-info">
             {draft.name.trim() || "(işletme adı)"} işletmesinin sahibi:{" "}
             {draft.ownerFullName.trim() || "(sahip adı)"}
           </p>
@@ -300,7 +300,7 @@ export function NewBusinessForm({
           type="submit"
           disabled={disabled}
           aria-busy={phase === "submitting"}
-          className="min-h-[var(--primary-min-height)] w-full rounded-[var(--radius-control)] bg-[var(--color-primary)] text-lg font-semibold text-[var(--color-on-primary)] transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--color-primary)] disabled:opacity-70"
+          className="ds-btn ds-btn-primary ds-btn-lg w-full"
         >
           {phase === "submitting" ? "Kaydediliyor…" : "İşletmeyi kaydet"}
         </button>

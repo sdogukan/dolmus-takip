@@ -47,7 +47,7 @@ function emptyDraft(): Draft {
 }
 
 const inputClass =
-  "mt-1 min-h-[var(--control-min-height)] w-full rounded-[var(--radius-control)] border border-[var(--color-input-border)] bg-[var(--color-surface)] px-3 text-[length:var(--font-size-body)] text-[var(--color-text)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)] disabled:opacity-70";
+  "ds-input mt-1 w-full";
 
 export function NewTeamUserForm({ csrfToken, scopeKey }: { csrfToken: string; scopeKey: string }) {
   const router = useRouter();
@@ -171,18 +171,18 @@ export function NewTeamUserForm({ csrfToken, scopeKey }: { csrfToken: string; sc
   return (
     <div className="flex flex-col gap-8">
       <div>
-        <h1 className="text-2xl font-semibold text-[var(--color-text)]">{TEXT.newTitle}</h1>
+        <h1 className="ds-title">{TEXT.newTitle}</h1>
         <p className="mt-1 text-base text-[var(--color-text-secondary)]">{TEXT.newIntro}</p>
       </div>
 
       <form onSubmit={handleSubmit} noValidate aria-busy={phase === "submitting"} className="flex flex-col gap-6">
         {banner && (
-          <p role="alert" className="rounded-[var(--radius-control)] bg-[var(--color-error-surface)] px-3 py-2 text-base break-words text-[var(--color-error)]">
+          <p role="alert" className="ds-notice ds-notice-error break-words">
             {banner}
           </p>
         )}
         {phase === "ambiguous" && (
-          <div role="status" className="flex flex-col gap-3 rounded-[var(--radius-control)] bg-[var(--color-warning-surface)] px-3 py-2 text-base text-[var(--color-warning)]">
+          <div role="status" className="ds-notice ds-notice-warning flex flex-col gap-3">
             <p>
               {TEXT.checking}
               {submittedPassword === null && ` ${TEXT.reenterPassword}`}
@@ -191,7 +191,7 @@ export function NewTeamUserForm({ csrfToken, scopeKey }: { csrfToken: string; sc
         )}
 
         <div>
-          <label htmlFor="team-username" className="block text-lg font-medium text-[var(--color-text)]">
+          <label htmlFor="team-username" className="ds-label block">
             {TEXT.usernameLabel}
           </label>
           <input
@@ -214,14 +214,14 @@ export function NewTeamUserForm({ csrfToken, scopeKey }: { csrfToken: string; sc
             {TEXT.usernameHelp}
           </p>
           {fieldErrors.username && (
-            <p id="team-username-error" role="alert" className="mt-1 text-base text-[var(--color-error)]">
+            <p id="team-username-error" role="alert" className="ds-error-text ds-error-icon mt-1">
               {fieldErrors.username}
             </p>
           )}
         </div>
 
         <div>
-          <label htmlFor="team-full-name" className="block text-lg font-medium text-[var(--color-text)]">
+          <label htmlFor="team-full-name" className="ds-label block">
             {TEXT.fullNameLabel}
           </label>
           <input
@@ -238,18 +238,18 @@ export function NewTeamUserForm({ csrfToken, scopeKey }: { csrfToken: string; sc
             className={inputClass}
           />
           {fieldErrors.fullName && (
-            <p id="team-full-name-error" role="alert" className="mt-1 text-base text-[var(--color-error)]">
+            <p id="team-full-name-error" role="alert" className="ds-error-text ds-error-icon mt-1">
               {fieldErrors.fullName}
             </p>
           )}
         </div>
 
         <fieldset className="flex flex-col gap-2" disabled={frozen}>
-          <legend className="text-lg font-medium text-[var(--color-text)]">{TEXT.roleLegend}</legend>
+          <legend className="ds-label">{TEXT.roleLegend}</legend>
           {TEAM_ROLES.map((role) => (
             <label
               key={role}
-              className="flex min-h-[var(--control-min-height)] items-center gap-3 rounded-[var(--radius-control)] border border-[var(--color-input-border)] px-3 text-lg font-medium text-[var(--color-text)]"
+              className="ds-choice-row flex items-center gap-3"
             >
               <input
                 type="radio"
@@ -257,7 +257,7 @@ export function NewTeamUserForm({ csrfToken, scopeKey }: { csrfToken: string; sc
                 value={role}
                 checked={draft.platformRole === role}
                 onChange={() => handleFieldChange({ platformRole: role })}
-                className="h-5 w-5"
+                className="ds-check"
               />
               {teamRoleLabel(role)}
             </label>
@@ -265,7 +265,7 @@ export function NewTeamUserForm({ csrfToken, scopeKey }: { csrfToken: string; sc
         </fieldset>
 
         <div>
-          <label htmlFor="team-password" className="block text-lg font-medium text-[var(--color-text)]">
+          <label htmlFor="team-password" className="ds-label block">
             {TEXT.passwordLabel}
           </label>
           <div className="mt-1 flex items-stretch gap-2">
@@ -280,19 +280,19 @@ export function NewTeamUserForm({ csrfToken, scopeKey }: { csrfToken: string; sc
               onChange={(event) => handlePasswordChange(event.target.value)}
               aria-invalid={fieldErrors.password ? true : undefined}
               aria-describedby={fieldErrors.password ? "team-password-error" : undefined}
-              className="min-h-[var(--control-min-height)] w-full flex-1 rounded-[var(--radius-control)] border border-[var(--color-input-border)] bg-[var(--color-surface)] px-3 text-[length:var(--font-size-body)] text-[var(--color-text)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)] disabled:opacity-70"
+              className="ds-input w-full flex-1"
             />
             <button
               type="button"
               onClick={() => setShowPassword((prev) => !prev)}
               aria-pressed={showPassword}
-              className="min-h-[var(--control-min-height)] min-w-[3rem] shrink-0 rounded-[var(--radius-control)] border border-[var(--color-input-border)] px-3 text-base font-medium text-[var(--color-text)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]"
+              className="ds-btn ds-btn-secondary min-w-[3rem] shrink-0"
             >
               {showPassword ? TEXT.hide : TEXT.show}
             </button>
           </div>
           {fieldErrors.password && (
-            <p id="team-password-error" role="alert" className="mt-1 text-base text-[var(--color-error)]">
+            <p id="team-password-error" role="alert" className="ds-error-text ds-error-icon mt-1">
               {fieldErrors.password}
             </p>
           )}
@@ -307,7 +307,7 @@ export function NewTeamUserForm({ csrfToken, scopeKey }: { csrfToken: string; sc
             type="button"
             onClick={handleRetryCheck}
             disabled={!canRetry}
-            className="min-h-[var(--primary-min-height)] w-full rounded-[var(--radius-control)] border border-[var(--color-input-border)] text-lg font-medium text-[var(--color-text)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)] disabled:opacity-70"
+            className="ds-btn ds-btn-secondary ds-btn-lg w-full"
           >
             {TEXT.retryCheck}
           </button>
@@ -316,7 +316,7 @@ export function NewTeamUserForm({ csrfToken, scopeKey }: { csrfToken: string; sc
             type="submit"
             disabled={phase !== "idle"}
             aria-busy={phase === "submitting"}
-            className="min-h-[var(--primary-min-height)] w-full rounded-[var(--radius-control)] bg-[var(--color-primary)] text-lg font-semibold text-[var(--color-on-primary)] focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--color-primary)] disabled:opacity-70"
+            className="ds-btn ds-btn-primary ds-btn-lg w-full"
           >
             {phase === "submitting" ? TEXT.creating : TEXT.createSubmit}
           </button>

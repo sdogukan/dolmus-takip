@@ -47,12 +47,12 @@ export default async function SahipEntryPage({ params }: { params: Promise<{ id:
   const plate = (await readVehiclePlateForDisplay(db, context.vehicleId)) ?? "—";
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-[35rem] flex-col gap-6 px-4 py-6">
+    <main className="mx-auto flex min-h-dvh w-full max-w-[35rem] flex-col gap-6 px-4 sm:px-6 py-6">
       <VehiclePageHeader plate={plate} csrfToken={context.csrfToken} />
-      <Link href="/sahip" className="text-base font-medium text-[var(--color-primary)] underline">
+      <Link href="/sahip" className="ds-link ds-link-block">
         {WORK_ENTRY_MESSAGES.backToOwner}
       </Link>
-      <h1 className="text-2xl font-semibold text-[var(--color-text)]">{WORK_ENTRY_MESSAGES.detailTitle}</h1>
+      <h1 className="ds-title">{WORK_ENTRY_MESSAGES.detailTitle}</h1>
       <WorkEntryEditForm
         entry={entry}
         today={istanbulToday()}
@@ -64,7 +64,7 @@ export default async function SahipEntryPage({ params }: { params: Promise<{ id:
       />
       <Link
         href={`/sahip/kayitlar/${entryId}/gecmis`}
-        className="text-base font-medium text-[var(--color-primary)] underline"
+        className="ds-link ds-link-block"
       >
         {WORK_ENTRY_MESSAGES.historyLink}
       </Link>

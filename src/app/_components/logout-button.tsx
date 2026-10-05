@@ -79,7 +79,7 @@ export function LogoutButton({
       type="button"
       onClick={handleClick}
       disabled={isSubmitting}
-      className="min-h-[var(--control-min-height)] shrink-0 rounded-[var(--radius-control)] border border-[var(--color-input-border)] px-4 text-base font-medium text-[var(--color-text)] transition-opacity disabled:opacity-70"
+      className="ds-btn ds-btn-secondary shrink-0"
     >
       {isSubmitting ? "Çıkış yapılıyor…" : "Çıkış"}
     </button>

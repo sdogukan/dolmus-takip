@@ -8,6 +8,7 @@ import {
 } from "../../lib/work-entry-history-ui";
 import { formatWorkTimeRange } from "../../lib/work-entry-ui";
 import { formatDuration, formatWorkDate } from "../../lib/work-time";
+import { deliveryBadgeClass } from "./status-badge";
 
 const TEXT = WORK_ENTRY_MESSAGES;
 
@@ -30,11 +31,11 @@ function Row({ row }: { row: HistoryRow }) {
   const title =
     row.kind === "created" ? TEXT.historyCreated : row.kind === "updated" ? TEXT.historyUpdated : TEXT.historyConfirmation;
   return (
-    <li className="flex flex-col gap-1 rounded-[var(--radius-card)] border border-[var(--color-divider)] bg-[var(--color-surface)] p-4">
+    <li className="ds-card flex flex-col gap-1 p-4">
       <p className="flex flex-wrap items-center gap-2 text-lg font-semibold text-[var(--color-text)]">
         <span>{title}</span>
         {row.kind === "confirmation" && row.current && (
-          <span className="rounded-[var(--radius-control)] bg-[var(--color-warning-surface)] px-2 text-base font-medium text-[var(--color-text)]">
+          <span className="ds-badge ds-badge-current">
             {TEXT.historyCurrent}
           </span>
         )}
@@ -48,7 +49,7 @@ function Row({ row }: { row: HistoryRow }) {
         <p className="text-base text-[var(--color-text-secondary)]">{row.supportTrace}</p>
       )}
       {row.kind === "confirmation" && (
-        <p className="text-lg font-semibold tabular-nums text-[var(--color-text)]">{TEXT.historyReceived(row.received)}</p>
+        <p className="ds-card-title tabular-nums">{TEXT.historyReceived(row.received)}</p>
       )}
       {row.kind === "updated" && (
         <ul className="flex flex-col gap-1">
@@ -76,9 +77,9 @@ export function WorkEntryHistory({ view }: { view: HistoryView }) {
         <section
           id="history-current"
           aria-label={TEXT.currentValuesTitle}
-          className="flex flex-col gap-2 rounded-[var(--radius-card)] border border-[var(--color-divider)] bg-[var(--color-surface)] p-4"
+          className="ds-card flex flex-col gap-2 p-4"
         >
-          <h2 className="text-xl font-semibold text-[var(--color-text)]">{TEXT.currentValuesTitle}</h2>
+          <h2 className="ds-section-title">{TEXT.currentValuesTitle}</h2>
           <SummaryRow label={TEXT.detailPerson} value={summary.values.person.fullName || "—"} />
           <SummaryRow label={TEXT.detailDate} value={formatWorkDate(summary.values.workDate)} />
           <SummaryRow
@@ -106,12 +107,14 @@ export function WorkEntryHistory({ view }: { view: HistoryView }) {
             value={formatHistoryCents(summary.values.remainderCents)}
           />
           {summary.received !== null && <SummaryRow label={TEXT.confirmedReceivedLabel} value={summary.received} />}
-          <p className="text-lg font-medium text-[var(--color-text)]">{statusText(summary.status)}</p>
+          <p>
+            <span className={deliveryBadgeClass(summary.status)}>{statusText(summary.status)}</span>
+          </p>
           <p className="text-base text-[var(--color-text-secondary)]">{TEXT.versionLabel(summary.version)}</p>
         </section>
       )}
       <section aria-label={TEXT.historyListTitle} className="flex flex-col gap-3">
-        <h2 className="text-xl font-semibold text-[var(--color-text)]">{TEXT.historyListTitle}</h2>
+        <h2 className="ds-section-title">{TEXT.historyListTitle}</h2>
         <ol id="history-list" className="flex flex-col gap-3">
           {rows.map((row, index) => (
             <Row key={`${row.kind}-${row.version}-${index}`} row={row} />

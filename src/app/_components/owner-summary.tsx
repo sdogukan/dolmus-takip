@@ -28,6 +28,7 @@ import {
 } from "../../lib/report-ui";
 import { cardClass, fetchParsed, Problem } from "./people-period-report";
 import { controlClass, labelClass, secondaryButtonClass } from "./work-entry-form";
+import { deliveryBadgeClassForLabel } from "./status-badge";
 
 const TEXT = REPORT_TEXT.summary;
 const MORE_TEXT = REPORT_TEXT.people;
@@ -155,7 +156,7 @@ function PendingEntries({ period, date, targetVehicleId }: { period: ReportPerio
                 <span className="text-base tabular-nums">
                   {card.expectedLabel}: {card.expectedText}
                 </span>
-                <span className="text-base text-[var(--color-text-secondary)]">{card.statusText}</span>
+                <span className={`${deliveryBadgeClassForLabel(card.statusText)} self-start`}>{card.statusText}</span>
                 <Link href={card.href} className={`${secondaryButtonClass} inline-flex items-center`}>
                   {MORE_TEXT.openEntry}
                 </Link>
@@ -163,7 +164,7 @@ function PendingEntries({ period, date, targetVehicleId }: { period: ReportPerio
             ))}
           </ul>
           {moreFailed && (
-            <p role="alert" className="text-base text-[var(--color-error)]">
+            <p role="alert" className="ds-error-text ds-error-icon">
               {COMMON_SCREEN_MESSAGES.reportLoadFailed}
             </p>
           )}
@@ -283,18 +284,18 @@ export function OwnerSummary({ targetVehicleId }: { targetVehicleId?: string } =
 
       {view && (
         <section aria-label={view.rangeText} className="flex flex-col gap-6">
-          <h2 className="text-lg font-semibold text-[var(--color-text)]">{view.rangeText}</h2>
+          <h2 className="ds-section-title">{view.rangeText}</h2>
           {view.isEmpty ? (
             <p role="status" className="text-base text-[var(--color-text-secondary)]">
               {COMMON_SCREEN_MESSAGES.trulyEmptyPeriod}
             </p>
           ) : (
             <>
-              <dl className="m-0 flex flex-col gap-2">
+              <dl className="ds-sum">
                 {view.totals.map((row) => (
-                  <div key={row.label} className="flex flex-wrap justify-between gap-x-3 text-lg text-[var(--color-text)]">
+                  <div key={row.label} className="ds-sum-row">
                     <dt>{row.label}</dt>
-                    <dd className="m-0 font-semibold tabular-nums">{row.value}</dd>
+                    <dd className="ds-sum-amount">{row.value}</dd>
                   </div>
                 ))}
               </dl>
@@ -306,7 +307,7 @@ export function OwnerSummary({ targetVehicleId }: { targetVehicleId?: string } =
                 <p className="text-base text-[var(--color-text-secondary)]">{TEXT.receivedHelp}</p>
               </div>
               <div className="flex flex-col gap-3">
-                <h3 className="text-lg font-semibold text-[var(--color-text)]">{TEXT.pendingTitle(view.rangeText)}</h3>
+                <h3 className="ds-card-title">{TEXT.pendingTitle(view.rangeText)}</h3>
                 <PendingEntries
                   key={`${query.period}|${view.startDate}`}
                   period={query.period}

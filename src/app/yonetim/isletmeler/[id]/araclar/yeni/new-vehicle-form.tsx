@@ -345,7 +345,7 @@ export function NewVehicleForm({
   return (
     <div className="flex flex-col gap-8">
       <div>
-        <h1 className="text-2xl font-semibold text-[var(--color-text)]">Araç ekle</h1>
+        <h1 className="ds-title">Araç ekle</h1>
         <p className="mt-1 text-base text-[var(--color-text-secondary)]">
           {businessName} · Sahip: {ownerFullName}
         </p>
@@ -355,7 +355,7 @@ export function NewVehicleForm({
         {formError && (
           <p
             role="alert"
-            className="rounded-[var(--radius-control)] bg-[var(--color-error-surface)] px-3 py-2 text-base break-words text-[var(--color-error)]"
+            className="ds-notice ds-notice-error break-words"
           >
             {formError.message}
             {formError.code === "REQUEST_ID_REUSED" && (
@@ -372,7 +372,7 @@ export function NewVehicleForm({
         {phase === "ambiguous" && (
           <div
             role="status"
-            className="flex flex-col gap-3 rounded-[var(--radius-control)] bg-[var(--color-warning-surface)] px-3 py-2 text-base text-[var(--color-warning)]"
+            className="ds-notice ds-notice-warning flex flex-col gap-3"
           >
             {/* I7 — yeniden girme isteği YALNIZ şifreler bellekte YOKKEN (sayfa
                 yenilendiğinde) gösterilir; bellekteki çift varken (aşağıdaki
@@ -385,7 +385,7 @@ export function NewVehicleForm({
         )}
 
         <div>
-          <label htmlFor="vehicle-plate" className="block text-lg font-medium text-[var(--color-text)]">
+          <label htmlFor="vehicle-plate" className="ds-label block">
             Plaka
           </label>
           <input
@@ -398,17 +398,17 @@ export function NewVehicleForm({
             onChange={(event) => handleFieldChange("plate", event.target.value)}
             aria-invalid={fieldErrors.plate ? true : undefined}
             aria-describedby={fieldErrors.plate ? "vehicle-plate-error" : undefined}
-            className="mt-1 min-h-[var(--control-min-height)] w-full rounded-[var(--radius-control)] border border-[var(--color-input-border)] bg-[var(--color-surface)] px-3 text-[length:var(--font-size-body)] text-[var(--color-text)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)] disabled:opacity-70"
+            className="ds-input mt-1 w-full"
           />
           {fieldErrors.plate && (
-            <p id="vehicle-plate-error" role="alert" className="mt-1 text-base text-[var(--color-error)]">
+            <p id="vehicle-plate-error" role="alert" className="ds-error-text ds-error-icon mt-1">
               {fieldErrors.plate}
             </p>
           )}
         </div>
 
         <div>
-          <label htmlFor="vehicle-brand-model" className="block text-lg font-medium text-[var(--color-text)]">
+          <label htmlFor="vehicle-brand-model" className="ds-label block">
             Marka / model
           </label>
           <input
@@ -421,17 +421,17 @@ export function NewVehicleForm({
             onChange={(event) => handleFieldChange("brandModel", event.target.value)}
             aria-invalid={fieldErrors.brandModel ? true : undefined}
             aria-describedby={fieldErrors.brandModel ? "vehicle-brand-model-error" : undefined}
-            className="mt-1 min-h-[var(--control-min-height)] w-full rounded-[var(--radius-control)] border border-[var(--color-input-border)] bg-[var(--color-surface)] px-3 text-[length:var(--font-size-body)] text-[var(--color-text)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)] disabled:opacity-70"
+            className="ds-input mt-1 w-full"
           />
           {fieldErrors.brandModel && (
-            <p id="vehicle-brand-model-error" role="alert" className="mt-1 text-base text-[var(--color-error)]">
+            <p id="vehicle-brand-model-error" role="alert" className="ds-error-text ds-error-icon mt-1">
               {fieldErrors.brandModel}
             </p>
           )}
         </div>
 
         <div>
-          <label htmlFor="vehicle-year" className="block text-lg font-medium text-[var(--color-text)]">
+          <label htmlFor="vehicle-year" className="ds-label block">
             Yıl
           </label>
           <input
@@ -445,17 +445,17 @@ export function NewVehicleForm({
             onChange={(event) => handleFieldChange("year", event.target.value)}
             aria-invalid={fieldErrors.year ? true : undefined}
             aria-describedby={fieldErrors.year ? "vehicle-year-error" : undefined}
-            className="mt-1 min-h-[var(--control-min-height)] w-full rounded-[var(--radius-control)] border border-[var(--color-input-border)] bg-[var(--color-surface)] px-3 text-[length:var(--font-size-body)] text-[var(--color-text)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)] disabled:opacity-70"
+            className="ds-input mt-1 w-full"
           />
           {fieldErrors.year && (
-            <p id="vehicle-year-error" role="alert" className="mt-1 text-base text-[var(--color-error)]">
+            <p id="vehicle-year-error" role="alert" className="ds-error-text ds-error-icon mt-1">
               {fieldErrors.year}
             </p>
           )}
         </div>
 
         <div>
-          <label htmlFor="vehicle-route-stop" className="block text-lg font-medium text-[var(--color-text)]">
+          <label htmlFor="vehicle-route-stop" className="ds-label block">
             Hat / durak notu
           </label>
           <input
@@ -468,17 +468,17 @@ export function NewVehicleForm({
             onChange={(event) => handleFieldChange("routeStop", event.target.value)}
             aria-invalid={fieldErrors.routeStop ? true : undefined}
             aria-describedby={fieldErrors.routeStop ? "vehicle-route-stop-error" : undefined}
-            className="mt-1 min-h-[var(--control-min-height)] w-full rounded-[var(--radius-control)] border border-[var(--color-input-border)] bg-[var(--color-surface)] px-3 text-[length:var(--font-size-body)] text-[var(--color-text)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)] disabled:opacity-70"
+            className="ds-input mt-1 w-full"
           />
           {fieldErrors.routeStop && (
-            <p id="vehicle-route-stop-error" role="alert" className="mt-1 text-base text-[var(--color-error)]">
+            <p id="vehicle-route-stop-error" role="alert" className="ds-error-text ds-error-icon mt-1">
               {fieldErrors.routeStop}
             </p>
           )}
         </div>
 
         <div>
-          <label htmlFor="vehicle-note" className="block text-lg font-medium text-[var(--color-text)]">
+          <label htmlFor="vehicle-note" className="ds-label block">
             Not
           </label>
           <textarea
@@ -491,17 +491,17 @@ export function NewVehicleForm({
             onChange={(event) => handleFieldChange("note", event.target.value)}
             aria-invalid={fieldErrors.note ? true : undefined}
             aria-describedby={fieldErrors.note ? "vehicle-note-error" : undefined}
-            className="mt-1 w-full rounded-[var(--radius-control)] border border-[var(--color-input-border)] bg-[var(--color-surface)] px-3 py-2 text-[length:var(--font-size-body)] text-[var(--color-text)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)] disabled:opacity-70"
+            className="ds-input mt-1 w-full"
           />
           {fieldErrors.note && (
-            <p id="vehicle-note-error" role="alert" className="mt-1 text-base text-[var(--color-error)]">
+            <p id="vehicle-note-error" role="alert" className="ds-error-text ds-error-icon mt-1">
               {fieldErrors.note}
             </p>
           )}
         </div>
 
         <div>
-          <label htmlFor="vehicle-owner-password" className="block text-lg font-medium text-[var(--color-text)]">
+          <label htmlFor="vehicle-owner-password" className="ds-label block">
             Sahip şifresi
           </label>
           <div className="mt-1 flex items-stretch gap-2">
@@ -516,26 +516,26 @@ export function NewVehicleForm({
               onChange={(event) => handlePasswordChange("owner", event.target.value)}
               aria-invalid={fieldErrors.ownerPassword ? true : undefined}
               aria-describedby={fieldErrors.ownerPassword ? "vehicle-owner-password-error" : undefined}
-              className="min-h-[var(--control-min-height)] w-full flex-1 rounded-[var(--radius-control)] border border-[var(--color-input-border)] bg-[var(--color-surface)] px-3 text-[length:var(--font-size-body)] text-[var(--color-text)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)] disabled:opacity-70"
+              className="ds-input w-full flex-1"
             />
             <button
               type="button"
               onClick={() => setShowOwnerPassword((prev) => !prev)}
               aria-pressed={showOwnerPassword}
-              className="min-h-[var(--control-min-height)] min-w-[3rem] shrink-0 rounded-[var(--radius-control)] border border-[var(--color-input-border)] px-3 text-base font-medium text-[var(--color-text)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]"
+              className="ds-btn ds-btn-secondary min-w-[3rem] shrink-0"
             >
               {showOwnerPassword ? "Gizle" : "Göster"}
             </button>
           </div>
           {fieldErrors.ownerPassword && (
-            <p id="vehicle-owner-password-error" role="alert" className="mt-1 text-base text-[var(--color-error)]">
+            <p id="vehicle-owner-password-error" role="alert" className="ds-error-text ds-error-icon mt-1">
               {fieldErrors.ownerPassword}
             </p>
           )}
         </div>
 
         <div>
-          <label htmlFor="vehicle-driver-password" className="block text-lg font-medium text-[var(--color-text)]">
+          <label htmlFor="vehicle-driver-password" className="ds-label block">
             Şoför şifresi
           </label>
           <div className="mt-1 flex items-stretch gap-2">
@@ -550,19 +550,19 @@ export function NewVehicleForm({
               onChange={(event) => handlePasswordChange("driver", event.target.value)}
               aria-invalid={fieldErrors.driverPassword ? true : undefined}
               aria-describedby={fieldErrors.driverPassword ? "vehicle-driver-password-error" : undefined}
-              className="min-h-[var(--control-min-height)] w-full flex-1 rounded-[var(--radius-control)] border border-[var(--color-input-border)] bg-[var(--color-surface)] px-3 text-[length:var(--font-size-body)] text-[var(--color-text)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)] disabled:opacity-70"
+              className="ds-input w-full flex-1"
             />
             <button
               type="button"
               onClick={() => setShowDriverPassword((prev) => !prev)}
               aria-pressed={showDriverPassword}
-              className="min-h-[var(--control-min-height)] min-w-[3rem] shrink-0 rounded-[var(--radius-control)] border border-[var(--color-input-border)] px-3 text-base font-medium text-[var(--color-text)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]"
+              className="ds-btn ds-btn-secondary min-w-[3rem] shrink-0"
             >
               {showDriverPassword ? "Gizle" : "Göster"}
             </button>
           </div>
           {fieldErrors.driverPassword && (
-            <p id="vehicle-driver-password-error" role="alert" className="mt-1 text-base text-[var(--color-error)]">
+            <p id="vehicle-driver-password-error" role="alert" className="ds-error-text ds-error-icon mt-1">
               {fieldErrors.driverPassword}
             </p>
           )}
@@ -577,7 +577,7 @@ export function NewVehicleForm({
             type="button"
             onClick={handleRetryCheck}
             disabled={!canRetry}
-            className="min-h-[var(--primary-min-height)] w-full rounded-[var(--radius-control)] border border-[var(--color-input-border)] text-lg font-semibold text-[var(--color-text)] focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--color-primary)] disabled:opacity-70"
+            className="ds-btn ds-btn-secondary ds-btn-lg w-full"
           >
             Tekrar kontrol et
           </button>
@@ -586,7 +586,7 @@ export function NewVehicleForm({
             type="submit"
             disabled={disabled}
             aria-busy={phase === "submitting"}
-            className="min-h-[var(--primary-min-height)] w-full rounded-[var(--radius-control)] bg-[var(--color-primary)] text-lg font-semibold text-[var(--color-on-primary)] transition-opacity focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--color-primary)] disabled:opacity-70"
+            className="ds-btn ds-btn-primary ds-btn-lg w-full"
           >
             {phase === "submitting" ? "Kaydediliyor…" : "Aracı kaydet"}
           </button>

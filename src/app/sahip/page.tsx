@@ -49,30 +49,27 @@ export default async function SahipPage() {
     ? await readVehicleOwnerNameForDisplay(db, context.vehicleId)
     : undefined;
 
-  const tabClass =
-    "inline-flex min-h-[var(--control-min-height)] items-center justify-center rounded-[var(--radius-control)] border px-2 text-base font-medium";
-
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-[35rem] flex-col gap-6 px-4 py-6">
+    <main className="mx-auto flex min-h-dvh w-full max-w-[35rem] flex-col gap-6 px-4 sm:px-6 py-6">
       <VehiclePageHeader plate={plate ?? "—"} ownerName={ownerName} csrfToken={context.csrfToken} />
       <h1 className="sr-only">{REPORT_MESSAGES.summary.title}</h1>
-      <nav aria-label={REPORT_MESSAGES.summary.tabsLabel} className="grid grid-cols-3 gap-2">
+      <nav aria-label={REPORT_MESSAGES.summary.tabsLabel} className="ds-tabs">
         <span
           aria-current="page"
-          className={`${tabClass} border-[var(--color-primary)] bg-[var(--color-primary)] text-[var(--color-on-primary)]`}
+          className="ds-tab"
         >
           {REPORT_MESSAGES.summary.title}
         </span>
-        <Link href="/sahip/raporlar" className={`${tabClass} border-[var(--color-input-border)] text-[var(--color-text)]`}>
+        <Link href="/sahip/raporlar" className="ds-tab">
           {REPORT_MESSAGES.link}
         </Link>
-        <Link href="/sahip/soforler" className={`${tabClass} border-[var(--color-input-border)] text-[var(--color-text)]`}>
+        <Link href="/sahip/soforler" className="ds-tab">
           {REPORT_MESSAGES.summary.driversTab}
         </Link>
       </nav>
       <Link
         href="/sahip/kayit/yeni"
-        className="inline-flex min-h-14 items-center justify-center rounded-[var(--radius-control)] bg-[var(--color-primary)] px-4 text-lg font-semibold text-[var(--color-on-primary)]"
+        className="ds-btn ds-btn-primary ds-btn-lg inline-flex items-center justify-center"
       >
         {WORK_ENTRY_MESSAGES.enterLink}
       </Link>

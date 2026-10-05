@@ -1,5 +1,6 @@
 import type { DeliveryStatusView } from "../../lib/work-entry-ui";
 import { WORK_ENTRY_MESSAGES as TEXT } from "../../lib/messages";
+import { deliveryBadgeClassForLabel } from "./status-badge";
 
 /**
  * Teslim durumu: beklenen tutar, durum, (bekleyende ipucu) ve onaylıda alınan
@@ -14,7 +15,9 @@ export function WorkEntryDeliveryStatus({ view }: { view: DeliveryStatusView }) 
         <span>{view.expectedLabel}</span>
         <span className={`font-semibold ${wrapClass}`}>{view.expectedText}</span>
       </p>
-      <p className="text-lg font-medium text-[var(--color-text)]">{view.statusText}</p>
+      <p>
+        <span className={deliveryBadgeClassForLabel(view.statusText)}>{view.statusText}</span>
+      </p>
       {view.hint && <p className="text-base text-[var(--color-text-secondary)]">{view.hint}</p>}
       {view.confirmed && (
         <>

@@ -85,7 +85,7 @@ export default async function VehicleWorkEntryDetailPage({
   const inactive = !detail.vehicle.active || !detail.business.active;
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-[var(--form-max-width)] flex-col gap-6 px-4 py-6">
+    <main className="mx-auto flex min-h-dvh w-full max-w-[var(--form-max-width)] flex-col gap-6 px-4 sm:px-6 py-6">
       <TeamPageHeader
         username={username ?? "—"}
         roleLabel={roleLabel}
@@ -103,13 +103,13 @@ export default async function VehicleWorkEntryDetailPage({
         />
         <Link
           href={`/yonetim/araclar/${vehicleId}/destek`}
-          className="text-base font-medium text-[var(--color-primary)] underline"
+          className="ds-link ds-link-block"
         >
           ← {SUPPORT_MESSAGES.pageTitle}
         </Link>
-        <h1 className="text-2xl font-semibold text-[var(--color-text)]">{WORK_ENTRY_MESSAGES.detailTitle}</h1>
+        <h1 className="ds-title">{WORK_ENTRY_MESSAGES.detailTitle}</h1>
         {inactive && (
-          <p role="status" className="rounded-[var(--radius-control)] bg-[var(--color-warning-surface)] px-3 py-2 text-base text-[var(--color-warning)]">
+          <p role="status" className="ds-notice ds-notice-warning">
             {SUPPORT_MESSAGES.inactiveTarget}
           </p>
         )}
@@ -125,7 +125,7 @@ export default async function VehicleWorkEntryDetailPage({
         />
         <Link
           href={`/yonetim/araclar/${vehicleId}/kayitlar/${entryId}/gecmis`}
-          className="text-base font-medium text-[var(--color-primary)] underline"
+          className="ds-link ds-link-block"
         >
           {WORK_ENTRY_MESSAGES.historyLink}
         </Link>

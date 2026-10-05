@@ -30,6 +30,7 @@ import {
   type PersonEntryView,
 } from "../../lib/report-ui";
 import { secondaryButtonClass } from "./work-entry-form";
+import { deliveryBadgeClassForLabel } from "./status-badge";
 
 const TEXT = REPORT_TEXT.people;
 
@@ -67,7 +68,7 @@ export async function fetchParsed<T>(
 }
 
 export const cardClass =
-  "flex flex-col gap-2 rounded-[var(--radius-card)] border border-[var(--color-divider)] bg-[var(--color-surface)] p-4 text-[var(--color-text)]";
+  "ds-card flex flex-col gap-2 p-4";
 
 /** Oturum bitince gidilecek giriş sayfası: destek (ekip) modunda yönetim girişi, aksi halde araç girişi. */
 export function reportLoginHref(targetVehicleId: string | undefined): string {
@@ -86,7 +87,7 @@ export function Problem({
   if (unauthorized) {
     return (
       <div className="flex flex-col gap-3">
-        <p role="alert" className="text-base text-[var(--color-error)]">
+        <p role="alert" className="ds-error-text ds-error-icon">
           {COMMON_SCREEN_MESSAGES.sessionEnded}
         </p>
         <Link href={reportLoginHref(targetVehicleId)} className={`${secondaryButtonClass} inline-flex items-center`}>
@@ -97,7 +98,7 @@ export function Problem({
   }
   return (
     <div className="flex flex-col gap-3">
-      <p role="alert" className="text-base text-[var(--color-error)]">
+      <p role="alert" className="ds-error-text ds-error-icon">
         {COMMON_SCREEN_MESSAGES.reportLoadFailed}
       </p>
       <button type="button" onClick={onRetry} className={secondaryButtonClass}>
@@ -198,7 +199,7 @@ function PersonDetail({ personId, fullName, period, date, targetVehicleId, onBac
       <button type="button" onClick={onBack} className={`${secondaryButtonClass} self-start`}>
         {TEXT.back}
       </button>
-      <h3 className="break-words text-lg font-semibold text-[var(--color-text)]">{fullName}</h3>
+      <h3 className="ds-card-title break-words">{fullName}</h3>
 
       {state.status === "loading" && (
         <p role="status" className="text-base text-[var(--color-text-secondary)]">
@@ -220,7 +221,7 @@ function PersonDetail({ personId, fullName, period, date, targetVehicleId, onBac
               </div>
             ))}
           </dl>
-          <h4 className="text-base font-semibold text-[var(--color-text)]">{TEXT.entriesHeading}</h4>
+          <h4 className="ds-label">{TEXT.entriesHeading}</h4>
           <ul className="m-0 flex list-none flex-col gap-3 p-0">
             {state.entries.map((entry) => (
               <li key={entry.id} className={cardClass}>
@@ -232,7 +233,7 @@ function PersonDetail({ personId, fullName, period, date, targetVehicleId, onBac
                 <span className="text-base tabular-nums">
                   {TEXT.totals.remainder}: {entry.remainder}
                 </span>
-                <span className="text-base text-[var(--color-text-secondary)]">{entry.statusText}</span>
+                <span className={`${deliveryBadgeClassForLabel(entry.statusText)} self-start`}>{entry.statusText}</span>
                 <Link href={entry.href} className={`${secondaryButtonClass} inline-flex items-center`}>
                   {TEXT.openEntry}
                 </Link>
@@ -240,7 +241,7 @@ function PersonDetail({ personId, fullName, period, date, targetVehicleId, onBac
             ))}
           </ul>
           {moreFailed && (
-            <p role="alert" className="text-base text-[var(--color-error)]">
+            <p role="alert" className="ds-error-text ds-error-icon">
               {COMMON_SCREEN_MESSAGES.reportLoadFailed}
             </p>
           )}

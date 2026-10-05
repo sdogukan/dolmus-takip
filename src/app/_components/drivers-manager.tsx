@@ -102,13 +102,13 @@ async function send(
 }
 
 const inputClass =
-  "mt-1 min-h-[var(--control-min-height)] w-full rounded-[var(--radius-control)] border border-[var(--color-input-border)] bg-[var(--color-surface)] px-3 text-[length:var(--font-size-body)] text-[var(--color-text)] disabled:opacity-70";
+  "ds-input mt-1 w-full";
 const secondaryButtonClass =
-  "min-h-[var(--control-min-height)] rounded-[var(--radius-control)] border border-[var(--color-input-border)] px-4 text-base font-medium text-[var(--color-text)] disabled:opacity-70";
+  "ds-btn ds-btn-secondary";
 const primaryButtonClass =
-  "min-h-[var(--control-min-height)] rounded-[var(--radius-control)] bg-[var(--color-primary)] px-4 text-base font-semibold text-[var(--color-on-primary)] disabled:opacity-70";
+  "ds-btn ds-btn-primary";
 const dangerButtonClass =
-  "min-h-[var(--control-min-height)] rounded-[var(--radius-control)] bg-[var(--color-error)] px-4 text-base font-semibold text-white disabled:opacity-70";
+  "ds-btn ds-btn-danger";
 
 export function DriversManager({
   mode,
@@ -307,12 +307,12 @@ export function DriversManager({
         className="flex flex-col gap-3 border-b border-[var(--color-divider)] py-3"
       >
         <div className="flex items-center justify-between gap-3">
-          <span className="text-lg font-medium text-[var(--color-text)]">{row.fullName}</span>
+          <span className="ds-label">{row.fullName}</span>
           <span
             className={
               isActiveList
-                ? "rounded-full bg-[var(--color-success-surface)] px-2 py-0.5 text-base font-medium text-[var(--color-success)]"
-                : "rounded-full bg-[var(--color-warning-surface)] px-2 py-0.5 text-base font-medium text-[var(--color-warning)]"
+                ? "ds-badge ds-badge-active"
+                : "ds-badge ds-badge-inactive"
             }
           >
             {isActiveList ? "Aktif" : "Pasif"}
@@ -344,7 +344,7 @@ export function DriversManager({
             }}
             className="flex flex-col gap-2"
           >
-            <label htmlFor={`driver-rename-${row.personId}`} className="block text-lg font-medium text-[var(--color-text)]">
+            <label htmlFor={`driver-rename-${row.personId}`} className="ds-label block">
               Ad soyad
             </label>
             <input
@@ -364,7 +364,7 @@ export function DriversManager({
               {DRIVER_SCREEN_MESSAGES.renameNote}
             </p>
             {renameError && (
-              <p role="alert" className="text-base text-[var(--color-error)]">
+              <p role="alert" className="ds-error-text ds-error-icon">
                 {renameError}
               </p>
             )}
@@ -419,7 +419,7 @@ export function DriversManager({
                   Bu araçta pasife al
                 </button>
                 {isStaff && passwordResetHref && (
-                  <Link href={passwordResetHref} className="text-base font-medium text-[var(--color-primary)] underline">
+                  <Link href={passwordResetHref} className="ds-link ds-link-block">
                     Şifre sıfırla
                   </Link>
                 )}
@@ -510,12 +510,12 @@ export function DriversManager({
   return (
     <div className="flex flex-col gap-6">
       {banner && (
-        <p role="alert" className="rounded-[var(--radius-control)] bg-[var(--color-error-surface)] px-3 py-2 text-base text-[var(--color-error)]">
+        <p role="alert" className="ds-notice ds-notice-error">
           {banner}
         </p>
       )}
       {(pendingOp || pendingAdd) && !isBusy && (
-        <div role="status" className="flex flex-col gap-3 rounded-[var(--radius-control)] bg-[var(--color-warning-surface)] px-3 py-2 text-base text-[var(--color-warning)]">
+        <div role="status" className="ds-notice ds-notice-warning flex flex-col gap-3">
           <p>Kaydın sonucu kontrol ediliyor.</p>
           <button
             type="button"
@@ -527,17 +527,17 @@ export function DriversManager({
         </div>
       )}
       {showSharedPasswordWarning && (
-        <p role="status" className="rounded-[var(--radius-control)] bg-[var(--color-warning-surface)] px-3 py-2 text-base text-[var(--color-warning)]">
+        <p role="status" className="ds-notice ds-notice-warning">
           {DRIVER_SCREEN_MESSAGES.sharedPasswordWarning}
         </p>
       )}
       {anonymizedNotice && (
-        <p role="status" className="rounded-[var(--radius-control)] bg-[var(--color-success-surface)] px-3 py-2 text-base text-[var(--color-success)]">
+        <p role="status" className="ds-notice ds-notice-success">
           {PERSON_ANONYMIZE_MESSAGES.done}
         </p>
       )}
       {affectedNotice && (
-        <div role="status" className="rounded-[var(--radius-control)] bg-[var(--color-warning-surface)] px-3 py-2 text-base text-[var(--color-warning)]">
+        <div role="status" className="ds-notice ds-notice-warning">
           <p>Kişi tüm araçlarda pasife alındı. Etkilenen araçlar:</p>
           <ul className="list-disc pl-6">
             {affectedNotice.map((vehicle) => (
@@ -561,7 +561,7 @@ export function DriversManager({
           <div id="driver-add-panel" className="flex flex-col gap-4">
             <form onSubmit={handleAddSubmit} className="flex flex-col gap-3">
               <div>
-                <label htmlFor="driver-add-name" className="block text-lg font-medium text-[var(--color-text)]">
+                <label htmlFor="driver-add-name" className="ds-label block">
                   Ad soyad
                 </label>
                 <input
@@ -579,7 +579,7 @@ export function DriversManager({
                   className={inputClass}
                 />
                 {addError && (
-                  <p id="driver-add-name-error" role="alert" className="mt-1 text-base text-[var(--color-error)]">
+                  <p id="driver-add-name-error" role="alert" className="ds-error-text ds-error-icon mt-1">
                     {addError}
                   </p>
                 )}
@@ -599,7 +599,7 @@ export function DriversManager({
 
             {view.candidates.length > 0 && (
               <div className="flex flex-col gap-2">
-                <h2 className="text-xl font-semibold text-[var(--color-text)]">Kayıtlı kişiyi bağla</h2>
+                <h2 className="ds-section-title">Kayıtlı kişiyi bağla</h2>
                 <ul>
                   {view.candidates.map((candidate) => (
                     <li
@@ -635,7 +635,7 @@ export function DriversManager({
       </div>
 
       <div className="flex flex-col gap-2">
-        <h2 className="text-xl font-semibold text-[var(--color-text)]">Aktif şoförler</h2>
+        <h2 className="ds-section-title">Aktif şoförler</h2>
         {active.length === 0 ? (
           <p className="text-base text-[var(--color-text-secondary)]">{DRIVER_SCREEN_MESSAGES.emptyActiveList}</p>
         ) : (
@@ -654,7 +654,7 @@ export function DriversManager({
         </button>
         {showInactive && (
           <>
-            <h2 className="text-xl font-semibold text-[var(--color-text)]">Pasif şoförler</h2>
+            <h2 className="ds-section-title">Pasif şoförler</h2>
             {inactive.length === 0 ? (
               <p className="text-base text-[var(--color-text-secondary)]">Pasif şoför yok.</p>
             ) : (

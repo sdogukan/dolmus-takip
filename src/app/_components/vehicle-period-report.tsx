@@ -67,13 +67,6 @@ async function fetchReport(query: ReportQuery, signal: AbortSignal, targetVehicl
   return report ? { kind: "ok", view: vehiclePeriodReportView(report) } : { kind: "error" };
 }
 
-const tabClass = (active: boolean): string =>
-  `min-h-[var(--control-min-height)] rounded-[var(--radius-control)] border px-2 text-base font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)] ${
-    active
-      ? "border-[var(--color-primary)] bg-[var(--color-primary)] text-[var(--color-on-primary)]"
-      : "border-[var(--color-input-border)] text-[var(--color-text)]"
-  }`;
-
 const SECTIONS: { key: ReportSection; label: string }[] = [
   { key: "people", label: TEXT.people.tab },
   { key: "daily", label: TEXT.daily.tab },
@@ -130,14 +123,14 @@ export function VehiclePeriodReport({ targetVehicleId }: { targetVehicleId?: str
 
   return (
     <div className="flex flex-col gap-6">
-      <div role="group" aria-label={TEXT.periodTabsLabel} className="grid grid-cols-3 gap-2">
+      <div role="group" aria-label={TEXT.periodTabsLabel} className="ds-seg">
         {REPORT_PERIOD_KINDS.map((kind) => (
           <button
             key={kind}
             type="button"
             aria-pressed={query.period === kind}
             onClick={() => go({ period: kind, date: query.date })}
-            className={tabClass(query.period === kind)}
+            className="ds-seg-btn"
           >
             {TEXT.periodTabs[kind]}
           </button>
@@ -173,7 +166,7 @@ export function VehiclePeriodReport({ targetVehicleId }: { targetVehicleId?: str
 
       {state.status === "unauthorized" && (
         <div className="flex flex-col gap-3">
-          <p role="alert" className="text-base text-[var(--color-error)]">
+          <p role="alert" className="ds-error-text ds-error-icon">
             {COMMON_SCREEN_MESSAGES.sessionEnded}
           </p>
           <Link href={reportLoginHref(targetVehicleId)} className={`${secondaryButtonClass} inline-flex items-center`}>
@@ -184,7 +177,7 @@ export function VehiclePeriodReport({ targetVehicleId }: { targetVehicleId?: str
 
       {state.status === "error" && (
         <div className="flex flex-col gap-3">
-          <p role="alert" className="text-base text-[var(--color-error)]">
+          <p role="alert" className="ds-error-text ds-error-icon">
             {COMMON_SCREEN_MESSAGES.reportLoadFailed}
           </p>
           <button type="button" onClick={retry} className={secondaryButtonClass}>
@@ -195,7 +188,7 @@ export function VehiclePeriodReport({ targetVehicleId }: { targetVehicleId?: str
 
       {view && (
         <section aria-label={view.rangeText} className="flex flex-col gap-4">
-          <h2 className="text-lg font-semibold text-[var(--color-text)]">{view.rangeText}</h2>
+          <h2 className="ds-section-title">{view.rangeText}</h2>
           {view.isEmpty ? (
             <p role="status" className="text-base text-[var(--color-text-secondary)]">
               {COMMON_SCREEN_MESSAGES.trulyEmptyPeriod}
@@ -219,8 +212,8 @@ export function VehiclePeriodReport({ targetVehicleId }: { targetVehicleId?: str
                 </div>
                 <p className="text-base text-[var(--color-text-secondary)]">{TEXT.summaryScope}</p>
               </div>
-              <details className="rounded-[var(--radius-card)] border border-[var(--color-divider)] bg-[var(--color-surface)]">
-                <summary className="flex min-h-[var(--control-min-height)] cursor-pointer items-center px-4 text-base font-medium text-[var(--color-text)]">
+              <details className="ds-card">
+                <summary className="ds-label flex min-h-[var(--control-min-height)] cursor-pointer items-center px-4">
                   {TEXT.breakdownSummary}
                 </summary>
                 <dl className="flex flex-col gap-2 px-4 pb-4">
@@ -232,7 +225,7 @@ export function VehiclePeriodReport({ targetVehicleId }: { targetVehicleId?: str
                   ))}
                 </dl>
               </details>
-              <div role="tablist" aria-label={TEXT.people.sectionTabsLabel} className="grid grid-cols-2 gap-2">
+              <div role="tablist" aria-label={TEXT.people.sectionTabsLabel} className="ds-tabs">
                 {SECTIONS.map(({ key, label }) => (
                   <button
                     key={key}
@@ -240,7 +233,7 @@ export function VehiclePeriodReport({ targetVehicleId }: { targetVehicleId?: str
                     role="tab"
                     aria-selected={section === key}
                     onClick={() => setSection(key)}
-                    className={tabClass(section === key)}
+                    className="ds-tab"
                   >
                     {label}
                   </button>

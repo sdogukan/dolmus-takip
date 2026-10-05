@@ -26,9 +26,10 @@ export function TeamPageHeader({
   csrfToken: string;
 }) {
   return (
-    <header className="flex items-center justify-between gap-4 border-b border-[var(--color-divider)] pb-4">
-      <span className="text-lg font-medium text-[var(--color-text)]">
-        {username} · {roleLabel}
+    <header className="ds-header">
+      <span className="ds-header-who">
+        <span className="[overflow-wrap:anywhere]">{username}</span>{" "}
+        <span className="ds-header-role">· {roleLabel}</span>
       </span>
       <LogoutButton csrfToken={csrfToken} redirectTo="/yonetim/giris" />
     </header>

@@ -39,15 +39,15 @@ export default async function SahipRaporlarPage() {
     : undefined;
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-[35rem] flex-col gap-6 px-4 py-6">
+    <main className="mx-auto flex min-h-dvh w-full max-w-[35rem] flex-col gap-6 px-4 sm:px-6 py-6">
       <VehiclePageHeader plate={plate ?? "—"} csrfToken={context.csrfToken} />
       <Link
         href="/sahip"
-        className="inline-flex min-h-[var(--control-min-height)] items-center self-start text-base font-medium text-[var(--color-text)]"
+        className="ds-link ds-link-block self-start"
       >
         ← Özet
       </Link>
-      <h1 className="text-2xl font-semibold text-[var(--color-text)]">{REPORT_MESSAGES.title}</h1>
+      <h1 className="ds-title">{REPORT_MESSAGES.title}</h1>
       <VehiclePeriodReport />
     </main>
   );

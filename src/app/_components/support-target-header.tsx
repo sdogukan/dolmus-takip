@@ -61,9 +61,9 @@ export function SupportTargetHeader({
   return (
     <section
       aria-label={SUPPORT_MESSAGES.targetRegion}
-      className="sticky top-0 z-10 flex flex-col gap-2 rounded-[var(--radius-card)] border border-[var(--color-divider)] bg-[var(--color-surface)] px-4 py-3"
+      className="ds-target sticky top-0 z-10 flex flex-col gap-2 px-4 py-3"
     >
-      <p className="text-lg font-semibold text-[var(--color-text)]">
+      <p className="ds-card-title">
         {SUPPORT_MESSAGES.business(businessName)}
       </p>
       <p className="text-base text-[var(--color-text)]">
@@ -75,7 +75,7 @@ export function SupportTargetHeader({
       <button
         type="button"
         onClick={handleChangeTarget}
-        className="min-h-[var(--control-min-height)] self-start rounded-[var(--radius-control)] border border-[var(--color-input-border)] px-4 text-base font-medium text-[var(--color-text)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]"
+        className="ds-btn ds-btn-secondary self-start"
       >
         {SUPPORT_MESSAGES.changeTarget}
       </button>

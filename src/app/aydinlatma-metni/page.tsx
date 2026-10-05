@@ -14,12 +14,12 @@ export const metadata: Metadata = {
 
 export default function AydinlatmaMetniPage() {
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-[var(--form-max-width)] flex-col gap-6 px-4 py-6 text-[var(--color-text)]">
-      <h1 className="text-2xl font-semibold">{PRIVACY_NOTICE.title}</h1>
+    <main className="mx-auto flex min-h-dvh w-full max-w-[var(--form-max-width)] flex-col gap-6 px-4 sm:px-6 py-6 text-[var(--color-text)]">
+      <h1 className="ds-title">{PRIVACY_NOTICE.title}</h1>
       <p className="text-base">{PRIVACY_NOTICE.intro}</p>
       {PRIVACY_NOTICE.sections.map((section) => (
         <section key={section.heading} className="flex flex-col gap-2">
-          <h2 className="text-xl font-semibold">{section.heading}</h2>
+          <h2 className="ds-section-title">{section.heading}</h2>
           {section.paragraphs.map((paragraph) => (
             <p key={paragraph} className="text-base">
               {paragraph}

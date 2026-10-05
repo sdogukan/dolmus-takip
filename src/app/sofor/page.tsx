@@ -54,9 +54,9 @@ export default async function SoforPage() {
   const plate = await readVehiclePlateForDisplay(db, context.vehicleId);
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-[35rem] flex-col gap-8 px-4 py-6">
+    <main className="mx-auto flex min-h-dvh w-full max-w-[35rem] flex-col gap-8 px-4 sm:px-6 py-6">
       <VehiclePageHeader plate={plate ?? "—"} csrfToken={context.csrfToken} />
-      <h1 className="text-2xl font-semibold text-[var(--color-text)]">Günlük kayıt</h1>
+      <h1 className="ds-title">Günlük kayıt</h1>
       <WorkEntryForm
         today={istanbulToday()}
         plate={plate ?? "—"}
@@ -66,7 +66,7 @@ export default async function SoforPage() {
       />
       <Link
         href="/sofor/kayitlar"
-        className="inline-flex min-h-[var(--control-min-height)] items-center rounded-[var(--radius-control)] border border-[var(--color-input-border)] px-4 text-base font-medium text-[var(--color-text)]"
+        className="ds-btn ds-btn-secondary inline-flex items-center"
       >
         {WORK_ENTRY_MESSAGES.listLink}
       </Link>

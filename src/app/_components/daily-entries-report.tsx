@@ -29,6 +29,7 @@ import {
 import { deliveryStatusLabel, type WorkEntryDetail } from "../../lib/work-entry-ui";
 import { cardClass, fetchParsed, Problem } from "./people-period-report";
 import { controlClass, labelClass, secondaryButtonClass } from "./work-entry-form";
+import { deliveryBadgeClassForLabel } from "./status-badge";
 
 const TEXT = REPORT_TEXT.daily;
 const MORE_TEXT = REPORT_TEXT.people;
@@ -167,7 +168,7 @@ export function DailyEntriesReport({ period, date, targetVehicleId }: DailyEntri
   return (
     <div className="flex flex-col gap-4">
       <fieldset className="m-0 flex min-w-0 flex-col gap-3 border-0 p-0">
-        <legend className="mb-2 p-0 text-base font-semibold text-[var(--color-text)]">{TEXT.filterLegend}</legend>
+        <legend className="ds-label mb-2 p-0">{TEXT.filterLegend}</legend>
         <div>
           <label htmlFor="daily-person" className={labelClass}>
             {TEXT.personLabel}
@@ -239,7 +240,7 @@ export function DailyEntriesReport({ period, date, targetVehicleId }: DailyEntri
                     {TEXT.received}: {card.receivedText}
                   </span>
                 )}
-                <span className="text-base text-[var(--color-text-secondary)]">{card.statusText}</span>
+                <span className={`${deliveryBadgeClassForLabel(card.statusText)} self-start`}>{card.statusText}</span>
                 <Link href={card.href} className={`${secondaryButtonClass} inline-flex items-center`}>
                   {MORE_TEXT.openEntry}
                 </Link>
@@ -247,7 +248,7 @@ export function DailyEntriesReport({ period, date, targetVehicleId }: DailyEntri
             ))}
           </ul>
           {moreFailed && (
-            <p role="alert" className="text-base text-[var(--color-error)]">
+            <p role="alert" className="ds-error-text ds-error-icon">
               {COMMON_SCREEN_MESSAGES.reportLoadFailed}
             </p>
           )}

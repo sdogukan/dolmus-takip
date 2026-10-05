@@ -79,7 +79,7 @@ export default async function VehicleDriversPage({
   const scopeKey = computeScopeKey(context);
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-[var(--form-max-width)] flex-col gap-6 px-4 py-6">
+    <main className="mx-auto flex min-h-dvh w-full max-w-[var(--form-max-width)] flex-col gap-6 px-4 sm:px-6 py-6">
       <TeamPageHeader
         username={username ?? "—"}
         roleLabel={roleLabel}
@@ -97,12 +97,12 @@ export default async function VehicleDriversPage({
         />
         <Link
           href={`/yonetim/araclar/${vehicleId}`}
-          className="text-base font-medium text-[var(--color-primary)] underline"
+          className="ds-link ds-link-block"
         >
           ← Araç
         </Link>
         <div className="flex flex-col gap-2">
-          <h1 className="text-2xl font-semibold text-[var(--color-text)]">Şoförler</h1>
+          <h1 className="ds-title">Şoförler</h1>
           <p className="text-base text-[var(--color-text-secondary)]">
             {plate} · {detail.business.name} · Sahip: {detail.owner.fullName}
           </p>

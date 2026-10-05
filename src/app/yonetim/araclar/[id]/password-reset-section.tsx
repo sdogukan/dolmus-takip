@@ -277,7 +277,7 @@ export function PasswordResetSection({
 
   return (
     <div id="sifre-sifirlama" className="flex flex-col gap-3 border-t border-[var(--color-divider)] pt-6">
-      <h2 className="text-xl font-semibold text-[var(--color-text)]">Şifre sıfırlama</h2>
+      <h2 className="ds-section-title">Şifre sıfırlama</h2>
       <p className="text-base text-[var(--color-text-secondary)]">
         {detail.business.name} · {formatPlateForDisplay(detail.vehicle.plateNormalized)}
       </p>
@@ -296,7 +296,7 @@ export function PasswordResetSection({
           {successMessage && (
             <p
               role="status"
-              className="rounded-[var(--radius-control)] bg-[var(--color-success-surface)] px-3 py-2 text-base break-words text-[var(--color-success)]"
+              className="ds-notice ds-notice-success break-words"
             >
               {successMessage}
             </p>
@@ -305,7 +305,7 @@ export function PasswordResetSection({
           {banner && (
             <p
               role="alert"
-              className="rounded-[var(--radius-control)] bg-[var(--color-error-surface)] px-3 py-2 text-base break-words text-[var(--color-error)]"
+              className="ds-notice ds-notice-error break-words"
             >
               {banner.message}
               {banner.code === "VERSION_CONFLICT" && (
@@ -322,7 +322,7 @@ export function PasswordResetSection({
           {phase === "ambiguous" && (
             <div
               role="status"
-              className="flex flex-col gap-3 rounded-[var(--radius-control)] bg-[var(--color-warning-surface)] px-3 py-2 text-base text-[var(--color-warning)]"
+              className="ds-notice ds-notice-warning flex flex-col gap-3"
             >
               <p>
                 Kaydın sonucu kontrol ediliyor.
@@ -335,7 +335,7 @@ export function PasswordResetSection({
             {(Object.keys(ACCESS_LABELS) as VehicleAccessRole[]).map((role) => (
               <label
                 key={role}
-                className={`flex min-h-[var(--control-min-height)] items-center gap-3 rounded-[var(--radius-control)] border border-[var(--color-input-border)] px-3 text-lg font-medium text-[var(--color-text)] ${disabled ? "opacity-70" : ""}`}
+                className={`ds-choice-row flex items-center gap-3 ${disabled ? "opacity-70" : ""}`}
               >
                 <input
                   type="radio"
@@ -344,14 +344,14 @@ export function PasswordResetSection({
                   checked={draft.access === role}
                   disabled={disabled}
                   onChange={() => handleAccessChange(role)}
-                  className="h-5 w-5"
+                  className="ds-check"
                 />
                 {ACCESS_LABELS[role]}
               </label>
             ))}
           </div>
           {fieldErrors.access && (
-            <p role="alert" className="text-base text-[var(--color-error)]">
+            <p role="alert" className="ds-error-text ds-error-icon">
               {fieldErrors.access}
             </p>
           )}
@@ -361,7 +361,7 @@ export function PasswordResetSection({
           </p>
 
           <div>
-            <label htmlFor="vehicle-reset-password" className="block text-lg font-medium text-[var(--color-text)]">
+            <label htmlFor="vehicle-reset-password" className="ds-label block">
               Yeni şifre
             </label>
             <div className="mt-1 flex items-stretch gap-2">
@@ -376,19 +376,19 @@ export function PasswordResetSection({
                 onChange={(event) => handlePasswordChange(event.target.value)}
                 aria-invalid={fieldErrors.newPassword ? true : undefined}
                 aria-describedby={fieldErrors.newPassword ? "vehicle-reset-password-error" : undefined}
-                className="min-h-[var(--control-min-height)] w-full flex-1 rounded-[var(--radius-control)] border border-[var(--color-input-border)] bg-[var(--color-surface)] px-3 text-[length:var(--font-size-body)] text-[var(--color-text)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)] disabled:opacity-70"
+                className="ds-input w-full flex-1"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword((prev) => !prev)}
                 aria-pressed={showPassword}
-                className="min-h-[var(--control-min-height)] min-w-[3rem] shrink-0 rounded-[var(--radius-control)] border border-[var(--color-input-border)] px-3 text-base font-medium text-[var(--color-text)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]"
+                className="ds-btn ds-btn-secondary min-w-[3rem] shrink-0"
               >
                 {showPassword ? "Gizle" : "Göster"}
               </button>
             </div>
             {fieldErrors.newPassword && (
-              <p id="vehicle-reset-password-error" role="alert" className="mt-1 text-base text-[var(--color-error)]">
+              <p id="vehicle-reset-password-error" role="alert" className="ds-error-text ds-error-icon mt-1">
                 {fieldErrors.newPassword}
               </p>
             )}
@@ -403,7 +403,7 @@ export function PasswordResetSection({
               type="button"
               onClick={handleRetryCheck}
               disabled={!canRetry}
-              className="min-h-[var(--control-min-height)] self-start rounded-[var(--radius-control)] border border-[var(--color-input-border)] px-4 text-base font-medium text-[var(--color-text)] focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--color-primary)] disabled:opacity-70"
+              className="ds-btn ds-btn-secondary self-start"
             >
               Tekrar kontrol et
             </button>
@@ -412,7 +412,7 @@ export function PasswordResetSection({
               type="submit"
               disabled={!canSubmit}
               aria-busy={phase === "submitting"}
-              className="min-h-[var(--control-min-height)] self-start rounded-[var(--radius-control)] bg-[var(--color-primary)] px-4 text-base font-semibold text-[var(--color-on-primary)] focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--color-primary)] disabled:opacity-70"
+              className="ds-btn ds-btn-primary self-start"
             >
               {phase === "submitting" ? "Sıfırlanıyor…" : "Şifreyi sıfırla"}
             </button>

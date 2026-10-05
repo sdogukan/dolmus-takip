@@ -61,7 +61,7 @@ export default async function YonetimPage({
   const rawActive = Array.isArray(params.active) ? params.active[0] : params.active;
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-[var(--form-max-width)] flex-col gap-8 px-4 py-6">
+    <main className="mx-auto flex min-h-dvh w-full max-w-[var(--form-max-width)] flex-col gap-8 px-4 sm:px-6 py-6">
       <TeamPageHeader
         username={username ?? "—"}
         roleLabel={roleLabel}
@@ -69,10 +69,10 @@ export default async function YonetimPage({
       />
       <div className="flex flex-col gap-4">
         <div className="flex items-center justify-between gap-4">
-          <h1 className="text-2xl font-semibold text-[var(--color-text)]">Yönetim</h1>
+          <h1 className="ds-title">Yönetim</h1>
           <Link
             href="/yonetim/isletmeler/yeni"
-            className="min-h-[var(--control-min-height)] flex items-center rounded-[var(--radius-control)] bg-[var(--color-primary)] px-4 text-base font-semibold text-[var(--color-on-primary)] focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--color-primary)]"
+            className="ds-btn ds-btn-primary flex items-center"
           >
             + İşletme aç
           </Link>
@@ -80,14 +80,14 @@ export default async function YonetimPage({
 
         <Link
           href="/yonetim/islem-gecmisi"
-          className="self-start text-base font-medium text-[var(--color-primary)] underline"
+          className="ds-link ds-link-block self-start"
         >
           İşlem geçmişi
         </Link>
         {context.role === "admin" && (
           <Link
             href="/yonetim/ekip"
-            className="flex min-h-[var(--control-min-height)] items-center self-start text-base font-medium text-[var(--color-primary)] underline"
+            className="ds-btn ds-btn-text flex items-center self-start"
           >
             {TEAM_USER_MESSAGES.listTitle}
           </Link>

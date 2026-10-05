@@ -85,7 +85,7 @@ function applyResult(previous: HistoryState, cursor: string | null, result: Fetc
 }
 
 const secondaryButtonClass =
-  "min-h-[var(--control-min-height)] self-start rounded-[var(--radius-control)] border border-[var(--color-input-border)] px-4 text-base font-medium text-[var(--color-text)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)] disabled:opacity-70";
+  "ds-btn ds-btn-secondary self-start";
 
 function AuditRow({ entry }: { entry: AuditEntry }) {
   const { rows, noPreviousValue } = buildBeforeAfterRows(entry.action, entry.before, entry.after);
@@ -96,7 +96,7 @@ function AuditRow({ entry }: { entry: AuditEntry }) {
     .filter(Boolean)
     .join(" · ");
   return (
-    <li className="flex flex-col gap-1 rounded-[var(--radius-card)] border border-[var(--color-divider)] bg-[var(--color-surface)] px-4 py-3 text-base text-[var(--color-text)]">
+    <li className="ds-card flex flex-col gap-1 px-4 py-3 text-base">
       <p className="text-[var(--color-text-secondary)]">
         <time dateTime={entry.occurredAt}>{formatAuditTime(entry.occurredAt)}</time>
         {target ? ` · ${target}` : ""}
@@ -203,7 +203,7 @@ export function AuditHistory({ vehicleId, businessId }: { vehicleId?: string; bu
 
       {state.status === "error" && (
         <div className="flex flex-col gap-3">
-          <p role="alert" className="rounded-[var(--radius-control)] bg-[var(--color-error-surface)] px-3 py-2 text-base text-[var(--color-error)]">
+          <p role="alert" className="ds-notice ds-notice-error">
             {state.message}
           </p>
           <button type="button" onClick={handleRetry} className={secondaryButtonClass}>
@@ -225,7 +225,7 @@ export function AuditHistory({ vehicleId, businessId }: { vehicleId?: string; bu
       )}
 
       {state.status === "results" && state.moreError && (
-        <p role="alert" className="rounded-[var(--radius-control)] bg-[var(--color-error-surface)] px-3 py-2 text-base text-[var(--color-error)]">
+        <p role="alert" className="ds-notice ds-notice-error">
           {state.moreError}
         </p>
       )}

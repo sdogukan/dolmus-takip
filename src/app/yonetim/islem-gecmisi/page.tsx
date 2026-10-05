@@ -72,22 +72,22 @@ export default async function AuditHistoryPage({
       : context.role;
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-[var(--form-max-width)] flex-col gap-6 px-4 py-6">
+    <main className="mx-auto flex min-h-dvh w-full max-w-[var(--form-max-width)] flex-col gap-6 px-4 sm:px-6 py-6">
       <TeamPageHeader
         username={username ?? "—"}
         roleLabel={roleLabel}
         csrfToken={context.csrfToken}
       />
-      <Link href="/yonetim" className="text-base font-medium text-[var(--color-primary)] underline">
+      <Link href="/yonetim" className="ds-link ds-link-block">
         ← Yönetim
       </Link>
-      <h1 className="text-2xl font-semibold text-[var(--color-text)]">{AUDIT_MESSAGES.title}</h1>
+      <h1 className="ds-title">{AUDIT_MESSAGES.title}</h1>
       {filterLabel && (
         <p className="flex flex-wrap items-center gap-3 text-base text-[var(--color-text-secondary)]">
           <span>
             {AUDIT_MESSAGES.filterPrefix}: {filterLabel}
           </span>
-          <Link href="/yonetim/islem-gecmisi" className="font-medium text-[var(--color-primary)] underline">
+          <Link href="/yonetim/islem-gecmisi" className="ds-link ds-link-block">
             {AUDIT_MESSAGES.clearFilter}
           </Link>
         </p>

@@ -7,7 +7,7 @@ export function PrivacyNoticeLink() {
   return (
     <Link
       href={PRIVACY_NOTICE.path}
-      className="inline-flex min-h-[var(--control-min-height)] items-center self-center text-base font-medium text-[var(--color-primary)] underline"
+      className="ds-btn ds-btn-text inline-flex items-center self-center"
     >
       {PRIVACY_NOTICE.linkLabel}
     </Link>

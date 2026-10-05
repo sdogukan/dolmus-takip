@@ -42,12 +42,12 @@ export default async function SahipSoforlerPage() {
   const initialView = listVehicleDriversForManagement(db, scopeFromVehicleSession(context));
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-[35rem] flex-col gap-6 px-4 py-6">
+    <main className="mx-auto flex min-h-dvh w-full max-w-[35rem] flex-col gap-6 px-4 sm:px-6 py-6">
       <VehiclePageHeader plate={plate} csrfToken={context.csrfToken} />
-      <Link href="/sahip" className="text-base font-medium text-[var(--color-primary)] underline">
+      <Link href="/sahip" className="ds-link ds-link-block">
         ← Özet
       </Link>
-      <h1 className="text-2xl font-semibold text-[var(--color-text)]">Şoförlerim</h1>
+      <h1 className="ds-title">Şoförlerim</h1>
       <DriversManager
         mode="owner"
         vehicleId={context.vehicleId}

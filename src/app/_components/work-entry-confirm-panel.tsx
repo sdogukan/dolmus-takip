@@ -123,7 +123,7 @@ export function WorkEntryConfirmPanel({
     if (!entry.confirmation) return null;
     const at = istanbulWallClock(entry.confirmation.confirmedAt);
     return (
-      <section className="flex flex-col gap-2 rounded-[var(--radius-card)] border border-[var(--color-divider)] bg-[var(--color-surface)] p-4">
+      <section className="ds-card flex flex-col gap-2 p-4">
         <p className="flex justify-between gap-4 text-lg tabular-nums">
           <span>{TEXT.confirmedReceivedLabel}</span>
           <span className="text-right font-semibold">{formatCents(entry.confirmation.receivedCents)}</span>
@@ -232,19 +232,19 @@ export function WorkEntryConfirmPanel({
       </div>
 
       {entry.remainderCents.startsWith("-") && (
-        <p className="rounded-[var(--radius-control)] bg-[var(--color-warning-surface)] px-3 py-2 text-base text-[var(--color-warning)]">
+        <p className="ds-notice ds-notice-warning">
           {TEXT.remainderNegative}
         </p>
       )}
 
       {message && entry.status === "pending" && (
-        <p role="alert" className="rounded-[var(--radius-control)] bg-[var(--color-error-surface)] px-3 py-2 text-base text-[var(--color-error)]">
+        <p role="alert" className="ds-notice ds-notice-error">
           {message}
         </p>
       )}
       {unresolved && (
         <div className="flex flex-col gap-3">
-          <p role="alert" className="rounded-[var(--radius-control)] bg-[var(--color-warning-surface)] px-3 py-2 text-base text-[var(--color-warning)]">
+          <p role="alert" className="ds-notice ds-notice-warning">
             {TEXT.checking}
           </p>
           <button type="button" onClick={() => void handleRetry()} className={secondaryButtonClass}>

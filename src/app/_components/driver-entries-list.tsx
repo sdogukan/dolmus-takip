@@ -23,6 +23,7 @@ import {
 } from "../../lib/work-entry-ui";
 import { formatDuration, formatWorkDate, istanbulWallClock } from "../../lib/work-time";
 import { controlClass, errorTextClass, fetchDrivers, labelClass, secondaryButtonClass } from "./work-entry-form";
+import { deliveryBadgeClass } from "./status-badge";
 
 type DriversState =
   | { status: "loading" }
@@ -71,7 +72,7 @@ function EntryRow({ entry }: { entry: WorkEntryDetail }) {
     <li>
       <Link
         href={`/sofor/kayitlar/${entry.id}`}
-        className="flex min-h-[var(--control-min-height)] flex-col gap-1 rounded-[var(--radius-card)] border border-[var(--color-divider)] bg-[var(--color-surface)] p-4 text-[var(--color-text)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]"
+        className="ds-card ds-card-link flex min-h-[var(--control-min-height)] flex-col gap-1 p-4"
       >
         <span className="text-lg font-semibold">{formatWorkDate(entry.workDate)}</span>
         <span className="text-base">
@@ -80,7 +81,7 @@ function EntryRow({ entry }: { entry: WorkEntryDetail }) {
         <span className="text-base tabular-nums">
           {TEXT.detailRemainder}: {remainder === null ? "—" : formatTlAmount(remainder)}
         </span>
-        <span className="text-base text-[var(--color-text-secondary)]">
+        <span className={`${deliveryBadgeClass(entry.status)} self-start`}>
           {deliveryStatusLabel(entry.status)}
         </span>
       </Link>
@@ -196,7 +197,7 @@ export function DriverEntriesList() {
         )}
         {drivers.status === "error" && (
           <div className="mt-2 flex flex-col gap-2">
-            <p role="alert" className="text-base text-[var(--color-error)]">
+            <p role="alert" className="ds-error-text ds-error-icon">
               {drivers.message}
             </p>
             <button

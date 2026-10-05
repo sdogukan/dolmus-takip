@@ -104,7 +104,7 @@ function bannerFor(outcome: Extract<PatchOutcome, { kind: "error" }>): Banner {
 
 function ErrorBanner({ banner }: { banner: Banner }) {
   return (
-    <p role="alert" className="rounded-[var(--radius-control)] bg-[var(--color-error-surface)] px-3 py-2 text-base text-[var(--color-error)]">
+    <p role="alert" className="ds-notice ds-notice-error">
       {banner.message}
       {banner.code === "VERSION_CONFLICT" && (
         <>
@@ -176,14 +176,14 @@ export function VehicleDetailForm({
     <div className="flex flex-col gap-10">
       <div className="flex flex-col gap-2">
         <div className="flex flex-wrap items-center gap-3">
-          <h1 className="text-2xl font-semibold text-[var(--color-text)]">
+          <h1 className="ds-title">
             {formatPlateForDisplay(detail.vehicle.plateNormalized)}
           </h1>
           <span
             className={
               detail.vehicle.active
-                ? "rounded-full bg-[var(--color-success-surface)] px-2 py-0.5 text-base font-medium text-[var(--color-success)]"
-                : "rounded-full bg-[var(--color-warning-surface)] px-2 py-0.5 text-base font-medium text-[var(--color-warning)]"
+                ? "ds-badge ds-badge-active"
+                : "ds-badge ds-badge-inactive"
             }
           >
             {detail.vehicle.active ? "Aktif" : "Pasif"}
@@ -194,7 +194,7 @@ export function VehicleDetailForm({
         </p>
         <Link
           href={`/yonetim/araclar/${vehicleId}/soforler`}
-          className="self-start text-base font-medium text-[var(--color-primary)] underline"
+          className="ds-link ds-link-block self-start"
         >
           Şoförler
         </Link>
@@ -353,10 +353,10 @@ function InfoSection({
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-      <h2 className="text-xl font-semibold text-[var(--color-text)]">Araç bilgisi</h2>
+      <h2 className="ds-section-title">Araç bilgisi</h2>
       {banner && <ErrorBanner banner={banner} />}
       {phase === "ambiguous" && (
-        <div role="status" className="flex flex-col gap-3 rounded-[var(--radius-control)] bg-[var(--color-warning-surface)] px-3 py-2 text-base text-[var(--color-warning)]">
+        <div role="status" className="ds-notice ds-notice-warning flex flex-col gap-3">
           <p>Kaydın sonucu kontrol ediliyor.</p>
           <button
             type="button"
@@ -365,7 +365,7 @@ function InfoSection({
               await run(effective);
               setIsFetching(false);
             }}
-            className="min-h-[var(--control-min-height)] self-start rounded-[var(--radius-control)] border border-[var(--color-input-border)] px-4 text-base font-medium text-[var(--color-text)]"
+            className="ds-btn ds-btn-secondary self-start"
           >
             Tekrar kontrol et
           </button>
@@ -373,7 +373,7 @@ function InfoSection({
       )}
 
       <div>
-        <label htmlFor="vehicle-brand-model-edit" className="block text-lg font-medium text-[var(--color-text)]">
+        <label htmlFor="vehicle-brand-model-edit" className="ds-label block">
           Marka / model
         </label>
         <input
@@ -385,17 +385,17 @@ function InfoSection({
           onChange={(event) => handleChange("brandModel", event.target.value)}
           aria-invalid={fieldErrors.brandModel ? true : undefined}
           aria-describedby={fieldErrors.brandModel ? "vehicle-brand-model-edit-error" : undefined}
-          className="mt-1 min-h-[var(--control-min-height)] w-full rounded-[var(--radius-control)] border border-[var(--color-input-border)] bg-[var(--color-surface)] px-3 text-[length:var(--font-size-body)] text-[var(--color-text)] disabled:opacity-70"
+          className="ds-input mt-1 w-full"
         />
         {fieldErrors.brandModel && (
-          <p id="vehicle-brand-model-edit-error" role="alert" className="mt-1 text-base text-[var(--color-error)]">
+          <p id="vehicle-brand-model-edit-error" role="alert" className="ds-error-text ds-error-icon mt-1">
             {fieldErrors.brandModel}
           </p>
         )}
       </div>
 
       <div>
-        <label htmlFor="vehicle-year-edit" className="block text-lg font-medium text-[var(--color-text)]">
+        <label htmlFor="vehicle-year-edit" className="ds-label block">
           Yıl
         </label>
         <input
@@ -408,17 +408,17 @@ function InfoSection({
           onChange={(event) => handleChange("year", event.target.value)}
           aria-invalid={fieldErrors.year ? true : undefined}
           aria-describedby={fieldErrors.year ? "vehicle-year-edit-error" : undefined}
-          className="mt-1 min-h-[var(--control-min-height)] w-full rounded-[var(--radius-control)] border border-[var(--color-input-border)] bg-[var(--color-surface)] px-3 text-[length:var(--font-size-body)] text-[var(--color-text)] disabled:opacity-70"
+          className="ds-input mt-1 w-full"
         />
         {fieldErrors.year && (
-          <p id="vehicle-year-edit-error" role="alert" className="mt-1 text-base text-[var(--color-error)]">
+          <p id="vehicle-year-edit-error" role="alert" className="ds-error-text ds-error-icon mt-1">
             {fieldErrors.year}
           </p>
         )}
       </div>
 
       <div>
-        <label htmlFor="vehicle-route-stop-edit" className="block text-lg font-medium text-[var(--color-text)]">
+        <label htmlFor="vehicle-route-stop-edit" className="ds-label block">
           Hat / durak notu
         </label>
         <input
@@ -430,17 +430,17 @@ function InfoSection({
           onChange={(event) => handleChange("routeStop", event.target.value)}
           aria-invalid={fieldErrors.routeStop ? true : undefined}
           aria-describedby={fieldErrors.routeStop ? "vehicle-route-stop-edit-error" : undefined}
-          className="mt-1 min-h-[var(--control-min-height)] w-full rounded-[var(--radius-control)] border border-[var(--color-input-border)] bg-[var(--color-surface)] px-3 text-[length:var(--font-size-body)] text-[var(--color-text)] disabled:opacity-70"
+          className="ds-input mt-1 w-full"
         />
         {fieldErrors.routeStop && (
-          <p id="vehicle-route-stop-edit-error" role="alert" className="mt-1 text-base text-[var(--color-error)]">
+          <p id="vehicle-route-stop-edit-error" role="alert" className="ds-error-text ds-error-icon mt-1">
             {fieldErrors.routeStop}
           </p>
         )}
       </div>
 
       <div>
-        <label htmlFor="vehicle-note-edit" className="block text-lg font-medium text-[var(--color-text)]">
+        <label htmlFor="vehicle-note-edit" className="ds-label block">
           Not
         </label>
         <textarea
@@ -452,10 +452,10 @@ function InfoSection({
           onChange={(event) => handleChange("note", event.target.value)}
           aria-invalid={fieldErrors.note ? true : undefined}
           aria-describedby={fieldErrors.note ? "vehicle-note-edit-error" : undefined}
-          className="mt-1 w-full rounded-[var(--radius-control)] border border-[var(--color-input-border)] bg-[var(--color-surface)] px-3 py-2 text-[length:var(--font-size-body)] text-[var(--color-text)] disabled:opacity-70"
+          className="ds-input mt-1 w-full"
         />
         {fieldErrors.note && (
-          <p id="vehicle-note-edit-error" role="alert" className="mt-1 text-base text-[var(--color-error)]">
+          <p id="vehicle-note-edit-error" role="alert" className="ds-error-text ds-error-icon mt-1">
             {fieldErrors.note}
           </p>
         )}
@@ -464,7 +464,7 @@ function InfoSection({
       <button
         type="submit"
         disabled={disabled || !hasChange}
-        className="min-h-[var(--control-min-height)] self-start rounded-[var(--radius-control)] bg-[var(--color-primary)] px-4 text-base font-semibold text-[var(--color-on-primary)] disabled:opacity-70"
+        className="ds-btn ds-btn-primary self-start"
       >
         {phase === "submitting" ? "Kaydediliyor…" : "Bilgiyi kaydet"}
       </button>
@@ -570,10 +570,10 @@ function ActiveSection({
 
   return (
     <div className="flex flex-col gap-3 border-t border-[var(--color-divider)] pt-6">
-      <h2 className="text-xl font-semibold text-[var(--color-text)]">Aktiflik</h2>
+      <h2 className="ds-section-title">Aktiflik</h2>
       {banner && <ErrorBanner banner={banner} />}
       {phase === "ambiguous" && effective && (
-        <div role="status" className="flex flex-col gap-3 rounded-[var(--radius-control)] bg-[var(--color-warning-surface)] px-3 py-2 text-base text-[var(--color-warning)]">
+        <div role="status" className="ds-notice ds-notice-warning flex flex-col gap-3">
           <p>Kaydın sonucu kontrol ediliyor.</p>
           <button
             type="button"
@@ -582,7 +582,7 @@ function ActiveSection({
               await run(effective);
               setIsFetching(false);
             }}
-            className="min-h-[var(--control-min-height)] self-start rounded-[var(--radius-control)] border border-[var(--color-input-border)] px-4 text-base font-medium text-[var(--color-text)]"
+            className="ds-btn ds-btn-secondary self-start"
           >
             Tekrar kontrol et
           </button>
@@ -598,7 +598,7 @@ function ActiveSection({
             type="button"
             disabled={disabled}
             onClick={() => startAction(false)}
-            className="min-h-[var(--control-min-height)] self-start rounded-[var(--radius-control)] bg-[var(--color-error)] px-4 text-base font-semibold text-white disabled:opacity-70"
+            className="ds-btn ds-btn-danger self-start"
           >
             {phase === "submitting" && effective?.target === false ? "Pasifleştiriliyor…" : "Aracı pasifleştir"}
           </button>
@@ -613,7 +613,7 @@ function ActiveSection({
             type="button"
             disabled={disabled}
             onClick={() => startAction(true)}
-            className="min-h-[var(--control-min-height)] self-start rounded-[var(--radius-control)] bg-[var(--color-primary)] px-4 text-base font-semibold text-[var(--color-on-primary)] disabled:opacity-70"
+            className="ds-btn ds-btn-primary self-start"
           >
             {phase === "submitting" && effective?.target === true ? "Aktifleştiriliyor…" : "Aracı yeniden aktifleştir"}
           </button>

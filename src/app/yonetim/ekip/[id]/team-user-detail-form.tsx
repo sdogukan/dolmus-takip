@@ -78,11 +78,11 @@ function emptyInfo(user: TeamUser): InfoDraft {
 const REQUEST_ID_REUSED_MESSAGE = getErrorMessage("REQUEST_ID_REUSED") ?? TEXT.connection;
 
 const secondaryButtonClass =
-  "min-h-[var(--control-min-height)] self-start rounded-[var(--radius-control)] border border-[var(--color-input-border)] px-4 text-base font-medium text-[var(--color-text)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)] disabled:opacity-70";
+  "ds-btn ds-btn-secondary self-start";
 
 function Banner({ message, conflict }: { message: string; conflict: boolean }) {
   return (
-    <p role="alert" className="rounded-[var(--radius-control)] bg-[var(--color-error-surface)] px-3 py-2 text-base break-words text-[var(--color-error)]">
+    <p role="alert" className="ds-notice ds-notice-error break-words">
       {message}
       {conflict && (
         <>
@@ -98,7 +98,7 @@ function Banner({ message, conflict }: { message: string; conflict: boolean }) {
 
 function CheckingNotice({ onRetry }: { onRetry: () => void }) {
   return (
-    <div role="status" className="flex flex-col gap-3 rounded-[var(--radius-control)] bg-[var(--color-warning-surface)] px-3 py-2 text-base text-[var(--color-warning)]">
+    <div role="status" className="ds-notice ds-notice-warning flex flex-col gap-3">
       <p>{TEXT.checking}</p>
       <button type="button" onClick={onRetry} className={secondaryButtonClass}>
         {TEXT.retryCheck}
@@ -129,12 +129,12 @@ export function TeamUserDetailForm({
     <div className="flex flex-col gap-10">
       <div className="flex flex-col gap-2">
         <div className="flex flex-wrap items-center gap-3">
-          <h1 className="text-2xl font-semibold break-all text-[var(--color-text)]">{user.username}</h1>
+          <h1 className="ds-title [overflow-wrap:anywhere]">{user.username}</h1>
           <span
             className={
               user.active
-                ? "rounded-full bg-[var(--color-success-surface)] px-2 py-0.5 text-base font-medium text-[var(--color-success)]"
-                : "rounded-full bg-[var(--color-warning-surface)] px-2 py-0.5 text-base font-medium text-[var(--color-warning)]"
+                ? "ds-badge ds-badge-active"
+                : "ds-badge ds-badge-inactive"
             }
           >
             {user.active ? TEXT.activeBadge : TEXT.inactiveBadge}
@@ -290,7 +290,7 @@ function InfoSection({
 
   return (
     <form onSubmit={handleSubmit} noValidate aria-busy={phase === "submitting"} className="flex flex-col gap-4">
-      <h2 className="text-xl font-semibold text-[var(--color-text)]">{TEXT.infoTitle}</h2>
+      <h2 className="ds-section-title">{TEXT.infoTitle}</h2>
       {banner && <Banner message={banner.message} conflict={banner.conflict} />}
       {phase === "ambiguous" && (
         <CheckingNotice
@@ -303,7 +303,7 @@ function InfoSection({
       )}
 
       <div>
-        <label htmlFor="team-detail-full-name" className="block text-lg font-medium text-[var(--color-text)]">
+        <label htmlFor="team-detail-full-name" className="ds-label block">
           {TEXT.fullNameLabel}
         </label>
         <input
@@ -316,10 +316,10 @@ function InfoSection({
           onChange={(event) => handleChange({ fullName: event.target.value })}
           aria-invalid={fieldErrors.fullName ? true : undefined}
           aria-describedby={fieldErrors.fullName ? "team-detail-full-name-error" : undefined}
-          className="mt-1 min-h-[var(--control-min-height)] w-full rounded-[var(--radius-control)] border border-[var(--color-input-border)] bg-[var(--color-surface)] px-3 text-[length:var(--font-size-body)] text-[var(--color-text)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)] disabled:opacity-70"
+          className="ds-input mt-1 w-full"
         />
         {fieldErrors.fullName && (
-          <p id="team-detail-full-name-error" role="alert" className="mt-1 text-base text-[var(--color-error)]">
+          <p id="team-detail-full-name-error" role="alert" className="ds-error-text ds-error-icon mt-1">
             {fieldErrors.fullName}
           </p>
         )}
@@ -330,11 +330,11 @@ function InfoSection({
         disabled={disabled}
         aria-describedby={fieldErrors.platformRole ? "team-detail-role-error" : undefined}
       >
-        <legend className="text-lg font-medium text-[var(--color-text)]">{TEXT.roleLegend}</legend>
+        <legend className="ds-label">{TEXT.roleLegend}</legend>
         {TEAM_ROLES.map((role) => (
           <label
             key={role}
-            className="flex min-h-[var(--control-min-height)] items-center gap-3 rounded-[var(--radius-control)] border border-[var(--color-input-border)] px-3 text-lg font-medium text-[var(--color-text)]"
+            className="ds-choice-row flex items-center gap-3"
           >
             <input
               type="radio"
@@ -342,14 +342,14 @@ function InfoSection({
               value={role}
               checked={effective.platformRole === role}
               onChange={() => handleChange({ platformRole: role })}
-              className="h-5 w-5"
+              className="ds-check"
             />
             {teamRoleLabel(role)}
           </label>
         ))}
       </fieldset>
       {fieldErrors.platformRole && (
-        <p id="team-detail-role-error" role="alert" className="text-base text-[var(--color-error)]">
+        <p id="team-detail-role-error" role="alert" className="ds-error-text ds-error-icon">
           {fieldErrors.platformRole}
         </p>
       )}
@@ -357,7 +357,7 @@ function InfoSection({
       <button
         type="submit"
         disabled={disabled || !hasChange}
-        className="min-h-[var(--control-min-height)] self-start rounded-[var(--radius-control)] bg-[var(--color-primary)] px-4 text-base font-semibold text-[var(--color-on-primary)] focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--color-primary)] disabled:opacity-70"
+        className="ds-btn ds-btn-primary self-start"
       >
         {phase === "submitting" ? TEXT.saving : TEXT.infoSubmit}
       </button>
@@ -448,7 +448,7 @@ function ActiveSection({
 
   return (
     <div className="flex flex-col gap-3 border-t border-[var(--color-divider)] pt-6">
-      <h2 className="text-xl font-semibold text-[var(--color-text)]">{TEXT.activeTitle}</h2>
+      <h2 className="ds-section-title">{TEXT.activeTitle}</h2>
       {banner && <Banner message={banner.message} conflict={banner.conflict} />}
       {phase === "ambiguous" && effective && (
         <CheckingNotice
@@ -467,7 +467,7 @@ function ActiveSection({
             type="button"
             disabled={disabled}
             onClick={() => startAction(false)}
-            className="min-h-[var(--control-min-height)] self-start rounded-[var(--radius-control)] bg-[var(--color-error)] px-4 text-base font-semibold text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--color-error)] disabled:opacity-70"
+            className="ds-btn ds-btn-danger self-start"
           >
             {phase === "submitting" && effective?.target === false ? TEXT.deactivating : TEXT.deactivateSubmit}
           </button>
@@ -479,7 +479,7 @@ function ActiveSection({
             type="button"
             disabled={disabled}
             onClick={() => startAction(true)}
-            className="min-h-[var(--control-min-height)] self-start rounded-[var(--radius-control)] bg-[var(--color-primary)] px-4 text-base font-semibold text-[var(--color-on-primary)] focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--color-primary)] disabled:opacity-70"
+            className="ds-btn ds-btn-primary self-start"
           >
             {phase === "submitting" && effective?.target === true ? TEXT.reactivating : TEXT.reactivateSubmit}
           </button>

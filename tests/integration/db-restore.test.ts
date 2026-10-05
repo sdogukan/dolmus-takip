@@ -6,7 +6,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 import Database from "better-sqlite3";
 import { migrate } from "drizzle-orm/better-sqlite3/migrator";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { seedDevData, SEED_IDS } from "../../scripts/db-seed-dev";
 import { calculateWorkEntryAmounts } from "../../src/lib/work-calculation";
 import { createDb, openDatabaseConnection } from "../../src/server/data/db";
@@ -31,6 +31,9 @@ interface CliResult {
   stderr: string;
 }
 
+let template: string;
+let templateDb: string;
+let templateBackupDir: string;
 let root: string;
 let dbPath: string;
 let backupDir: string;
@@ -213,7 +216,46 @@ function setServiceState(state: string): void {
   fs.writeFileSync(serviceStatePath, state);
 }
 
-beforeEach(async () => {
+beforeAll(async () => {
+  // DB ve ilk kopya bir kez kurulur: seedDevData sabit id'li ve saatsizdir, yedek saati DOLMUS_BACKUP_NOW ile
+  // sabittir; her test bunların bağımsız kopyalarıyla başlar. Manifest kaynak DB yolu taşımaz, kopyayı kendi
+  // dizinine göre bulur; release_id cwd'den gelir, bu yüzden yedek de projectRoot'ta koşar.
+  template = fs.mkdtempSync(path.join(os.tmpdir(), "dolmus-takip-db-restore-template-"));
+  templateDb = path.join(template, "app.sqlite");
+  templateBackupDir = path.join(template, "backup-ready");
+  fs.mkdirSync(templateBackupDir);
+
+  const sqlite = openDatabaseConnection(templateDb, { createIfMissing: true });
+  migrate(createDb(sqlite), { migrationsFolder });
+  await seedDevData(sqlite);
+  insertEntry(sqlite, { id: "e-2025", vehicleId: SEED_IDS.vehicleA2, personId: SEED_IDS.ownerA, workKind: "owner", workDate: "2025-12-31", gross: 250_050, confirmedVersion: null });
+  insertEntry(sqlite, { id: "e-2026", vehicleId: SEED_IDS.vehicleA1, personId: SEED_IDS.driverA1a, workKind: "driver", workDate: "2026-09-20", gross: 100_000, confirmedAt: "2026-09-21T07:30:00.000Z" });
+  // Sürüm 2'ye düzeltilmiş şoför kaydı; onay yalnız eski sürüme ait. Rapor bunu
+  // "alınan" saymaz, manifestin received_cents'i sayar — iki rakam eşitlenmez.
+  insertEntry(sqlite, { id: "e-stale", vehicleId: SEED_IDS.vehicleA1, personId: SEED_IDS.driverA1a, workKind: "driver", workDate: "2026-09-19", gross: 80_000, version: 2, confirmedVersion: 1 });
+  insertSession(sqlite, "s-vehicle", { credentialId: SEED_IDS.credA1Driver }, null);
+  insertSession(sqlite, "s-staff", { platformUserId: SEED_IDS.platformSupport1 }, null);
+  insertSession(sqlite, "s-old", { credentialId: SEED_IDS.credA1Owner }, "2026-09-23T10:00:00.000Z");
+  sqlite.close();
+  expect(fs.existsSync(`${templateDb}-wal`)).toBe(false);
+  expect(fs.existsSync(`${templateDb}-shm`)).toBe(false);
+
+  const backup = spawnSync(process.execPath, [backupScript, "run"], {
+    cwd: projectRoot,
+    env: { ...process.env, DOLMUS_DB_PATH: templateDb, DOLMUS_BACKUP_DIR: templateBackupDir, DOLMUS_BACKUP_NOW: "2026-09-24T12:00:00Z" },
+    encoding: "utf8",
+  });
+  expect(backup.status, backup.stdout + backup.stderr).toBe(0);
+  // Yedek aracı canlı DB'yi WAL kipinde açar; kapatınca checkpoint yapılmış olmalı, kopyalanan DB tek dosyadır.
+  expect(fs.existsSync(`${templateDb}-wal`)).toBe(false);
+  expect(fs.existsSync(`${templateDb}-shm`)).toBe(false);
+});
+
+afterAll(() => {
+  fs.rmSync(template, { recursive: true, force: true });
+});
+
+beforeEach(() => {
   root = fs.mkdtempSync(path.join(os.tmpdir(), "dolmus-takip-db-restore-"));
   dbPath = path.join(root, "data", "app.sqlite");
   backupDir = path.join(root, "backup-ready");
@@ -233,25 +275,13 @@ beforeEach(async () => {
     { mode: 0o755 },
   );
 
-  const sqlite = openDatabaseConnection(dbPath, { createIfMissing: true });
-  migrate(createDb(sqlite), { migrationsFolder });
-  await seedDevData(sqlite);
-  insertEntry(sqlite, { id: "e-2025", vehicleId: SEED_IDS.vehicleA2, personId: SEED_IDS.ownerA, workKind: "owner", workDate: "2025-12-31", gross: 250_050, confirmedVersion: null });
-  insertEntry(sqlite, { id: "e-2026", vehicleId: SEED_IDS.vehicleA1, personId: SEED_IDS.driverA1a, workKind: "driver", workDate: "2026-09-20", gross: 100_000, confirmedAt: "2026-09-21T07:30:00.000Z" });
-  // Sürüm 2'ye düzeltilmiş şoför kaydı; onay yalnız eski sürüme ait. Rapor bunu
-  // "alınan" saymaz, manifestin received_cents'i sayar — iki rakam eşitlenmez.
-  insertEntry(sqlite, { id: "e-stale", vehicleId: SEED_IDS.vehicleA1, personId: SEED_IDS.driverA1a, workKind: "driver", workDate: "2026-09-19", gross: 80_000, version: 2, confirmedVersion: 1 });
-  insertSession(sqlite, "s-vehicle", { credentialId: SEED_IDS.credA1Driver }, null);
-  insertSession(sqlite, "s-staff", { platformUserId: SEED_IDS.platformSupport1 }, null);
-  insertSession(sqlite, "s-old", { credentialId: SEED_IDS.credA1Owner }, "2026-09-23T10:00:00.000Z");
-  sqlite.close();
-
-  const backup = spawnSync(process.execPath, [backupScript, "run"], {
-    cwd: projectRoot,
-    env: { ...process.env, DOLMUS_DB_PATH: dbPath, DOLMUS_BACKUP_DIR: backupDir, DOLMUS_BACKUP_NOW: "2026-09-24T12:00:00Z" },
-    encoding: "utf8",
-  });
-  expect(backup.status, backup.stdout + backup.stderr).toBe(0);
+  // Bağımsız bayt kopyaları (sabit bağlantı değil): testlerin bozduğu/taşıdığı dosyalar şablona ve sonraki
+  // testlere sızmaz. Yalnız yayımlanmış iki dosya kopyalanır; copyFileSync dosya iznini (0600/0640) korur.
+  fs.mkdirSync(path.dirname(dbPath));
+  fs.copyFileSync(templateDb, dbPath);
+  for (const name of [`${STEM}.sqlite`, `${STEM}.manifest.json`]) {
+    fs.copyFileSync(path.join(templateBackupDir, name), path.join(backupDir, name));
+  }
 });
 
 afterEach(() => {

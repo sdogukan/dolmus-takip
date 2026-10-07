@@ -61,7 +61,7 @@ export function SupportTargetHeader({
   return (
     <section
       aria-label={SUPPORT_MESSAGES.targetRegion}
-      className="ds-target sticky top-0 z-10 flex flex-col gap-2 px-4 py-3"
+      className="ds-target flex flex-col gap-2 px-4 py-3 lg:sticky lg:top-0 lg:z-10"
     >
       <p className="ds-card-title">
         {SUPPORT_MESSAGES.business(businessName)}

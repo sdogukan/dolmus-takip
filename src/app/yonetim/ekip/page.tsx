@@ -59,16 +59,18 @@ export default async function TeamListPage() {
           {users.map((user) => (
             <li
               key={user.id}
-              className="ds-card flex flex-col gap-2 px-4 py-3 text-base"
+              className="ds-panel flex flex-col gap-4"
             >
-              <p className="break-words text-lg font-medium">{user.username}</p>
-              <p className="break-words text-[var(--color-text-secondary)]">
-                {user.fullName ?? TEXT.noFullName} · {teamRoleLabel(user.platformRole)} ·{" "}
-                <span className={user.active ? "text-[var(--color-success)]" : "text-[var(--color-warning)]"}>
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <h2 className="ds-card-title [overflow-wrap:anywhere]">{user.username}</h2>
+                <span className={user.active ? "ds-badge ds-badge-active" : "ds-badge ds-badge-inactive"}>
                   {user.active ? TEXT.activeBadge : TEXT.inactiveBadge}
                 </span>
+              </div>
+              <p className="ds-hint break-words">
+                {user.fullName ?? TEXT.noFullName} · {teamRoleLabel(user.platformRole)}
               </p>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
                 <Link href={`/yonetim/ekip/${user.id}`} className={linkButtonClass}>
                   {TEXT.edit}
                 </Link>

@@ -126,7 +126,7 @@ export function TeamUserDetailForm({
   }));
 
   return (
-    <div className="flex flex-col gap-10">
+    <div className="flex flex-col gap-8">
       <div className="flex flex-col gap-2">
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="ds-title [overflow-wrap:anywhere]">{user.username}</h1>
@@ -154,6 +154,8 @@ export function TeamUserDetailForm({
         onSaved={setUser}
       />
 
+      <TeamUserPasswordResetSection user={user} isSelf={isSelf} csrfToken={csrfToken} scopeKey={scopeKey} />
+
       <ActiveSection
         user={user}
         isSelf={isSelf}
@@ -162,8 +164,6 @@ export function TeamUserDetailForm({
         onDraftChange={(active) => persist((prev) => ({ ...prev, active }))}
         onSaved={setUser}
       />
-
-      <TeamUserPasswordResetSection user={user} isSelf={isSelf} csrfToken={csrfToken} scopeKey={scopeKey} />
     </div>
   );
 }
@@ -289,7 +289,7 @@ function InfoSection({
   useUnsavedChanges("ekip-bilgi", hasChange);
 
   return (
-    <form onSubmit={handleSubmit} noValidate aria-busy={phase === "submitting"} className="flex flex-col gap-4">
+    <form onSubmit={handleSubmit} noValidate aria-busy={phase === "submitting"} className="ds-panel flex flex-col gap-6">
       <h2 className="ds-section-title">{TEXT.infoTitle}</h2>
       {banner && <Banner message={banner.message} conflict={banner.conflict} />}
       {phase === "ambiguous" && (
@@ -447,8 +447,8 @@ function ActiveSection({
   const disabled = phase !== "idle";
 
   return (
-    <div className="flex flex-col gap-3 border-t border-[var(--color-divider)] pt-6">
-      <h2 className="ds-section-title">{TEXT.activeTitle}</h2>
+    <div className="ds-panel flex flex-col gap-3">
+      <h2 className="ds-section-title">Hesap erişimi</h2>
       {banner && <Banner message={banner.message} conflict={banner.conflict} />}
       {phase === "ambiguous" && effective && (
         <CheckingNotice

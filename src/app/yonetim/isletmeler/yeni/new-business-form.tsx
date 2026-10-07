@@ -215,7 +215,7 @@ export function NewBusinessForm({
         </p>
       </div>
 
-      <form onSubmit={handleSubmit} noValidate aria-busy={phase === "submitting"} className="flex flex-col gap-6">
+      <form onSubmit={handleSubmit} noValidate aria-busy={phase === "submitting"} className="ds-panel flex flex-col gap-6">
         {formError && (
           <p
             role="alert"

@@ -193,113 +193,119 @@ export function NewTeamUserForm({ csrfToken, scopeKey }: { csrfToken: string; sc
           </div>
         )}
 
-        <div>
-          <label htmlFor="team-username" className="ds-label block">
-            {TEXT.usernameLabel}
-          </label>
-          <input
-            ref={usernameRef}
-            id="team-username"
-            name="username"
-            type="text"
-            autoComplete="off"
-            autoCapitalize="none"
-            autoCorrect="off"
-            spellCheck={false}
-            value={draft.username}
-            disabled={frozen}
-            onChange={(event) => handleFieldChange({ username: event.target.value })}
-            aria-invalid={fieldErrors.username ? true : undefined}
-            aria-describedby={fieldErrors.username ? "team-username-error" : "team-username-help"}
-            className={inputClass}
-          />
-          <p id="team-username-help" className="mt-1 text-base text-[var(--color-text-secondary)]">
-            {TEXT.usernameHelp}
-          </p>
-          {fieldErrors.username && (
-            <p id="team-username-error" role="alert" className="ds-error-text ds-error-icon mt-1">
-              {fieldErrors.username}
-            </p>
-          )}
-        </div>
-
-        <div>
-          <label htmlFor="team-full-name" className="ds-label block">
-            {TEXT.fullNameLabel}
-          </label>
-          <input
-            ref={fullNameRef}
-            id="team-full-name"
-            name="fullName"
-            type="text"
-            autoComplete="off"
-            value={draft.fullName}
-            disabled={frozen}
-            onChange={(event) => handleFieldChange({ fullName: event.target.value })}
-            aria-invalid={fieldErrors.fullName ? true : undefined}
-            aria-describedby={fieldErrors.fullName ? "team-full-name-error" : undefined}
-            className={inputClass}
-          />
-          {fieldErrors.fullName && (
-            <p id="team-full-name-error" role="alert" className="ds-error-text ds-error-icon mt-1">
-              {fieldErrors.fullName}
-            </p>
-          )}
-        </div>
-
-        <fieldset className="flex flex-col gap-2" disabled={frozen}>
-          <legend className="ds-label">{TEXT.roleLegend}</legend>
-          {TEAM_ROLES.map((role) => (
-            <label
-              key={role}
-              className="ds-choice-row flex items-center gap-3"
-            >
-              <input
-                type="radio"
-                name="platformRole"
-                value={role}
-                checked={draft.platformRole === role}
-                onChange={() => handleFieldChange({ platformRole: role })}
-                className="ds-check"
-              />
-              {teamRoleLabel(role)}
+        <section aria-labelledby="new-team-info-title" className="ds-panel flex flex-col gap-6">
+          <h2 id="new-team-info-title" className="ds-section-title">Hesap bilgileri</h2>
+          <div>
+            <label htmlFor="team-username" className="ds-label block">
+              {TEXT.usernameLabel}
             </label>
-          ))}
-        </fieldset>
-
-        <div>
-          <label htmlFor="team-password" className="ds-label block">
-            {TEXT.passwordLabel}
-          </label>
-          <div className="mt-1 flex items-stretch gap-2">
             <input
-              ref={passwordRef}
-              id="team-password"
-              name="password"
-              type={showPassword ? "text" : "password"}
-              autoComplete="new-password"
-              value={password}
-              disabled={passwordLocked}
-              onChange={(event) => handlePasswordChange(event.target.value)}
-              aria-invalid={fieldErrors.password ? true : undefined}
-              aria-describedby={fieldErrors.password ? "team-password-error" : undefined}
-              className="ds-input w-full flex-1"
+              ref={usernameRef}
+              id="team-username"
+              name="username"
+              type="text"
+              autoComplete="off"
+              autoCapitalize="none"
+              autoCorrect="off"
+              spellCheck={false}
+              value={draft.username}
+              disabled={frozen}
+              onChange={(event) => handleFieldChange({ username: event.target.value })}
+              aria-invalid={fieldErrors.username ? true : undefined}
+              aria-describedby={fieldErrors.username ? "team-username-error" : "team-username-help"}
+              className={inputClass}
             />
-            <button
-              type="button"
-              onClick={() => setShowPassword((prev) => !prev)}
-              aria-pressed={showPassword}
-              className="ds-btn ds-btn-secondary min-w-[3rem] shrink-0"
-            >
-              {showPassword ? TEXT.hide : TEXT.show}
-            </button>
-          </div>
-          {fieldErrors.password && (
-            <p id="team-password-error" role="alert" className="ds-error-text ds-error-icon mt-1">
-              {fieldErrors.password}
+            <p id="team-username-help" className="mt-1 text-base text-[var(--color-text-secondary)]">
+              {TEXT.usernameHelp}
             </p>
-          )}
-        </div>
+            {fieldErrors.username && (
+              <p id="team-username-error" role="alert" className="ds-error-text ds-error-icon mt-1">
+                {fieldErrors.username}
+              </p>
+            )}
+          </div>
+
+          <div>
+            <label htmlFor="team-full-name" className="ds-label block">
+              {TEXT.fullNameLabel}
+            </label>
+            <input
+              ref={fullNameRef}
+              id="team-full-name"
+              name="fullName"
+              type="text"
+              autoComplete="off"
+              value={draft.fullName}
+              disabled={frozen}
+              onChange={(event) => handleFieldChange({ fullName: event.target.value })}
+              aria-invalid={fieldErrors.fullName ? true : undefined}
+              aria-describedby={fieldErrors.fullName ? "team-full-name-error" : undefined}
+              className={inputClass}
+            />
+            {fieldErrors.fullName && (
+              <p id="team-full-name-error" role="alert" className="ds-error-text ds-error-icon mt-1">
+                {fieldErrors.fullName}
+              </p>
+            )}
+          </div>
+        </section>
+
+        <section aria-labelledby="new-team-access-title" className="ds-panel flex flex-col gap-6">
+          <h2 id="new-team-access-title" className="ds-section-title">Yetki ve şifre</h2>
+          <fieldset className="flex flex-col gap-2" disabled={frozen}>
+            <legend className="ds-label">{TEXT.roleLegend}</legend>
+            {TEAM_ROLES.map((role) => (
+              <label
+                key={role}
+                className="ds-choice-row flex items-center gap-3"
+              >
+                <input
+                  type="radio"
+                  name="platformRole"
+                  value={role}
+                  checked={draft.platformRole === role}
+                  onChange={() => handleFieldChange({ platformRole: role })}
+                  className="ds-check"
+                />
+                {teamRoleLabel(role)}
+              </label>
+            ))}
+          </fieldset>
+
+          <div>
+            <label htmlFor="team-password" className="ds-label block">
+              {TEXT.passwordLabel}
+            </label>
+            <div className="mt-1 flex items-stretch gap-2">
+              <input
+                ref={passwordRef}
+                id="team-password"
+                name="password"
+                type={showPassword ? "text" : "password"}
+                autoComplete="new-password"
+                value={password}
+                disabled={passwordLocked}
+                onChange={(event) => handlePasswordChange(event.target.value)}
+                aria-invalid={fieldErrors.password ? true : undefined}
+                aria-describedby={fieldErrors.password ? "team-password-error" : undefined}
+                className="ds-input w-full flex-1"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((prev) => !prev)}
+                aria-pressed={showPassword}
+                className="ds-btn ds-btn-secondary min-w-[3rem] shrink-0"
+              >
+                {showPassword ? TEXT.hide : TEXT.show}
+              </button>
+            </div>
+            {fieldErrors.password && (
+              <p id="team-password-error" role="alert" className="ds-error-text ds-error-icon mt-1">
+                {fieldErrors.password}
+              </p>
+            )}
+          </div>
+        </section>
 
         <p aria-live="polite" className="sr-only">
           {phase === "submitting" ? TEXT.creating : ""}

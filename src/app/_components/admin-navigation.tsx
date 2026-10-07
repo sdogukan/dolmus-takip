@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { ArrowLeft, Building2, History, UsersRound } from "lucide-react";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { ADMIN_NAVIGATION_MESSAGES as TEXT } from "../../lib/messages";
 import { ConfirmDialog } from "./confirm-dialog";
 import { useUnsavedChangesRegistry } from "./unsaved-changes";
@@ -15,12 +15,17 @@ const destinations = [
 ] as const;
 
 function useNavigationGuard() {
+  const pathname = usePathname();
   const router = useRouter();
   const registry = useUnsavedChangesRegistry();
   const [pendingHref, setPendingHref] = useState<string | null>(null);
 
   return {
     guardNavigation(event: { preventDefault: () => void }, href: string) {
+      if (href === pathname) {
+        event.preventDefault();
+        return;
+      }
       if (registry?.hasDirty()) {
         event.preventDefault();
         setPendingHref(href);
@@ -50,6 +55,35 @@ export function AdminBackLink({ href, label }: { href: string; label: string }) 
       <Link href={href} className="ds-admin-back" onNavigate={(event) => guardNavigation(event, href)}>
         <ArrowLeft aria-hidden="true" size={20} strokeWidth={1.75} />
         <span>{label}</span>
+      </Link>
+      {confirmation}
+    </>
+  );
+}
+
+/** In-page destinations share the same draft protection as the main menu. */
+export function AdminActionLink({
+  href,
+  children,
+  className,
+  ariaLabel,
+}: {
+  href: string;
+  children: ReactNode;
+  className?: string;
+  ariaLabel?: string;
+}) {
+  const { guardNavigation, confirmation } = useNavigationGuard();
+
+  return (
+    <>
+      <Link
+        href={href}
+        aria-label={ariaLabel}
+        className={className}
+        onNavigate={(event) => guardNavigation(event, href)}
+      >
+        {children}
       </Link>
       {confirmation}
     </>

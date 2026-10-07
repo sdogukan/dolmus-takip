@@ -169,7 +169,7 @@ export function TeamUserPasswordResetSection({
   useUnsavedChanges("ekip-sifre", newPassword !== "");
 
   return (
-    <div id="sifre-sifirlama" className="flex flex-col gap-3 border-t border-[var(--color-divider)] pt-6">
+    <div id="sifre-sifirlama" className="ds-panel flex scroll-mt-6 flex-col gap-3">
       <h2 className="ds-section-title">{TEXT.resetTitle}</h2>
       <p className="text-base text-[var(--color-text-secondary)]">{TEXT.resetHint}</p>
       {isSelf && <p className="text-base text-[var(--color-warning)]">{TEXT.resetSelfWarning}</p>}

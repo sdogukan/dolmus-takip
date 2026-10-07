@@ -276,7 +276,7 @@ export function PasswordResetSection({
   useUnsavedChanges("arac-sifre", !inactive && (draft.access !== null || newPassword !== ""));
 
   return (
-    <div id="sifre-sifirlama" className="flex flex-col gap-3 border-t border-[var(--color-divider)] pt-6">
+    <div id="sifre-sifirlama" className="ds-panel flex scroll-mt-6 flex-col gap-3">
       <h2 className="ds-section-title">Şifre sıfırlama</h2>
       <p className="text-base text-[var(--color-text-secondary)]">
         {detail.business.name} · {formatPlateForDisplay(detail.vehicle.plateNormalized)}

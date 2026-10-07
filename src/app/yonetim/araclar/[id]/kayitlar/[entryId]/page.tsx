@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import {
   ADMIN_NAVIGATION_MESSAGES as NAV,
@@ -16,6 +15,7 @@ import { getAppDb } from "../../../../../../server/data/app-db";
 import { getVehicleDetail, VehicleNotFoundError } from "../../../../../../server/usecases/admin-vehicles";
 import { readWorkEntryForScope } from "../../../../../../server/usecases/work-entries";
 import { SupportTargetHeader } from "../../../../../_components/support-target-header";
+import { AdminActionLink } from "../../../../../_components/admin-navigation";
 import { TeamPageShell } from "../../../../../_components/team-page-shell";
 import { WorkEntryEditForm } from "../../../../../_components/work-entry-edit-form";
 
@@ -117,12 +117,12 @@ export default async function VehicleWorkEntryDetailPage({
         scopeKey={computeScopeKey(context)}
         csrfToken={context.csrfToken}
       />
-      <Link
+      <AdminActionLink
         href={`/yonetim/araclar/${vehicleId}/kayitlar/${entryId}/gecmis`}
         className="ds-link ds-link-block"
       >
         {WORK_ENTRY_MESSAGES.historyLink}
-      </Link>
+      </AdminActionLink>
     </TeamPageShell>
   );
 }

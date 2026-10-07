@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import { BarChart3, CarFront, ClipboardList, History, NotebookPen, UsersRound } from "lucide-react";
 import { notFound, redirect } from "next/navigation";
 import { ADMIN_NAVIGATION_MESSAGES as NAV, PLATFORM_ROLE_LABELS, SUPPORT_MESSAGES } from "../../../../../lib/messages";
 import { formatPlateForDisplay } from "../../../../../lib/plate";
@@ -10,6 +10,7 @@ import { getAppDb } from "../../../../../server/data/app-db";
 import { getVehicleDetail, VehicleNotFoundError } from "../../../../../server/usecases/admin-vehicles";
 import { SupportTargetHeader } from "../../../../_components/support-target-header";
 import { TeamPageShell } from "../../../../_components/team-page-shell";
+import { AdminActionLink } from "../../../../_components/admin-navigation";
 
 /**
  * /yonetim/araclar/[id]/destek — destek alanı. `../page.tsx`
@@ -26,8 +27,7 @@ export const metadata: Metadata = {
   title: "Destek — Dolmuş Takip",
 };
 
-const linkClass =
-  "ds-btn ds-btn-secondary flex items-center";
+const linkClass = "ds-btn ds-btn-secondary justify-start";
 
 export default async function VehicleSupportPage({
   params,
@@ -85,31 +85,53 @@ export default async function VehicleSupportPage({
         roleLabel={roleLabel}
       />
 
-      <h1 className="ds-title">{SUPPORT_MESSAGES.pageTitle}</h1>
+      <div className="flex flex-col gap-2">
+        <h1 className="ds-title">{SUPPORT_MESSAGES.pageTitle}</h1>
+        <p className="ds-hint">Bu araç için yapacağın işlemi seç.</p>
+      </div>
       {inactive && (
         <p role="status" className="ds-notice ds-notice-warning">
           {SUPPORT_MESSAGES.inactiveTarget}
         </p>
       )}
-      <nav aria-label={SUPPORT_MESSAGES.pageTitle} className="flex flex-col gap-3">
-        <Link href={`/yonetim/araclar/${vehicleId}/kayit/yeni`} className={linkClass}>
-          {SUPPORT_MESSAGES.linkWorkEntry}
-        </Link>
-        <Link href={`/yonetim/araclar/${vehicleId}/ozet`} className={linkClass}>
-          {SUPPORT_MESSAGES.linkSummary}
-        </Link>
-        <Link href={`/yonetim/araclar/${vehicleId}/raporlar`} className={linkClass}>
-          {SUPPORT_MESSAGES.linkReports}
-        </Link>
-        <Link href={`/yonetim/araclar/${vehicleId}/soforler`} className={linkClass}>
-          {SUPPORT_MESSAGES.linkDrivers}
-        </Link>
-        <Link href={`/yonetim/araclar/${vehicleId}`} className={linkClass}>
-          {SUPPORT_MESSAGES.linkVehicle}
-        </Link>
-        <Link href={`/yonetim/islem-gecmisi?vehicleId=${vehicleId}`} className={linkClass}>
-          {SUPPORT_MESSAGES.linkAudit}
-        </Link>
+      <nav aria-label={SUPPORT_MESSAGES.pageTitle} className="flex flex-col gap-6">
+        <section aria-labelledby="support-work-title" className="ds-panel flex flex-col gap-3">
+          <h2 id="support-work-title" className="ds-section-title">Günlük çalışma</h2>
+          <p className="ds-hint">Mal sahibinin veya şoförün çalışma kaydını gir.</p>
+          <AdminActionLink href={`/yonetim/araclar/${vehicleId}/kayit/yeni`} className="ds-btn ds-btn-primary ds-btn-lg">
+            <NotebookPen aria-hidden="true" className="shrink-0" size={22} strokeWidth={1.75} />
+            {SUPPORT_MESSAGES.linkWorkEntry}
+          </AdminActionLink>
+        </section>
+        <section aria-labelledby="support-reports-title" className="ds-panel flex flex-col gap-3">
+          <h2 id="support-reports-title" className="ds-section-title">Özet ve raporlar</h2>
+          <p className="ds-hint">Hasılatı, giderleri ve teslim durumlarını incele.</p>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <AdminActionLink href={`/yonetim/araclar/${vehicleId}/ozet`} className={linkClass}>
+              <ClipboardList aria-hidden="true" className="shrink-0" size={22} strokeWidth={1.75} />
+              {SUPPORT_MESSAGES.linkSummary}
+            </AdminActionLink>
+            <AdminActionLink href={`/yonetim/araclar/${vehicleId}/raporlar`} className={linkClass}>
+              <BarChart3 aria-hidden="true" className="shrink-0" size={22} strokeWidth={1.75} />
+              {SUPPORT_MESSAGES.linkReports}
+            </AdminActionLink>
+          </div>
+        </section>
+        <section aria-labelledby="support-management-title" className="ds-panel flex flex-col gap-3">
+          <h2 id="support-management-title" className="ds-section-title">Araç yönetimi</h2>
+          <AdminActionLink href={`/yonetim/araclar/${vehicleId}/soforler`} className={linkClass}>
+            <UsersRound aria-hidden="true" className="shrink-0" size={22} strokeWidth={1.75} />
+            {SUPPORT_MESSAGES.linkDrivers}
+          </AdminActionLink>
+          <AdminActionLink href={`/yonetim/araclar/${vehicleId}`} className={linkClass}>
+            <CarFront aria-hidden="true" className="shrink-0" size={22} strokeWidth={1.75} />
+            {SUPPORT_MESSAGES.linkVehicle}
+          </AdminActionLink>
+          <AdminActionLink href={`/yonetim/islem-gecmisi?vehicleId=${vehicleId}`} className={linkClass}>
+            <History aria-hidden="true" className="shrink-0" size={22} strokeWidth={1.75} />
+            {SUPPORT_MESSAGES.linkAudit}
+          </AdminActionLink>
+        </section>
       </nav>
     </TeamPageShell>
   );

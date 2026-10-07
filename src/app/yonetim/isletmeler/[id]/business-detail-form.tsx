@@ -27,12 +27,13 @@
  * sahibin adı düzenlenemez.
  */
 import { useRef, useState, type FormEvent } from "react";
-import Link from "next/link";
 import type { ClientStateScope } from "../../../../lib/client-state";
+import { formatPlateForDisplay } from "../../../../lib/plate";
 import { useStoredDraft } from "../../../../lib/use-stored-draft";
 import { getErrorMessage, PERSON_ANONYMIZE_MESSAGES } from "../../../../lib/messages";
 import { ConfirmDialog } from "../../../_components/confirm-dialog";
 import { useUnsavedChanges } from "../../../_components/unsaved-changes";
+import { AdminActionLink } from "../../../_components/admin-navigation";
 
 interface BusinessDetail {
   business: { id: string; name: string; active: boolean; version: number; createdAt: string };
@@ -270,7 +271,7 @@ export function BusinessDetailForm({
     ownerDirty || draft.active !== null || draft.ownerAnonymize != null);
 
   return (
-    <div className="flex flex-col gap-10">
+    <div className="flex flex-col gap-8">
       <div className="flex flex-col gap-2">
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="ds-title">{detail.business.name}</h1>
@@ -285,43 +286,55 @@ export function BusinessDetailForm({
           </span>
         </div>
         <p className="text-base text-[var(--color-text-secondary)]">
-          Mal sahibi: {detail.owner ? detail.owner.fullName : "Sahipsiz"}
+          Mal sahibi: {detail.owner ? detail.owner.fullName : "Sahipsiz"} · {detail.vehicles.length} araç
         </p>
       </div>
 
-      <NameSection
-        businessId={businessId}
-        csrfToken={csrfToken}
-        detail={detail}
-        draft={draft.name}
-        onDraftChange={(name) => persistDraft((prev) => ({ ...prev, name }))}
-        onSaved={setDetail}
-      />
-
-      {detail.owner ? (
-        <OwnerRenameSection
-          businessId={businessId}
-          csrfToken={csrfToken}
-          detail={detail}
-          draft={draft.ownerRename}
-          onDraftChange={(ownerRename) => persistDraft((prev) => ({ ...prev, ownerRename }))}
-          onSaved={setDetail}
-          canAnonymize={canAnonymize}
-          anonymizeDraft={draft.ownerAnonymize ?? null}
-          onAnonymizeDraftChange={(ownerAnonymize) => persistDraft((prev) => ({ ...prev, ownerAnonymize }))}
-        />
-      ) : (
-        <OwnerAssignSection
-          businessId={businessId}
-          csrfToken={csrfToken}
-          detail={detail}
-          draft={draft.ownerAssign}
-          onDraftChange={(ownerAssign) => persistDraft((prev) => ({ ...prev, ownerAssign }))}
-          onSaved={setDetail}
-        />
-      )}
-
       <VehiclesSection businessId={businessId} detail={detail} />
+
+      <section aria-labelledby="business-info-title" className="ds-panel flex flex-col gap-6">
+        <div className="flex flex-col gap-1">
+          <h2 id="business-info-title" className="ds-section-title">İşletme bilgilerini düzenle</h2>
+          <p className="ds-hint">
+            {detail.owner === null
+              ? "İşletme adını düzenle veya mal sahibi ata."
+              : detail.owner.anonymized
+                ? "İşletme adını düzenle. Anonimleştirilmiş mal sahibi adı değiştirilemez."
+                : "İşletme ve mal sahibi adını buradan değiştirebilirsin."}
+          </p>
+        </div>
+        <NameSection
+          businessId={businessId}
+          csrfToken={csrfToken}
+          detail={detail}
+          draft={draft.name}
+          onDraftChange={(name) => persistDraft((prev) => ({ ...prev, name }))}
+          onSaved={setDetail}
+        />
+
+        {detail.owner ? (
+          <OwnerRenameSection
+            businessId={businessId}
+            csrfToken={csrfToken}
+            detail={detail}
+            draft={draft.ownerRename}
+            onDraftChange={(ownerRename) => persistDraft((prev) => ({ ...prev, ownerRename }))}
+            onSaved={setDetail}
+            canAnonymize={canAnonymize}
+            anonymizeDraft={draft.ownerAnonymize ?? null}
+            onAnonymizeDraftChange={(ownerAnonymize) => persistDraft((prev) => ({ ...prev, ownerAnonymize }))}
+          />
+        ) : (
+          <OwnerAssignSection
+            businessId={businessId}
+            csrfToken={csrfToken}
+            detail={detail}
+            draft={draft.ownerAssign}
+            onDraftChange={(ownerAssign) => persistDraft((prev) => ({ ...prev, ownerAssign }))}
+            onSaved={setDetail}
+          />
+        )}
+      </section>
 
       <ActiveSection
         businessId={businessId}
@@ -415,7 +428,7 @@ function NameSection({
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-      <h2 className="ds-section-title">İşletme adı</h2>
+      <h3 className="ds-card-title">İşletme adı</h3>
       {banner && <ErrorBanner banner={banner} />}
       {phase === "ambiguous" && (
         <div role="status" className="ds-notice ds-notice-warning flex flex-col gap-3">
@@ -555,7 +568,7 @@ function OwnerRenameSection({
   if (owner.anonymized) {
     return (
       <div className="flex flex-col gap-3">
-        <h2 className="ds-section-title">Mal sahibi</h2>
+        <h3 className="ds-card-title">Mal sahibi</h3>
         {anonymizedNotice && (
           <p role="status" className="ds-notice ds-notice-success">
             {PERSON_ANONYMIZE_MESSAGES.done}
@@ -621,7 +634,7 @@ function OwnerRenameSection({
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-      <h2 className="ds-section-title">Mal sahibi</h2>
+      <h3 className="ds-card-title">Mal sahibi</h3>
       {banner && <ErrorBanner banner={banner} />}
       {phase === "ambiguous" && (
         <div role="status" className="ds-notice ds-notice-warning flex flex-col gap-3">
@@ -819,7 +832,7 @@ function OwnerAssignSection({
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-      <h2 className="ds-section-title">Mal sahibi</h2>
+      <h3 className="ds-card-title">Mal sahibi</h3>
       <p className="text-base text-[var(--color-text-secondary)]">
         Bu işletmenin henüz sahibi yok. Aynı işletmede tanımlı aktif bir kişiyi seç veya yeni sahip
         ad soyadı gir.
@@ -918,40 +931,53 @@ function OwnerAssignSection({
 function VehiclesSection({ businessId, detail }: { businessId: string; detail: BusinessDetail }) {
   const canAddVehicle = detail.business.active && detail.owner !== null;
   return (
-    <div className="flex flex-col gap-2">
+    <section aria-labelledby="business-vehicles-title" className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="ds-section-title">
+        <h2 id="business-vehicles-title" className="ds-section-title">
           Araçlar ({detail.vehicles.length})
         </h2>
         {canAddVehicle && (
-          <Link
+          <AdminActionLink
             href={`/yonetim/isletmeler/${businessId}/araclar/yeni`}
             className="ds-btn ds-btn-primary flex items-center"
           >
             + Araç ekle
-          </Link>
+          </AdminActionLink>
         )}
       </div>
       {detail.vehicles.length === 0 ? (
-        <p className="text-base text-[var(--color-text-secondary)]">Bu işletmede araç yok.</p>
+        <p className="ds-panel ds-hint">Bu işletmede araç yok.</p>
       ) : (
-        <ul className="flex flex-col gap-1">
+        <ul className="flex flex-col gap-3">
           {detail.vehicles.map((vehicle) => (
-            <li key={vehicle.id}>
-              <Link
-                href={`/yonetim/araclar/${vehicle.id}`}
-                className="flex items-center justify-between gap-4 rounded-[var(--radius-control)] px-2 py-1 text-base text-[var(--color-text)] hover:bg-[var(--color-page)]"
-              >
-                <span>{vehicle.plateNormalized}</span>
-                <span className="text-[var(--color-text-secondary)]">
+            <li key={vehicle.id} className="ds-panel flex flex-col gap-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <h3 className="ds-card-title">{formatPlateForDisplay(vehicle.plateNormalized)}</h3>
+                <span className={vehicle.active ? "ds-badge ds-badge-active" : "ds-badge ds-badge-inactive"}>
                   {vehicle.active ? "Aktif" : "Pasif"}
                 </span>
-              </Link>
+              </div>
+              <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+                <AdminActionLink
+                  href={`/yonetim/araclar/${vehicle.id}/destek`}
+                  ariaLabel={`${formatPlateForDisplay(vehicle.plateNormalized)} destek ekranını aç`}
+                  className="ds-btn ds-btn-primary"
+                >
+                  Destek ekranını aç
+                </AdminActionLink>
+                <AdminActionLink
+                  href={`/yonetim/araclar/${vehicle.id}`}
+                  ariaLabel={`${formatPlateForDisplay(vehicle.plateNormalized)} araç bilgisi`}
+                  className="ds-btn ds-btn-secondary"
+                >
+                  Araç bilgisi
+                </AdminActionLink>
+              </div>
             </li>
           ))}
         </ul>
       )}
-    </div>
+    </section>
   );
 }
 
@@ -1038,8 +1064,8 @@ function ActiveSection({
   const disabled = phase !== "idle";
 
   return (
-    <div className="flex flex-col gap-3 border-t border-[var(--color-divider)] pt-6">
-      <h2 className="ds-section-title">Aktiflik</h2>
+    <div className="ds-panel flex flex-col gap-3">
+      <h2 className="ds-section-title">İşletme erişimi</h2>
       {banner && <ErrorBanner banner={banner} />}
       {phase === "ambiguous" && draft && (
         <div role="status" className="ds-notice ds-notice-warning flex flex-col gap-3">

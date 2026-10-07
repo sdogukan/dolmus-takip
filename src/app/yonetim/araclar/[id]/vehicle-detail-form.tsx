@@ -11,7 +11,7 @@
  * durumuna yazması. Plaka bu ekranda DÜZENLENEMEZ (T2.2 sözleşmesi) —
  * yalnız salt okunur gösterilir; şifre YOKTUR/gösterilmez (sıfırlama T2.3).
  */
-import Link from "next/link";
+import { History, LifeBuoy, UsersRound } from "lucide-react";
 import { useRef, useState, type FormEvent } from "react";
 import type { ClientStateScope } from "../../../../lib/client-state";
 import { useStoredDraft } from "../../../../lib/use-stored-draft";
@@ -21,6 +21,7 @@ import { isDraftStale } from "../../../../lib/draft-version";
 import { vehicleDetailDraftName } from "../../../../lib/support-target";
 import { ConfirmDialog } from "../../../_components/confirm-dialog";
 import { useUnsavedChanges } from "../../../_components/unsaved-changes";
+import { AdminActionLink } from "../../../_components/admin-navigation";
 import { PasswordResetSection } from "./password-reset-section";
 
 export interface VehicleDetail {
@@ -173,7 +174,7 @@ export function VehicleDetailForm({
   );
 
   return (
-    <div className="flex flex-col gap-10">
+    <div className="flex flex-col gap-8">
       <div className="flex flex-col gap-2">
         <div className="flex flex-wrap items-center gap-3">
           <h1 className="ds-title">
@@ -192,13 +193,25 @@ export function VehicleDetailForm({
         <p className="text-base text-[var(--color-text-secondary)]">
           {detail.business.name} · Sahip: {detail.owner.fullName}
         </p>
-        <Link
-          href={`/yonetim/araclar/${vehicleId}/soforler`}
-          className="ds-link ds-link-block self-start"
-        >
-          Şoförler
-        </Link>
       </div>
+
+      <nav aria-label="Araç işlemleri" className="ds-panel flex flex-col gap-3">
+        <p className="ds-hint">Bu aracın kayıtlarını incele veya mal sahibi adına işlem yap.</p>
+        <AdminActionLink href={`/yonetim/araclar/${vehicleId}/destek`} className="ds-btn ds-btn-primary ds-btn-lg">
+          <LifeBuoy aria-hidden="true" className="shrink-0" size={22} strokeWidth={1.75} />
+          Destek ekranını aç
+        </AdminActionLink>
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+          <AdminActionLink href={`/yonetim/araclar/${vehicleId}/soforler`} className="ds-btn ds-btn-secondary">
+            <UsersRound aria-hidden="true" className="shrink-0" size={20} strokeWidth={1.75} />
+            Şoförler
+          </AdminActionLink>
+          <AdminActionLink href={`/yonetim/islem-gecmisi?vehicleId=${vehicleId}`} className="ds-btn ds-btn-secondary">
+            <History aria-hidden="true" className="shrink-0" size={20} strokeWidth={1.75} />
+            Bu aracın işlem geçmişi
+          </AdminActionLink>
+        </div>
+      </nav>
 
       <InfoSection
         vehicleId={vehicleId}
@@ -209,6 +222,13 @@ export function VehicleDetailForm({
         onSaved={setDetail}
       />
 
+      <PasswordResetSection
+        vehicleId={vehicleId}
+        csrfToken={csrfToken}
+        scopeKey={scopeKey}
+        detail={detail}
+      />
+
       <ActiveSection
         vehicleId={vehicleId}
         csrfToken={csrfToken}
@@ -216,13 +236,6 @@ export function VehicleDetailForm({
         draft={draft.active}
         onDraftChange={(active) => persistDraft((prev) => ({ ...prev, active }))}
         onSaved={setDetail}
-      />
-
-      <PasswordResetSection
-        vehicleId={vehicleId}
-        csrfToken={csrfToken}
-        scopeKey={scopeKey}
-        detail={detail}
       />
     </div>
   );
@@ -352,7 +365,7 @@ function InfoSection({
   useUnsavedChanges("arac-bilgi", hasChange);
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+    <form onSubmit={handleSubmit} className="ds-panel flex flex-col gap-6">
       <h2 className="ds-section-title">Araç bilgisi</h2>
       {banner && <ErrorBanner banner={banner} />}
       {phase === "ambiguous" && (
@@ -569,8 +582,8 @@ function ActiveSection({
   const disabled = phase !== "idle";
 
   return (
-    <div className="flex flex-col gap-3 border-t border-[var(--color-divider)] pt-6">
-      <h2 className="ds-section-title">Aktiflik</h2>
+    <div className="ds-panel flex flex-col gap-3">
+      <h2 className="ds-section-title">Araç erişimi</h2>
       {banner && <ErrorBanner banner={banner} />}
       {phase === "ambiguous" && effective && (
         <div role="status" className="ds-notice ds-notice-warning flex flex-col gap-3">

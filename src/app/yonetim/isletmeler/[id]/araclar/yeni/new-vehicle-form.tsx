@@ -387,189 +387,198 @@ export function NewVehicleForm({
           </div>
         )}
 
-        <div>
-          <label htmlFor="vehicle-plate" className="ds-label block">
-            Plaka
-          </label>
-          <input
-            ref={plateInputRef}
-            id="vehicle-plate"
-            name="plate"
-            type="text"
-            value={draft.plate}
-            disabled={disabled}
-            onChange={(event) => handleFieldChange("plate", event.target.value)}
-            aria-invalid={fieldErrors.plate ? true : undefined}
-            aria-describedby={fieldErrors.plate ? "vehicle-plate-error" : undefined}
-            className="ds-input mt-1 w-full"
-          />
-          {fieldErrors.plate && (
-            <p id="vehicle-plate-error" role="alert" className="ds-error-text ds-error-icon mt-1">
-              {fieldErrors.plate}
-            </p>
-          )}
-        </div>
-
-        <div>
-          <label htmlFor="vehicle-brand-model" className="ds-label block">
-            Marka / model
-          </label>
-          <input
-            ref={brandModelInputRef}
-            id="vehicle-brand-model"
-            name="brandModel"
-            type="text"
-            value={draft.brandModel}
-            disabled={disabled}
-            onChange={(event) => handleFieldChange("brandModel", event.target.value)}
-            aria-invalid={fieldErrors.brandModel ? true : undefined}
-            aria-describedby={fieldErrors.brandModel ? "vehicle-brand-model-error" : undefined}
-            className="ds-input mt-1 w-full"
-          />
-          {fieldErrors.brandModel && (
-            <p id="vehicle-brand-model-error" role="alert" className="ds-error-text ds-error-icon mt-1">
-              {fieldErrors.brandModel}
-            </p>
-          )}
-        </div>
-
-        <div>
-          <label htmlFor="vehicle-year" className="ds-label block">
-            Yıl
-          </label>
-          <input
-            ref={yearInputRef}
-            id="vehicle-year"
-            name="year"
-            type="number"
-            inputMode="numeric"
-            value={draft.year}
-            disabled={disabled}
-            onChange={(event) => handleFieldChange("year", event.target.value)}
-            aria-invalid={fieldErrors.year ? true : undefined}
-            aria-describedby={fieldErrors.year ? "vehicle-year-error" : undefined}
-            className="ds-input mt-1 w-full"
-          />
-          {fieldErrors.year && (
-            <p id="vehicle-year-error" role="alert" className="ds-error-text ds-error-icon mt-1">
-              {fieldErrors.year}
-            </p>
-          )}
-        </div>
-
-        <div>
-          <label htmlFor="vehicle-route-stop" className="ds-label block">
-            Hat / durak notu
-          </label>
-          <input
-            ref={routeStopInputRef}
-            id="vehicle-route-stop"
-            name="routeStop"
-            type="text"
-            value={draft.routeStop}
-            disabled={disabled}
-            onChange={(event) => handleFieldChange("routeStop", event.target.value)}
-            aria-invalid={fieldErrors.routeStop ? true : undefined}
-            aria-describedby={fieldErrors.routeStop ? "vehicle-route-stop-error" : undefined}
-            className="ds-input mt-1 w-full"
-          />
-          {fieldErrors.routeStop && (
-            <p id="vehicle-route-stop-error" role="alert" className="ds-error-text ds-error-icon mt-1">
-              {fieldErrors.routeStop}
-            </p>
-          )}
-        </div>
-
-        <div>
-          <label htmlFor="vehicle-note" className="ds-label block">
-            Not
-          </label>
-          <textarea
-            ref={noteInputRef}
-            id="vehicle-note"
-            name="note"
-            rows={3}
-            value={draft.note}
-            disabled={disabled}
-            onChange={(event) => handleFieldChange("note", event.target.value)}
-            aria-invalid={fieldErrors.note ? true : undefined}
-            aria-describedby={fieldErrors.note ? "vehicle-note-error" : undefined}
-            className="ds-input mt-1 w-full"
-          />
-          {fieldErrors.note && (
-            <p id="vehicle-note-error" role="alert" className="ds-error-text ds-error-icon mt-1">
-              {fieldErrors.note}
-            </p>
-          )}
-        </div>
-
-        <div>
-          <label htmlFor="vehicle-owner-password" className="ds-label block">
-            Sahip şifresi
-          </label>
-          <div className="mt-1 flex items-stretch gap-2">
+        <section aria-labelledby="new-vehicle-info-title" className="ds-panel flex flex-col gap-6">
+          <h2 id="new-vehicle-info-title" className="ds-section-title">Araç bilgileri</h2>
+          <div>
+            <label htmlFor="vehicle-plate" className="ds-label block">
+              Plaka
+            </label>
             <input
-              ref={ownerPasswordInputRef}
-              id="vehicle-owner-password"
-              name="ownerPassword"
-              type={showOwnerPassword ? "text" : "password"}
-              autoComplete="new-password"
-              value={ownerPassword}
-              disabled={ownerPasswordLocked}
-              onChange={(event) => handlePasswordChange("owner", event.target.value)}
-              aria-invalid={fieldErrors.ownerPassword ? true : undefined}
-              aria-describedby={fieldErrors.ownerPassword ? "vehicle-owner-password-error" : undefined}
-              className="ds-input w-full flex-1"
+              ref={plateInputRef}
+              id="vehicle-plate"
+              name="plate"
+              type="text"
+              value={draft.plate}
+              disabled={disabled}
+              onChange={(event) => handleFieldChange("plate", event.target.value)}
+              aria-invalid={fieldErrors.plate ? true : undefined}
+              aria-describedby={fieldErrors.plate ? "vehicle-plate-error" : undefined}
+              className="ds-input mt-1 w-full"
             />
-            <button
-              type="button"
-              onClick={() => setShowOwnerPassword((prev) => !prev)}
-              aria-pressed={showOwnerPassword}
-              className="ds-btn ds-btn-secondary min-w-[3rem] shrink-0"
-            >
-              {showOwnerPassword ? "Gizle" : "Göster"}
-            </button>
+            {fieldErrors.plate && (
+              <p id="vehicle-plate-error" role="alert" className="ds-error-text ds-error-icon mt-1">
+                {fieldErrors.plate}
+              </p>
+            )}
           </div>
-          {fieldErrors.ownerPassword && (
-            <p id="vehicle-owner-password-error" role="alert" className="ds-error-text ds-error-icon mt-1">
-              {fieldErrors.ownerPassword}
-            </p>
-          )}
-        </div>
 
-        <div>
-          <label htmlFor="vehicle-driver-password" className="ds-label block">
-            Şoför şifresi
-          </label>
-          <div className="mt-1 flex items-stretch gap-2">
+          <div>
+            <label htmlFor="vehicle-brand-model" className="ds-label block">
+              Marka / model
+            </label>
             <input
-              ref={driverPasswordInputRef}
-              id="vehicle-driver-password"
-              name="driverPassword"
-              type={showDriverPassword ? "text" : "password"}
-              autoComplete="new-password"
-              value={driverPassword}
-              disabled={driverPasswordLocked}
-              onChange={(event) => handlePasswordChange("driver", event.target.value)}
-              aria-invalid={fieldErrors.driverPassword ? true : undefined}
-              aria-describedby={fieldErrors.driverPassword ? "vehicle-driver-password-error" : undefined}
-              className="ds-input w-full flex-1"
+              ref={brandModelInputRef}
+              id="vehicle-brand-model"
+              name="brandModel"
+              type="text"
+              value={draft.brandModel}
+              disabled={disabled}
+              onChange={(event) => handleFieldChange("brandModel", event.target.value)}
+              aria-invalid={fieldErrors.brandModel ? true : undefined}
+              aria-describedby={fieldErrors.brandModel ? "vehicle-brand-model-error" : undefined}
+              className="ds-input mt-1 w-full"
             />
-            <button
-              type="button"
-              onClick={() => setShowDriverPassword((prev) => !prev)}
-              aria-pressed={showDriverPassword}
-              className="ds-btn ds-btn-secondary min-w-[3rem] shrink-0"
-            >
-              {showDriverPassword ? "Gizle" : "Göster"}
-            </button>
+            {fieldErrors.brandModel && (
+              <p id="vehicle-brand-model-error" role="alert" className="ds-error-text ds-error-icon mt-1">
+                {fieldErrors.brandModel}
+              </p>
+            )}
           </div>
-          {fieldErrors.driverPassword && (
-            <p id="vehicle-driver-password-error" role="alert" className="ds-error-text ds-error-icon mt-1">
-              {fieldErrors.driverPassword}
-            </p>
-          )}
-        </div>
+
+          <div>
+            <label htmlFor="vehicle-year" className="ds-label block">
+              Yıl
+            </label>
+            <input
+              ref={yearInputRef}
+              id="vehicle-year"
+              name="year"
+              type="number"
+              inputMode="numeric"
+              value={draft.year}
+              disabled={disabled}
+              onChange={(event) => handleFieldChange("year", event.target.value)}
+              aria-invalid={fieldErrors.year ? true : undefined}
+              aria-describedby={fieldErrors.year ? "vehicle-year-error" : undefined}
+              className="ds-input mt-1 w-full"
+            />
+            {fieldErrors.year && (
+              <p id="vehicle-year-error" role="alert" className="ds-error-text ds-error-icon mt-1">
+                {fieldErrors.year}
+              </p>
+            )}
+          </div>
+
+          <div>
+            <label htmlFor="vehicle-route-stop" className="ds-label block">
+              Hat / durak notu
+            </label>
+            <input
+              ref={routeStopInputRef}
+              id="vehicle-route-stop"
+              name="routeStop"
+              type="text"
+              value={draft.routeStop}
+              disabled={disabled}
+              onChange={(event) => handleFieldChange("routeStop", event.target.value)}
+              aria-invalid={fieldErrors.routeStop ? true : undefined}
+              aria-describedby={fieldErrors.routeStop ? "vehicle-route-stop-error" : undefined}
+              className="ds-input mt-1 w-full"
+            />
+            {fieldErrors.routeStop && (
+              <p id="vehicle-route-stop-error" role="alert" className="ds-error-text ds-error-icon mt-1">
+                {fieldErrors.routeStop}
+              </p>
+            )}
+          </div>
+
+          <div>
+            <label htmlFor="vehicle-note" className="ds-label block">
+              Not
+            </label>
+            <textarea
+              ref={noteInputRef}
+              id="vehicle-note"
+              name="note"
+              rows={3}
+              value={draft.note}
+              disabled={disabled}
+              onChange={(event) => handleFieldChange("note", event.target.value)}
+              aria-invalid={fieldErrors.note ? true : undefined}
+              aria-describedby={fieldErrors.note ? "vehicle-note-error" : undefined}
+              className="ds-input mt-1 w-full"
+            />
+            {fieldErrors.note && (
+              <p id="vehicle-note-error" role="alert" className="ds-error-text ds-error-icon mt-1">
+                {fieldErrors.note}
+              </p>
+            )}
+          </div>
+        </section>
+
+        <section aria-labelledby="new-vehicle-access-title" className="ds-panel flex flex-col gap-6">
+          <div className="flex flex-col gap-2">
+            <h2 id="new-vehicle-access-title" className="ds-section-title">Giriş şifreleri</h2>
+            <p className="ds-hint">Sahip ve şoför farklı şifrelerle giriş yapar. Şifreleri ilgili kişilere kendin ilet.</p>
+          </div>
+          <div>
+            <label htmlFor="vehicle-owner-password" className="ds-label block">
+              Sahip şifresi
+            </label>
+            <div className="mt-1 flex items-stretch gap-2">
+              <input
+                ref={ownerPasswordInputRef}
+                id="vehicle-owner-password"
+                name="ownerPassword"
+                type={showOwnerPassword ? "text" : "password"}
+                autoComplete="new-password"
+                value={ownerPassword}
+                disabled={ownerPasswordLocked}
+                onChange={(event) => handlePasswordChange("owner", event.target.value)}
+                aria-invalid={fieldErrors.ownerPassword ? true : undefined}
+                aria-describedby={fieldErrors.ownerPassword ? "vehicle-owner-password-error" : undefined}
+                className="ds-input w-full flex-1"
+              />
+              <button
+                type="button"
+                onClick={() => setShowOwnerPassword((prev) => !prev)}
+                aria-pressed={showOwnerPassword}
+                className="ds-btn ds-btn-secondary min-w-[3rem] shrink-0"
+              >
+                {showOwnerPassword ? "Gizle" : "Göster"}
+              </button>
+            </div>
+            {fieldErrors.ownerPassword && (
+              <p id="vehicle-owner-password-error" role="alert" className="ds-error-text ds-error-icon mt-1">
+                {fieldErrors.ownerPassword}
+              </p>
+            )}
+          </div>
+
+          <div>
+            <label htmlFor="vehicle-driver-password" className="ds-label block">
+              Şoför şifresi
+            </label>
+            <div className="mt-1 flex items-stretch gap-2">
+              <input
+                ref={driverPasswordInputRef}
+                id="vehicle-driver-password"
+                name="driverPassword"
+                type={showDriverPassword ? "text" : "password"}
+                autoComplete="new-password"
+                value={driverPassword}
+                disabled={driverPasswordLocked}
+                onChange={(event) => handlePasswordChange("driver", event.target.value)}
+                aria-invalid={fieldErrors.driverPassword ? true : undefined}
+                aria-describedby={fieldErrors.driverPassword ? "vehicle-driver-password-error" : undefined}
+                className="ds-input w-full flex-1"
+              />
+              <button
+                type="button"
+                onClick={() => setShowDriverPassword((prev) => !prev)}
+                aria-pressed={showDriverPassword}
+                className="ds-btn ds-btn-secondary min-w-[3rem] shrink-0"
+              >
+                {showDriverPassword ? "Gizle" : "Göster"}
+              </button>
+            </div>
+            {fieldErrors.driverPassword && (
+              <p id="vehicle-driver-password-error" role="alert" className="ds-error-text ds-error-icon mt-1">
+                {fieldErrors.driverPassword}
+              </p>
+            )}
+          </div>
+        </section>
 
         <p aria-live="polite" className="sr-only">
           {phase === "submitting" ? "Kaydediliyor…" : ""}

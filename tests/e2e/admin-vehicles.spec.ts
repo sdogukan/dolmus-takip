@@ -476,10 +476,11 @@ test.describe("Araç oluşturma (/yonetim/isletmeler/:id/araclar/yeni)", () => {
     await expect(
       page.getByRole("alert").filter({ hasText: "Bu araç zaten oluşturulmuş olabilir." }),
     ).toBeVisible();
-    await expect(page.getByRole("link", { name: "İşletmeye dön" })).toHaveAttribute(
-      "href",
-      `/yonetim/isletmeler/${businessId}`,
-    );
+    await expect(
+      page.getByRole("alert")
+        .filter({ hasText: "Bu araç zaten oluşturulmuş olabilir." })
+        .getByRole("link", { name: "İşletmeye dön" }),
+    ).toHaveAttribute("href", `/yonetim/isletmeler/${businessId}`);
 
     // Bir alanı değiştirip tekrar gönderir — YENİ bir requestId kullanılmalı.
     await page.getByLabel("Marka / model").fill("Renault Kangoo");

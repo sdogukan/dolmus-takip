@@ -276,7 +276,7 @@ test.describe("Ekip çalışma kaydı (/yonetim/araclar/:id/kayit/yeni)", () => 
 
     await page.getByLabel("Hasılat").fill("100");
     await page.getByRole("button", { name: "Hedefi değiştir" }).click();
-    await expect(page.getByText("Değişiklikleri bırakıp çık?")).toBeVisible();
+    await expect(page.getByRole("dialog", { name: "Değişiklikleri bırakıp çık?" })).toBeVisible();
     await page.getByRole("button", { name: "Vazgeç" }).click();
     await expect(page.getByLabel("Hasılat")).toHaveValue("100");
 

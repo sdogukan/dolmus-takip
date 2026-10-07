@@ -130,7 +130,7 @@ test.describe("Yönetim araması (/yonetim)", () => {
     // Sonuç yok.
     await searchInput(page).fill("hicbirsey-bulunmaz-zzz");
     await expect(page.getByText("Sonuç yok.").first()).toBeVisible();
-    await expect(page.getByRole("listitem")).toHaveCount(0);
+    await expect(page.getByRole("main").getByRole("listitem")).toHaveCount(0);
 
     // Sayfa yenilenince arama korunur.
     await searchInput(page).fill(plateDisplay);

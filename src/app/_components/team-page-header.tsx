@@ -14,6 +14,7 @@
  * AYNI bileşendir (kod tekrarı yok), yalnız `redirectTo="/yonetim/giris"`
  * geçirir.
  */
+import { PANEL_TITLES } from "../../lib/messages";
 import { LogoutButton } from "./logout-button";
 
 export function TeamPageHeader({
@@ -27,10 +28,13 @@ export function TeamPageHeader({
 }) {
   return (
     <header className="ds-header">
-      <span className="ds-header-who">
-        <span className="[overflow-wrap:anywhere]">{username}</span>{" "}
-        <span className="ds-header-role">· {roleLabel}</span>
-      </span>
+      <div className="flex min-w-0 flex-col gap-1">
+        <p className="ds-card-title">{PANEL_TITLES.management}</p>
+        <span className="ds-header-who">
+          <span className="[overflow-wrap:anywhere]">{username}</span>{" "}
+          <span className="ds-header-role">· {roleLabel}</span>
+        </span>
+      </div>
       <LogoutButton csrfToken={csrfToken} redirectTo="/yonetim/giris" />
     </header>
   );

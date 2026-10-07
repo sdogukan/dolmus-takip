@@ -40,7 +40,7 @@ export default async function SahipRaporlarPage() {
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-[35rem] flex-col gap-6 px-4 sm:px-6 py-6">
-      <VehiclePageHeader plate={plate ?? "—"} csrfToken={context.csrfToken} />
+      <VehiclePageHeader role={context.role} plate={plate ?? "—"} csrfToken={context.csrfToken} />
       <Link
         href="/sahip"
         className="ds-link ds-link-block self-start"

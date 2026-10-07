@@ -21,6 +21,12 @@ _All four implemented (src/app/page.tsx, giris, yonetim/giris, aydinlatma-metni)
 
 **Repos:** dolmus-takip
 
+All authenticated pages show the panel title above the existing identity in the
+shared header: **Araç Sahibi Paneli** for owner sessions, **Şoför Paneli** for
+driver sessions and **Yönetim Paneli** for staff sessions. The title remains
+visible on report, record and other subpages; the plate/name or staff
+username/role and the logout button remain in the header.
+
 | # | Page | URL |
 | --- | --- | --- |
 | 1 | Şoför — günlük kayıt formu (implemented T3.1–T3.4, shared WorkEntryForm in driver mode: fixed plate, date, person picker, start/end time with a 'Bitiş ertesi gün' box and live duration, gross and fuel, one optional other expense + note, live read-only share and hand-over summary, 'Kaydet' saves the entry (T3.4) and replaces the form with 'Kaydedildi', '<name> · <date> · <duration>', 'Teslim edilecek tutar' and 'Henüz doğrulanmadı'; an unknown result locks the fields with 'Kaydı tekrar dene'; the saved result links 'Kaydı aç' to /sofor/kayitlar/:id; a 'Kayıtlarım' link sits below the form; after 'Yenile' a confirmed entry shows 'Teslim doğrulandı' with 'Alınan tutar' and 'Doğrulama zamanı' on separate lines, apart from 'Teslim edilecek tutar' — T4.6) | /sofor |

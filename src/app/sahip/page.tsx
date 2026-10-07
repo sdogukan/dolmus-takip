@@ -51,7 +51,7 @@ export default async function SahipPage() {
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-[35rem] flex-col gap-6 px-4 sm:px-6 py-6">
-      <VehiclePageHeader plate={plate ?? "—"} ownerName={ownerName} csrfToken={context.csrfToken} />
+      <VehiclePageHeader role={context.role} plate={plate ?? "—"} ownerName={ownerName} csrfToken={context.csrfToken} />
       <h1 className="sr-only">{REPORT_MESSAGES.summary.title}</h1>
       <nav aria-label={REPORT_MESSAGES.summary.tabsLabel} className="ds-tabs">
         <span

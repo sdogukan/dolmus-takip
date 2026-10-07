@@ -229,6 +229,13 @@ export const PLATFORM_ROLE_LABELS = {
   support: "Destek",
 } as const;
 
+/** Oturumun hangi panelde olduğunu ortak üst başlıkta gösterir. */
+export const PANEL_TITLES = {
+  owner: "Araç Sahibi Paneli",
+  driver: "Şoför Paneli",
+  management: "Yönetim Paneli",
+} as const;
+
 /**
  * S1.6 AC7 (birebir): "Kayıt ol/uygulama indir zorunluluğu veya yeni
  * kurtarma hizmeti yoktur. 'Giriş yapamıyorsan hesabını açan ekipten

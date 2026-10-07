@@ -55,7 +55,7 @@ export default async function SoforPage() {
 
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-[35rem] flex-col gap-8 px-4 sm:px-6 py-6">
-      <VehiclePageHeader plate={plate ?? "—"} csrfToken={context.csrfToken} />
+      <VehiclePageHeader role={context.role} plate={plate ?? "—"} csrfToken={context.csrfToken} />
       <h1 className="ds-title">Günlük kayıt</h1>
       <WorkEntryForm
         today={istanbulToday()}

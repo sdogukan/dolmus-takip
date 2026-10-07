@@ -1,19 +1,18 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { WORK_ENTRY_MESSAGES } from "../../../lib/messages";
 import { readPageSession } from "../../../server/auth/page-session";
 import { readVehiclePlateForDisplay } from "../../../server/auth/vehicle-plate";
 import { getAppDb } from "../../../server/data/app-db";
 import { DriverEntriesList } from "../../_components/driver-entries-list";
-import { VehiclePageHeader } from "../../_components/vehicle-page-header";
+import { VehiclePageShell } from "../../_components/vehicle-page-shell";
 
 /**
  * /sofor/kayitlar — şoförün kayıt listesi (K1). `../page.tsx` İLE AYNI
  * yönlendirme. Liste istemcide, seçilen kişinin GÖRÜNÜR kayıtlarıyla dolar.
  */
 export const metadata: Metadata = {
-  title: "Kayıtlarım — Dolmuş Takip",
+  title: "Araçtaki kayıtlar — Dolmuş Takip",
 };
 
 export default async function SoforEntriesPage() {
@@ -36,13 +35,12 @@ export default async function SoforEntriesPage() {
   const plate = (await readVehiclePlateForDisplay(getAppDb(), context.vehicleId)) ?? "—";
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-[35rem] flex-col gap-6 px-4 sm:px-6 py-6">
-      <VehiclePageHeader role={context.role} plate={plate} csrfToken={context.csrfToken} />
-      <Link href="/sofor" className="ds-link ds-link-block">
-        {WORK_ENTRY_MESSAGES.backToDriver}
-      </Link>
-      <h1 className="ds-title">{WORK_ENTRY_MESSAGES.listTitle}</h1>
+    <VehiclePageShell role={context.role} plate={plate} csrfToken={context.csrfToken} backLink={{ href: "/sofor", label: "Günlük kayda dön" }}>
+      <div className="flex flex-col gap-1">
+        <h1 className="ds-title">{WORK_ENTRY_MESSAGES.listTitle}</h1>
+        <p className="text-base text-[var(--color-text-secondary)]">Bu araçta çalışan şoförlerin kayıtlarını ve teslim durumunu gör.</p>
+      </div>
       <DriverEntriesList />
-    </main>
+    </VehiclePageShell>
   );
 }

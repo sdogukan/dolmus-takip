@@ -291,14 +291,6 @@ export function OwnerSummary({ targetVehicleId }: { targetVehicleId?: string } =
             </p>
           ) : (
             <>
-              <dl className="ds-sum">
-                {view.totals.map((row) => (
-                  <div key={row.label} className="ds-sum-row">
-                    <dt>{row.label}</dt>
-                    <dd className="ds-sum-amount">{row.value}</dd>
-                  </div>
-                ))}
-              </dl>
               <div>
                 <p className="flex flex-wrap justify-between gap-x-3 text-lg font-semibold text-[var(--color-text)]">
                   <span>{REPORT_TEXT.receivedLabel}</span>
@@ -314,6 +306,17 @@ export function OwnerSummary({ targetVehicleId }: { targetVehicleId?: string } =
                   date={view.startDate}
                   targetVehicleId={targetVehicleId}
                 />
+              </div>
+              <div className="flex flex-col gap-3">
+                <h3 className="ds-card-title">Dönem hesabı</h3>
+                <dl className="ds-sum">
+                  {view.totals.map((row) => (
+                    <div key={row.label} className="ds-sum-row">
+                      <dt>{row.label}</dt>
+                      <dd className="ds-sum-amount">{row.value}</dd>
+                    </div>
+                  ))}
+                </dl>
               </div>
             </>
           )}

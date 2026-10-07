@@ -1,14 +1,15 @@
 "use client";
 
 /**
- * Kaydedilmemiş değişiklik kaydı (dirty-form registry) — destek hedefi
- * değiştirilirken (`./support-target-header.tsx`) sayfadaki HERHANGİ bir formun
+ * Kaydedilmemiş değişiklik kaydı (dirty-form registry) — menü veya destek hedefi
+ * değiştirilirken sayfadaki HERHANGİ bir formun
  * bırakılacak değeri olup olmadığını sormak için. Formlar `useUnsavedChanges`
  * ile kendi kirli durumunu bildirir; başlık `useUnsavedChangesRegistry().
  * hasDirty()` ile OKUR. Durum bir `ref`te tutulur (render tetiklemez): yalnız
  * bir tıklamada okunur, ekranda gösterilmez.
  *
- * Sağlayıcı yoksa (sahip/şoför ekranları) kayıt işlemleri sessizce boştur.
+ * Yönetim, sahip ve şoför sayfa kabukları sağlayıcıyı taşır.
+ * Sağlayıcı dışında kayıt işlemleri sessizce boştur.
  */
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 

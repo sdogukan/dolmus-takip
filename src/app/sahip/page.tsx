@@ -6,7 +6,7 @@ import { readPageSession } from "../../server/auth/page-session";
 import { readVehicleOwnerNameForDisplay, readVehiclePlateForDisplay } from "../../server/auth/vehicle-plate";
 import { REPORT_MESSAGES, WORK_ENTRY_MESSAGES } from "../../lib/messages";
 import { OwnerSummary } from "../_components/owner-summary";
-import { VehiclePageHeader } from "../_components/vehicle-page-header";
+import { VehiclePageShell } from "../_components/vehicle-page-shell";
 
 /**
  * /sahip — mal sahibi özeti. Yönlendirmeler:
@@ -50,23 +50,11 @@ export default async function SahipPage() {
     : undefined;
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-[35rem] flex-col gap-6 px-4 sm:px-6 py-6">
-      <VehiclePageHeader role={context.role} plate={plate ?? "—"} ownerName={ownerName} csrfToken={context.csrfToken} />
-      <h1 className="sr-only">{REPORT_MESSAGES.summary.title}</h1>
-      <nav aria-label={REPORT_MESSAGES.summary.tabsLabel} className="ds-tabs">
-        <span
-          aria-current="page"
-          className="ds-tab"
-        >
-          {REPORT_MESSAGES.summary.title}
-        </span>
-        <Link href="/sahip/raporlar" className="ds-tab">
-          {REPORT_MESSAGES.link}
-        </Link>
-        <Link href="/sahip/soforler" className="ds-tab">
-          {REPORT_MESSAGES.summary.driversTab}
-        </Link>
-      </nav>
+    <VehiclePageShell role={context.role} plate={plate ?? "—"} ownerName={ownerName} csrfToken={context.csrfToken}>
+      <div className="flex flex-col gap-1">
+        <h1 className="ds-title">{REPORT_MESSAGES.summary.title}</h1>
+        <p className="text-base text-[var(--color-text-secondary)]">Aracının kazancını ve bekleyen teslimleri buradan takip et.</p>
+      </div>
       <Link
         href="/sahip/kayit/yeni"
         className="ds-btn ds-btn-primary ds-btn-lg inline-flex items-center justify-center"
@@ -74,6 +62,6 @@ export default async function SahipPage() {
         {WORK_ENTRY_MESSAGES.enterLink}
       </Link>
       <OwnerSummary />
-    </main>
+    </VehiclePageShell>
   );
 }

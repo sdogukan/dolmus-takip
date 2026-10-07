@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { WORK_ENTRY_MESSAGES } from "../../../../lib/messages";
 import { istanbulToday } from "../../../../lib/work-time";
@@ -8,7 +7,7 @@ import { computeScopeKey, scopeFromVehicleSession } from "../../../../server/aut
 import { readVehiclePlateForDisplay } from "../../../../server/auth/vehicle-plate";
 import { getAppDb } from "../../../../server/data/app-db";
 import { readWorkEntryForScope } from "../../../../server/usecases/work-entries";
-import { VehiclePageHeader } from "../../../_components/vehicle-page-header";
+import { VehiclePageShell } from "../../../_components/vehicle-page-shell";
 import { WorkEntryEditForm } from "../../../_components/work-entry-edit-form";
 
 /**
@@ -49,11 +48,7 @@ export default async function SoforEntryPage({ params }: { params: Promise<{ id:
   const plate = (await readVehiclePlateForDisplay(db, context.vehicleId)) ?? "—";
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-[35rem] flex-col gap-6 px-4 sm:px-6 py-6">
-      <VehiclePageHeader role={context.role} plate={plate} csrfToken={context.csrfToken} />
-      <Link href="/sofor/kayitlar" className="ds-link ds-link-block">
-        ← {WORK_ENTRY_MESSAGES.listTitle}
-      </Link>
+    <VehiclePageShell role={context.role} plate={plate} csrfToken={context.csrfToken} backLink={{ href: "/sofor/kayitlar", label: "Araçtaki kayıtlara dön" }}>
       <h1 className="ds-title">{WORK_ENTRY_MESSAGES.detailTitle}</h1>
       <WorkEntryEditForm
         entry={entry}
@@ -63,6 +58,6 @@ export default async function SoforEntryPage({ params }: { params: Promise<{ id:
         scopeKey={computeScopeKey(context)}
         csrfToken={context.csrfToken}
       />
-    </main>
+    </VehiclePageShell>
   );
 }

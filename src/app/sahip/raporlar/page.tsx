@@ -1,11 +1,10 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getAppDb } from "../../../server/data/app-db";
 import { readPageSession } from "../../../server/auth/page-session";
 import { readVehiclePlateForDisplay } from "../../../server/auth/vehicle-plate";
 import { REPORT_MESSAGES } from "../../../lib/messages";
-import { VehiclePageHeader } from "../../_components/vehicle-page-header";
+import { VehiclePageShell } from "../../_components/vehicle-page-shell";
 import { VehiclePeriodReport } from "../../_components/vehicle-period-report";
 
 /**
@@ -39,16 +38,12 @@ export default async function SahipRaporlarPage() {
     : undefined;
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-[35rem] flex-col gap-6 px-4 sm:px-6 py-6">
-      <VehiclePageHeader role={context.role} plate={plate ?? "—"} csrfToken={context.csrfToken} />
-      <Link
-        href="/sahip"
-        className="ds-link ds-link-block self-start"
-      >
-        ← Özet
-      </Link>
-      <h1 className="ds-title">{REPORT_MESSAGES.title}</h1>
+    <VehiclePageShell role={context.role} plate={plate ?? "—"} csrfToken={context.csrfToken} backLink={{ href: "/sahip", label: "Özete dön" }}>
+      <div className="flex flex-col gap-1">
+        <h1 className="ds-title">{REPORT_MESSAGES.title}</h1>
+        <p className="text-base text-[var(--color-text-secondary)]">Seçtiğin dönemin hesabını kişi kişi veya gün gün incele.</p>
+      </div>
       <VehiclePeriodReport />
-    </main>
+    </VehiclePageShell>
   );
 }

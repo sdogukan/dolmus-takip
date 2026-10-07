@@ -1,13 +1,11 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getAppDb } from "../../server/data/app-db";
 import { readPageSession } from "../../server/auth/page-session";
 import { computeScopeKey } from "../../server/auth/scope";
 import { readVehiclePlateForDisplay } from "../../server/auth/vehicle-plate";
-import { WORK_ENTRY_MESSAGES } from "../../lib/messages";
 import { istanbulToday } from "../../lib/work-time";
-import { VehiclePageHeader } from "../_components/vehicle-page-header";
+import { VehiclePageShell } from "../_components/vehicle-page-shell";
 import { WorkEntryForm } from "../_components/work-entry-form";
 
 /**
@@ -54,9 +52,11 @@ export default async function SoforPage() {
   const plate = await readVehiclePlateForDisplay(db, context.vehicleId);
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-[35rem] flex-col gap-8 px-4 sm:px-6 py-6">
-      <VehiclePageHeader role={context.role} plate={plate ?? "—"} csrfToken={context.csrfToken} />
-      <h1 className="ds-title">Günlük kayıt</h1>
+    <VehiclePageShell role={context.role} plate={plate ?? "—"} csrfToken={context.csrfToken}>
+      <div className="flex flex-col gap-1">
+        <h1 className="ds-title">Günlük kayıt</h1>
+        <p className="text-base text-[var(--color-text-secondary)]">Çalıştığın günü, saatleri ve tutarları gir.</p>
+      </div>
       <WorkEntryForm
         today={istanbulToday()}
         plate={plate ?? "—"}
@@ -64,12 +64,6 @@ export default async function SoforPage() {
         scopeKey={computeScopeKey(context)}
         csrfToken={context.csrfToken}
       />
-      <Link
-        href="/sofor/kayitlar"
-        className="ds-btn ds-btn-secondary inline-flex items-center"
-      >
-        {WORK_ENTRY_MESSAGES.listLink}
-      </Link>
-    </main>
+    </VehiclePageShell>
   );
 }

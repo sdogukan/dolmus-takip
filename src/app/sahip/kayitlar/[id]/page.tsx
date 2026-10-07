@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { WORK_ENTRY_MESSAGES } from "../../../../lib/messages";
 import { istanbulToday } from "../../../../lib/work-time";
@@ -8,7 +7,8 @@ import { computeScopeKey, scopeFromVehicleSession } from "../../../../server/aut
 import { readVehiclePlateForDisplay } from "../../../../server/auth/vehicle-plate";
 import { getAppDb } from "../../../../server/data/app-db";
 import { readWorkEntryForScope } from "../../../../server/usecases/work-entries";
-import { VehiclePageHeader } from "../../../_components/vehicle-page-header";
+import { VehiclePageShell } from "../../../_components/vehicle-page-shell";
+import { VehicleActionLink } from "../../../_components/vehicle-navigation";
 import { WorkEntryEditForm } from "../../../_components/work-entry-edit-form";
 
 /**
@@ -47,11 +47,7 @@ export default async function SahipEntryPage({ params }: { params: Promise<{ id:
   const plate = (await readVehiclePlateForDisplay(db, context.vehicleId)) ?? "—";
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-[35rem] flex-col gap-6 px-4 sm:px-6 py-6">
-      <VehiclePageHeader role={context.role} plate={plate} csrfToken={context.csrfToken} />
-      <Link href="/sahip" className="ds-link ds-link-block">
-        {WORK_ENTRY_MESSAGES.backToOwner}
-      </Link>
+    <VehiclePageShell role={context.role} plate={plate} csrfToken={context.csrfToken} backLink={{ href: "/sahip", label: "Özete dön" }}>
       <h1 className="ds-title">{WORK_ENTRY_MESSAGES.detailTitle}</h1>
       <WorkEntryEditForm
         entry={entry}
@@ -62,12 +58,12 @@ export default async function SahipEntryPage({ params }: { params: Promise<{ id:
         csrfToken={context.csrfToken}
         plate={plate}
       />
-      <Link
+      <VehicleActionLink
         href={`/sahip/kayitlar/${entryId}/gecmis`}
-        className="ds-link ds-link-block"
+        className="ds-btn ds-btn-secondary self-start"
       >
         {WORK_ENTRY_MESSAGES.historyLink}
-      </Link>
-    </main>
+      </VehicleActionLink>
+    </VehiclePageShell>
   );
 }

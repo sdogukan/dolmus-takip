@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { WORK_ENTRY_MESSAGES } from "../../../../lib/messages";
 import { istanbulToday } from "../../../../lib/work-time";
@@ -8,7 +7,7 @@ import { computeScopeKey, scopeFromVehicleSession } from "../../../../server/aut
 import { readVehiclePlateForDisplay } from "../../../../server/auth/vehicle-plate";
 import { getAppDb } from "../../../../server/data/app-db";
 import { readVehicleOwnerPerson } from "../../../../server/usecases/work-entries";
-import { VehiclePageHeader } from "../../../_components/vehicle-page-header";
+import { VehiclePageShell } from "../../../_components/vehicle-page-shell";
 import { WorkEntryForm } from "../../../_components/work-entry-form";
 
 /**
@@ -43,12 +42,11 @@ export default async function SahipWorkEntryPage() {
   const owner = readVehicleOwnerPerson(db, scopeFromVehicleSession(context));
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-[35rem] flex-col gap-6 px-4 sm:px-6 py-6">
-      <VehiclePageHeader role={context.role} plate={plate} csrfToken={context.csrfToken} />
-      <Link href="/sahip" className="ds-link ds-link-block">
-        ← Özet
-      </Link>
-      <h1 className="ds-title">{WORK_ENTRY_MESSAGES.pageTitle}</h1>
+    <VehiclePageShell role={context.role} plate={plate} csrfToken={context.csrfToken} backLink={{ href: "/sahip", label: "Özete dön" }}>
+      <div className="flex flex-col gap-1">
+        <h1 className="ds-title">{WORK_ENTRY_MESSAGES.pageTitle}</h1>
+        <p className="text-base text-[var(--color-text-secondary)]">Önce kimin çalıştığını seç, ardından günlük hesabı gir.</p>
+      </div>
       <WorkEntryForm
         today={istanbulToday()}
         plate={plate}
@@ -58,6 +56,6 @@ export default async function SahipWorkEntryPage() {
         scopeKey={computeScopeKey(context)}
         csrfToken={context.csrfToken}
       />
-    </main>
+    </VehiclePageShell>
   );
 }

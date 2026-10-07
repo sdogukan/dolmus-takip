@@ -162,8 +162,8 @@ export function DriversManager({
   const locked = isBusy || draft.add.pending || op?.pending === true;
   const { active, inactive } = splitDrivers(view.drivers);
   const similar = findSimilarCandidates(draft.add.fullName, view.candidates);
-  // Yalnız ekip modunda: yazılmış ama gönderilmemiş ad veya açık bir satır işlemi.
-  useUnsavedChanges("soforler", isStaff && (draft.add.fullName.trim() !== "" || op !== null));
+  // Sahip ve ekip menüleri: yazılmış ama gönderilmemiş ad veya açık satır işlemi.
+  useUnsavedChanges("soforler", draft.add.fullName.trim() !== "" || op !== null);
 
   function persistOp(next: DriverOpDraft | null): void {
     persistDraft((prev) => ({ ...prev, op: next }));

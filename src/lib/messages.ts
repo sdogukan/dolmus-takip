@@ -800,8 +800,8 @@ export const WORK_ENTRY_MESSAGES = {
   backToOwner: "← Özet",
   backToDriver: "← Günlük kayıt",
   // K1 şoför listesi.
-  listTitle: "Kayıtlarım",
-  listLink: "Kayıtlarım",
+  listTitle: "Araçtaki kayıtlar",
+  listLink: "Araçtaki kayıtlar",
   listPersonLabel: "Kimin kayıtları?",
   listLoading: "Kayıtlar yükleniyor…",
   listEmpty: "Bu kişi için görebileceğin kayıt yok.",

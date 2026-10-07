@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { WORK_ENTRY_MESSAGES } from "../../../../../lib/messages";
 import { readPageSession } from "../../../../../server/auth/page-session";
@@ -7,7 +6,7 @@ import { scopeFromVehicleSession } from "../../../../../server/auth/scope";
 import { readVehiclePlateForDisplay } from "../../../../../server/auth/vehicle-plate";
 import { getAppDb } from "../../../../../server/data/app-db";
 import { readWorkEntryHistoryForScope } from "../../../../../server/usecases/work-entries";
-import { VehiclePageHeader } from "../../../../_components/vehicle-page-header";
+import { VehiclePageShell } from "../../../../_components/vehicle-page-shell";
 import { WorkEntryHistory } from "../../../../_components/work-entry-history";
 
 /**
@@ -46,16 +45,9 @@ export default async function SahipEntryHistoryPage({ params }: { params: Promis
   const plate = (await readVehiclePlateForDisplay(db, context.vehicleId)) ?? "—";
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-[35rem] flex-col gap-6 px-4 sm:px-6 py-6">
-      <VehiclePageHeader role={context.role} plate={plate} csrfToken={context.csrfToken} />
-      <Link
-        href={`/sahip/kayitlar/${entryId}`}
-        className="ds-link ds-link-block"
-      >
-        {WORK_ENTRY_MESSAGES.historyBack}
-      </Link>
+    <VehiclePageShell role={context.role} plate={plate} csrfToken={context.csrfToken} backLink={{ href: `/sahip/kayitlar/${entryId}`, label: "Kayda dön" }}>
       <h1 className="ds-title">{WORK_ENTRY_MESSAGES.historyTitle}</h1>
       <WorkEntryHistory view={view} />
-    </main>
+    </VehiclePageShell>
   );
 }

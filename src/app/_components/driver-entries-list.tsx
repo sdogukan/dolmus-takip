@@ -10,6 +10,7 @@
  * durumları AYRIDIR: ağ hatası veya 401/403 "kayıt yok" metnini ASLA göstermez.
  */
 import Link from "next/link";
+import { RefreshCw } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { adminReadErrorMessage } from "../../lib/admin-search";
 import { WORK_ENTRY_MESSAGES as TEXT } from "../../lib/messages";
@@ -171,25 +172,31 @@ export function DriverEntriesList() {
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <label htmlFor="list-person" className={labelClass}>
-          {TEXT.listPersonLabel}
-        </label>
-        <select
-          id="list-person"
-          value={personId}
-          disabled={drivers.status !== "loaded" || drivers.drivers.length === 0}
-          onChange={(event) => choosePerson(event.target.value)}
-          className={controlClass}
-        >
-          <option value="">{drivers.status === "loading" ? TEXT.personLoading : TEXT.personPlaceholder}</option>
-          {drivers.status === "loaded" &&
-            drivers.drivers.map((driver) => (
-              <option key={driver.personId} value={driver.personId}>
-                {driver.fullName}
-              </option>
-            ))}
-        </select>
+      <div className="ds-card flex flex-col gap-3 p-4">
+        <div>
+          <label htmlFor="list-person" className={labelClass}>
+            {TEXT.listPersonLabel}
+          </label>
+          <select
+            id="list-person"
+            value={personId}
+            disabled={drivers.status !== "loaded" || drivers.drivers.length === 0}
+            onChange={(event) => choosePerson(event.target.value)}
+            className={controlClass}
+            aria-describedby="list-person-help"
+          >
+            <option value="">{drivers.status === "loading" ? TEXT.personLoading : "Şoförü seç"}</option>
+            {drivers.status === "loaded" &&
+              drivers.drivers.map((driver) => (
+                <option key={driver.personId} value={driver.personId}>
+                  {driver.fullName}
+                </option>
+              ))}
+          </select>
+          <p id="list-person-help" className="mt-2 text-base text-[var(--color-text-secondary)]">
+            Kayıtlarını görmek istediğin şoförü seç.
+          </p>
+        </div>
         {drivers.status === "loaded" && drivers.drivers.length === 0 && (
           <p role="status" className="mt-1 text-base text-[var(--color-text-secondary)]">
             {TEXT.personEmpty}
@@ -212,7 +219,22 @@ export function DriverEntriesList() {
             </button>
           </div>
         )}
+        <button
+          type="button"
+          disabled={personId === "" || entries.status === "loading" || (entries.status === "loaded" && entries.loadingMore)}
+          onClick={() => choosePerson(personId)}
+          className={`${secondaryButtonClass} inline-flex items-center gap-2`}
+        >
+          <RefreshCw aria-hidden="true" size={18} strokeWidth={1.75} />
+          {TEXT.refresh}
+        </button>
       </div>
+
+      {entries.status === "idle" && drivers.status === "loaded" && drivers.drivers.length > 0 && (
+        <p role="status" className="ds-notice ds-notice-info">
+          Şoförü seçince kayıtları ve teslim durumu burada görünecek.
+        </p>
+      )}
 
       {entries.status === "loading" && (
         <p role="status" className="text-base text-[var(--color-text-secondary)]">

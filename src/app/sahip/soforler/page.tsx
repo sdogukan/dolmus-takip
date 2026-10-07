@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { readPageSession } from "../../../server/auth/page-session";
 import { computeScopeKey, scopeFromVehicleSession } from "../../../server/auth/scope";
@@ -7,7 +6,7 @@ import { readVehiclePlateForDisplay } from "../../../server/auth/vehicle-plate";
 import { getAppDb } from "../../../server/data/app-db";
 import { listVehicleDriversForManagement } from "../../../server/usecases/drivers";
 import { DriversManager } from "../../_components/drivers-manager";
-import { VehiclePageHeader } from "../../_components/vehicle-page-header";
+import { VehiclePageShell } from "../../_components/vehicle-page-shell";
 
 /**
  * /sahip/soforler — Şoförlerim. T2.5. `../page.tsx` İLE
@@ -42,12 +41,11 @@ export default async function SahipSoforlerPage() {
   const initialView = listVehicleDriversForManagement(db, scopeFromVehicleSession(context));
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-[35rem] flex-col gap-6 px-4 sm:px-6 py-6">
-      <VehiclePageHeader role={context.role} plate={plate} csrfToken={context.csrfToken} />
-      <Link href="/sahip" className="ds-link ds-link-block">
-        ← Özet
-      </Link>
-      <h1 className="ds-title">Şoförlerim</h1>
+    <VehiclePageShell role={context.role} plate={plate} csrfToken={context.csrfToken} backLink={{ href: "/sahip", label: "Özete dön" }}>
+      <div className="flex flex-col gap-1">
+        <h1 className="ds-title">Şoförlerim</h1>
+        <p className="text-base text-[var(--color-text-secondary)]">Aracında çalışan şoförleri buradan ekle ve düzenle.</p>
+      </div>
       <DriversManager
         mode="owner"
         vehicleId={context.vehicleId}
@@ -56,6 +54,6 @@ export default async function SahipSoforlerPage() {
         scopeKey={computeScopeKey(context)}
         initialView={initialView}
       />
-    </main>
+    </VehiclePageShell>
   );
 }

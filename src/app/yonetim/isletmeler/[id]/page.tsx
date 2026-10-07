@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { notFound, redirect } from "next/navigation";
 import { readPageSession } from "../../../../server/auth/page-session";
 import { computeScopeKey } from "../../../../server/auth/scope";
-import { TeamPageHeader } from "../../../_components/team-page-header";
+import { TeamPageShell } from "../../../_components/team-page-shell";
 import { readPlatformUsernameForDisplay } from "../../../../server/auth/platform-username";
 import { PLATFORM_ROLE_LABELS } from "../../../../lib/messages";
 import { getAppDb } from "../../../../server/data/app-db";
@@ -75,12 +75,12 @@ export default async function BusinessDetailPage({
       : context.role;
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-[var(--form-max-width)] flex-col gap-8 px-4 sm:px-6 py-6">
-      <TeamPageHeader
-        username={username ?? "—"}
-        roleLabel={roleLabel}
-        csrfToken={context.csrfToken}
-      />
+    <TeamPageShell
+      username={username ?? "—"}
+      roleLabel={roleLabel}
+      csrfToken={context.csrfToken}
+      isAdmin={context.role === "admin"}
+    >
       <BusinessDetailForm
         businessId={businessId}
         initialDetail={detail}
@@ -88,6 +88,6 @@ export default async function BusinessDetailPage({
         scopeKey={computeScopeKey(context)}
         canAnonymize={context.role === "admin"}
       />
-    </main>
+    </TeamPageShell>
   );
 }

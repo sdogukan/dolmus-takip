@@ -9,8 +9,7 @@ import { computeScopeKey } from "../../../../../server/auth/scope";
 import { getAppDb } from "../../../../../server/data/app-db";
 import { getVehicleDetail, VehicleNotFoundError } from "../../../../../server/usecases/admin-vehicles";
 import { SupportTargetHeader } from "../../../../_components/support-target-header";
-import { TeamPageHeader } from "../../../../_components/team-page-header";
-import { UnsavedChangesProvider } from "../../../../_components/unsaved-changes";
+import { TeamPageShell } from "../../../../_components/team-page-shell";
 
 /**
  * /yonetim/araclar/[id]/destek — destek alanı. `../page.tsx`
@@ -69,23 +68,22 @@ export default async function VehicleSupportPage({
   const inactive = !detail.vehicle.active || !detail.business.active;
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-[var(--form-max-width)] flex-col gap-6 px-4 sm:px-6 py-6">
-      <TeamPageHeader
+    <TeamPageShell
+      username={username ?? "—"}
+      roleLabel={roleLabel}
+      csrfToken={context.csrfToken}
+      isAdmin={context.role === "admin"}
+    >
+      <SupportTargetHeader
+        vehicleId={vehicleId}
+        scopeKey={computeScopeKey(context)}
+        businessName={detail.business.name}
+        plateDisplay={formatPlateForDisplay(detail.vehicle.plateNormalized)}
+        ownerName={detail.owner.fullName}
         username={username ?? "—"}
         roleLabel={roleLabel}
-        csrfToken={context.csrfToken}
       />
-      <UnsavedChangesProvider>
-        <SupportTargetHeader
-          vehicleId={vehicleId}
-          scopeKey={computeScopeKey(context)}
-          businessName={detail.business.name}
-          plateDisplay={formatPlateForDisplay(detail.vehicle.plateNormalized)}
-          ownerName={detail.owner.fullName}
-          username={username ?? "—"}
-          roleLabel={roleLabel}
-        />
-      </UnsavedChangesProvider>
+
       <h1 className="ds-title">{SUPPORT_MESSAGES.pageTitle}</h1>
       {inactive && (
         <p role="status" className="ds-notice ds-notice-warning">
@@ -112,6 +110,6 @@ export default async function VehicleSupportPage({
           {SUPPORT_MESSAGES.linkAudit}
         </Link>
       </nav>
-    </main>
+    </TeamPageShell>
   );
 }

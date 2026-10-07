@@ -27,6 +27,24 @@ driver sessions and **Yönetim Paneli** for staff sessions. The title remains
 visible on report, record and other subpages; the plate/name or staff
 username/role and the logout button remain in the header.
 
+Authenticated staff pages share `TeamPageShell`: at 1024 px and wider, a
+sticky left menu shows **İşletmeler**, **İşlem geçmişi** and, for admins only,
+**Ekip hesapları**. Below 1024 px, the same navigation becomes a fixed bottom
+bar with icons and the labels **İşletmeler / Geçmiş / Ekip**. The active section
+has a petrol border and tinted background, plus `aria-current="page"`; business
+and vehicle subpages keep İşletmeler selected, team subpages keep Ekip selected.
+The shell includes an İçeriğe geç link, at least 48 px touch targets, bottom
+safe-area spacing and content padding so the bar does not cover the last item.
+Existing server session/role checks still decide access. Registered unsaved
+forms share the shell's registry, so leaving through the menu asks before
+discarding changes. Login and vehicle-owner/driver pages use their own layouts.
+
+The staff home page is titled **İşletmeler**, with **+ İşletme aç** beside the
+title. The three main staff lists use the wider desktop content area; search and
+status filters sit side by side on desktop. Detail and editing forms retain the
+35 rem reading width. Existing petrol colours, typography and button styles
+are reused.
+
 | # | Page | URL |
 | --- | --- | --- |
 | 1 | Şoför — günlük kayıt formu (implemented T3.1–T3.4, shared WorkEntryForm in driver mode: fixed plate, date, person picker, start/end time with a 'Bitiş ertesi gün' box and live duration, gross and fuel, one optional other expense + note, live read-only share and hand-over summary, 'Kaydet' saves the entry (T3.4) and replaces the form with 'Kaydedildi', '<name> · <date> · <duration>', 'Teslim edilecek tutar' and 'Henüz doğrulanmadı'; an unknown result locks the fields with 'Kaydı tekrar dene'; the saved result links 'Kaydı aç' to /sofor/kayitlar/:id; a 'Kayıtlarım' link sits below the form; after 'Yenile' a confirmed entry shows 'Teslim doğrulandı' with 'Alınan tutar' and 'Doğrulama zamanı' on separate lines, apart from 'Teslim edilecek tutar' — T4.6) | /sofor |

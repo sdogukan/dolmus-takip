@@ -219,34 +219,36 @@ export function AdminSearch({
 
   return (
     <div className="flex flex-col gap-4">
-      <div>
-        <label htmlFor="yonetim-arama" className="ds-label block">
-          {TEXT.label}
-        </label>
-        <input
-          id="yonetim-arama"
-          type="search"
-          autoComplete="off"
-          maxLength={100}
-          value={input}
-          onChange={(event) => handleInputChange(event.target.value)}
-          className="ds-input mt-1 w-full"
-        />
-      </div>
-      <div>
-        <label htmlFor="yonetim-durum" className="ds-label block">
-          {TEXT.activeLabel}
-        </label>
-        <select
-          id="yonetim-durum"
-          value={active}
-          onChange={(event) => handleActiveChange(event.target.value as ActiveFilter)}
-          className="ds-input mt-1 w-full"
-        >
-          <option value="all">{TEXT.activeAll}</option>
-          <option value="active">{TEXT.activeOnly}</option>
-          <option value="inactive">{TEXT.inactiveOnly}</option>
-        </select>
+      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_12rem]">
+        <div>
+          <label htmlFor="yonetim-arama" className="ds-label block">
+            {TEXT.label}
+          </label>
+          <input
+            id="yonetim-arama"
+            type="search"
+            autoComplete="off"
+            maxLength={100}
+            value={input}
+            onChange={(event) => handleInputChange(event.target.value)}
+            className="ds-input mt-1 w-full"
+          />
+        </div>
+        <div>
+          <label htmlFor="yonetim-durum" className="ds-label block">
+            {TEXT.activeLabel}
+          </label>
+          <select
+            id="yonetim-durum"
+            value={active}
+            onChange={(event) => handleActiveChange(event.target.value as ActiveFilter)}
+            className="ds-input mt-1 w-full"
+          >
+            <option value="all">{TEXT.activeAll}</option>
+            <option value="active">{TEXT.activeOnly}</option>
+            <option value="inactive">{TEXT.inactiveOnly}</option>
+          </select>
+        </div>
       </div>
 
       <p role="status" aria-live="polite" className="sr-only">
@@ -282,7 +284,7 @@ export function AdminSearch({
                 href={`/yonetim/isletmeler/${business.id}`}
                 className={`ds-card-link flex items-center justify-between gap-4 ${cardClass}`}
               >
-                <span className="flex flex-col">
+                <span className="flex min-w-0 flex-col">
                   <span className="font-medium">{business.name}</span>
                   <span className="text-[var(--color-text-secondary)]">
                     {business.owner ? `Sahip: ${business.owner.fullName}` : "Sahipsiz"} ·{" "}

@@ -8,7 +8,7 @@ import { readPlatformUsernameForDisplay } from "../../../server/auth/platform-us
 import { getAppDb } from "../../../server/data/app-db";
 import { BusinessNotFoundError, getBusinessDetail } from "../../../server/usecases/admin-businesses";
 import { getVehicleDetail, VehicleNotFoundError } from "../../../server/usecases/admin-vehicles";
-import { TeamPageHeader } from "../../_components/team-page-header";
+import { TeamPageShell } from "../../_components/team-page-shell";
 import { AuditHistory } from "./audit-history";
 
 /**
@@ -72,15 +72,13 @@ export default async function AuditHistoryPage({
       : context.role;
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-[var(--form-max-width)] flex-col gap-6 px-4 sm:px-6 py-6">
-      <TeamPageHeader
-        username={username ?? "—"}
-        roleLabel={roleLabel}
-        csrfToken={context.csrfToken}
-      />
-      <Link href="/yonetim" className="ds-link ds-link-block">
-        ← Yönetim
-      </Link>
+    <TeamPageShell
+      username={username ?? "—"}
+      roleLabel={roleLabel}
+      csrfToken={context.csrfToken}
+      isAdmin={context.role === "admin"}
+      wide
+    >
       <h1 className="ds-title">{AUDIT_MESSAGES.title}</h1>
       {filterLabel && (
         <p className="flex flex-wrap items-center gap-3 text-base text-[var(--color-text-secondary)]">
@@ -93,6 +91,6 @@ export default async function AuditHistoryPage({
         </p>
       )}
       <AuditHistory vehicleId={vehicleId} businessId={businessId} />
-    </main>
+    </TeamPageShell>
   );
 }

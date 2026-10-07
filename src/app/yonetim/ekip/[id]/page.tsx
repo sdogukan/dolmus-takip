@@ -3,8 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { TEAM_USER_MESSAGES as TEXT } from "../../../../lib/messages";
 import { AdminUserNotFoundError, getPlatformUserDetail } from "../../../../server/usecases/admin-users";
-import { TeamPageHeader } from "../../../_components/team-page-header";
-import { UnsavedChangesProvider } from "../../../_components/unsaved-changes";
+import { TeamPageShell } from "../../../_components/team-page-shell";
 import { readTeamPageContext } from "../team-page-context";
 import { TeamUserDetailForm } from "./team-user-detail-form";
 
@@ -20,19 +19,23 @@ export const metadata: Metadata = {
 export default async function TeamUserDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const page = await readTeamPageContext();
-  const header = <TeamPageHeader username={page.username} roleLabel={page.roleLabel} csrfToken={page.csrfToken} />;
+  const shellProps = {
+    username: page.username,
+    roleLabel: page.roleLabel,
+    csrfToken: page.csrfToken,
+    isAdmin: page.isAdmin,
+  };
 
   if (!page.isAdmin) {
     return (
-      <main className="mx-auto flex min-h-dvh w-full max-w-[var(--form-max-width)] flex-col gap-6 px-4 sm:px-6 py-6">
-        {header}
+      <TeamPageShell {...shellProps}>
         <Link href="/yonetim" className="ds-link ds-link-block">
           {TEXT.backToAdmin}
         </Link>
         <p role="alert" className="ds-notice ds-notice-error">
           {TEXT.unauthorized}
         </p>
-      </main>
+      </TeamPageShell>
     );
   }
 
@@ -47,19 +50,17 @@ export default async function TeamUserDetailPage({ params }: { params: Promise<{
   }
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-[var(--form-max-width)] flex-col gap-8 px-4 sm:px-6 py-6">
-      {header}
+    <TeamPageShell {...shellProps}>
       <Link href="/yonetim/ekip" className="ds-link ds-link-block">
         {TEXT.backToList}
       </Link>
-      <UnsavedChangesProvider>
-        <TeamUserDetailForm
-          initialUser={user}
-          isSelf={page.platformUserId === user.id}
-          csrfToken={page.csrfToken}
-          scopeKey={page.scopeKey}
-        />
-      </UnsavedChangesProvider>
-    </main>
+
+      <TeamUserDetailForm
+        initialUser={user}
+        isSelf={page.platformUserId === user.id}
+        csrfToken={page.csrfToken}
+        scopeKey={page.scopeKey}
+      />
+    </TeamPageShell>
   );
 }

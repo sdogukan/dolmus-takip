@@ -14,8 +14,7 @@ import {
 } from "../../../../../server/usecases/drivers";
 import { DriversManager } from "../../../../_components/drivers-manager";
 import { SupportTargetHeader } from "../../../../_components/support-target-header";
-import { TeamPageHeader } from "../../../../_components/team-page-header";
-import { UnsavedChangesProvider } from "../../../../_components/unsaved-changes";
+import { TeamPageShell } from "../../../../_components/team-page-shell";
 
 /**
  * /yonetim/araclar/[id]/soforler — ekip için Şoförlerim (T2.5). `../page.tsx`
@@ -79,47 +78,45 @@ export default async function VehicleDriversPage({
   const scopeKey = computeScopeKey(context);
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-[var(--form-max-width)] flex-col gap-6 px-4 sm:px-6 py-6">
-      <TeamPageHeader
+    <TeamPageShell
+      username={username ?? "—"}
+      roleLabel={roleLabel}
+      csrfToken={context.csrfToken}
+      isAdmin={context.role === "admin"}
+    >
+      <SupportTargetHeader
+        vehicleId={vehicleId}
+        scopeKey={scopeKey}
+        businessName={detail.business.name}
+        plateDisplay={plate}
+        ownerName={detail.owner.fullName}
         username={username ?? "—"}
         roleLabel={roleLabel}
-        csrfToken={context.csrfToken}
       />
-      <UnsavedChangesProvider>
-        <SupportTargetHeader
-          vehicleId={vehicleId}
-          scopeKey={scopeKey}
-          businessName={detail.business.name}
-          plateDisplay={plate}
-          ownerName={detail.owner.fullName}
-          username={username ?? "—"}
-          roleLabel={roleLabel}
-        />
-        <Link
-          href={`/yonetim/araclar/${vehicleId}`}
-          className="ds-link ds-link-block"
-        >
-          ← Araç
-        </Link>
-        <div className="flex flex-col gap-2">
-          <h1 className="ds-title">Şoförler</h1>
-          <p className="text-base text-[var(--color-text-secondary)]">
-            {plate} · {detail.business.name} · Sahip: {detail.owner.fullName}
-          </p>
-        </div>
-        <DriversManager
-          mode="staff"
-          vehicleId={vehicleId}
-          plateDisplay={plate}
-          csrfToken={context.csrfToken}
-          scopeKey={scopeKey}
-          initialView={initialView}
-          affectedVehicles={affectedVehicles}
-          passwordResetHref={`/yonetim/araclar/${vehicleId}#sifre-sifirlama`}
-          canAnonymize={context.role === "admin"}
-          businessId={resolved.scope.businessId}
-        />
-      </UnsavedChangesProvider>
-    </main>
+      <Link
+        href={`/yonetim/araclar/${vehicleId}`}
+        className="ds-link ds-link-block"
+      >
+        ← Araç
+      </Link>
+      <div className="flex flex-col gap-2">
+        <h1 className="ds-title">Şoförler</h1>
+        <p className="text-base text-[var(--color-text-secondary)]">
+          {plate} · {detail.business.name} · Sahip: {detail.owner.fullName}
+        </p>
+      </div>
+      <DriversManager
+        mode="staff"
+        vehicleId={vehicleId}
+        plateDisplay={plate}
+        csrfToken={context.csrfToken}
+        scopeKey={scopeKey}
+        initialView={initialView}
+        affectedVehicles={affectedVehicles}
+        passwordResetHref={`/yonetim/araclar/${vehicleId}#sifre-sifirlama`}
+        canAnonymize={context.role === "admin"}
+        businessId={resolved.scope.businessId}
+      />
+    </TeamPageShell>
   );
 }

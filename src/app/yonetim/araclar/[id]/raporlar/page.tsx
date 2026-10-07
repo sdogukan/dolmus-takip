@@ -10,8 +10,7 @@ import { getAppDb } from "../../../../../server/data/app-db";
 import { getVehicleDetail, VehicleNotFoundError } from "../../../../../server/usecases/admin-vehicles";
 import { VehiclePeriodReport } from "../../../../_components/vehicle-period-report";
 import { SupportTargetHeader } from "../../../../_components/support-target-header";
-import { TeamPageHeader } from "../../../../_components/team-page-header";
-import { UnsavedChangesProvider } from "../../../../_components/unsaved-changes";
+import { TeamPageShell } from "../../../../_components/team-page-shell";
 
 /**
  * /yonetim/araclar/[id]/raporlar — destek alanında araç dönem raporu (sahip raporunun ekip modu). `../destek/page.tsx`
@@ -66,23 +65,22 @@ export default async function VehicleSupportReportsPage({
   const inactive = !detail.vehicle.active || !detail.business.active;
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-[35rem] flex-col gap-6 px-4 sm:px-6 py-6">
-      <TeamPageHeader
+    <TeamPageShell
+      username={username ?? "—"}
+      roleLabel={roleLabel}
+      csrfToken={context.csrfToken}
+      isAdmin={context.role === "admin"}
+    >
+      <SupportTargetHeader
+        vehicleId={vehicleId}
+        scopeKey={computeScopeKey(context)}
+        businessName={detail.business.name}
+        plateDisplay={formatPlateForDisplay(detail.vehicle.plateNormalized)}
+        ownerName={detail.owner.fullName}
         username={username ?? "—"}
         roleLabel={roleLabel}
-        csrfToken={context.csrfToken}
       />
-      <UnsavedChangesProvider>
-        <SupportTargetHeader
-          vehicleId={vehicleId}
-          scopeKey={computeScopeKey(context)}
-          businessName={detail.business.name}
-          plateDisplay={formatPlateForDisplay(detail.vehicle.plateNormalized)}
-          ownerName={detail.owner.fullName}
-          username={username ?? "—"}
-          roleLabel={roleLabel}
-        />
-      </UnsavedChangesProvider>
+
       <Link
         href={`/yonetim/araclar/${vehicleId}/destek`}
         className="ds-btn ds-btn-text inline-flex items-center self-start"
@@ -96,6 +94,6 @@ export default async function VehicleSupportReportsPage({
         </p>
       )}
       <VehiclePeriodReport key={vehicleId} targetVehicleId={vehicleId} />
-    </main>
+    </TeamPageShell>
   );
 }

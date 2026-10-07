@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { TEAM_USER_MESSAGES as TEXT } from "../../../../lib/messages";
-import { TeamPageHeader } from "../../../_components/team-page-header";
+import { TeamPageShell } from "../../../_components/team-page-shell";
 import { readTeamPageContext } from "../team-page-context";
 import { NewTeamUserForm } from "./new-team-user-form";
 
@@ -14,8 +14,10 @@ export default async function NewTeamUserPage() {
   const page = await readTeamPageContext();
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-[var(--form-max-width)] flex-col gap-8 px-4 sm:px-6 py-6">
-      <TeamPageHeader username={page.username} roleLabel={page.roleLabel} csrfToken={page.csrfToken} />
+    <TeamPageShell
+      username={page.username} roleLabel={page.roleLabel} csrfToken={page.csrfToken}
+      isAdmin={page.isAdmin}
+    >
       <Link href="/yonetim/ekip" className="ds-link ds-link-block">
         {TEXT.backToList}
       </Link>
@@ -26,6 +28,6 @@ export default async function NewTeamUserPage() {
           {TEXT.unauthorized}
         </p>
       )}
-    </main>
+    </TeamPageShell>
   );
 }

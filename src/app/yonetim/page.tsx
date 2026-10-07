@@ -4,19 +4,19 @@ import { redirect } from "next/navigation";
 import { getAppDb } from "../../server/data/app-db";
 import { readPageSession } from "../../server/auth/page-session";
 import { readPlatformUsernameForDisplay } from "../../server/auth/platform-username";
-import { PLATFORM_ROLE_LABELS, TEAM_USER_MESSAGES } from "../../lib/messages";
-import { TeamPageHeader } from "../_components/team-page-header";
+import { ADMIN_NAVIGATION_MESSAGES, PLATFORM_ROLE_LABELS } from "../../lib/messages";
+import { TeamPageShell } from "../_components/team-page-shell";
 import { parseActiveFilter } from "../../lib/admin-search";
 import { AdminSearch } from "./admin-search";
 
 /**
  * /yonetim — ekip ana ekranı (işletme / araç bulma; back office ilkesi):
- * "+ İşletme aç", işlem geçmişi
- * bağlantısı ve `AdminSearch` (URL'deki `q`/`active` ile başlar; liste
+ * Ortak yönetim menüsü, "+ İşletme aç" ve `AdminSearch`
+ * (URL'deki `q`/`active` ile başlar; liste
  * istemcide `GET /api/v1/admin/businesses|vehicles` ile okunur).
  */
 export const metadata: Metadata = {
-  title: "Yönetim — Dolmuş Takip",
+  title: "İşletmeler — Dolmuş Takip",
 };
 
 function targetPathForVehicleRole(role: string): string {
@@ -61,15 +61,16 @@ export default async function YonetimPage({
   const rawActive = Array.isArray(params.active) ? params.active[0] : params.active;
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-[var(--form-max-width)] flex-col gap-8 px-4 sm:px-6 py-6">
-      <TeamPageHeader
-        username={username ?? "—"}
-        roleLabel={roleLabel}
-        csrfToken={context.csrfToken}
-      />
+    <TeamPageShell
+      username={username ?? "—"}
+      roleLabel={roleLabel}
+      csrfToken={context.csrfToken}
+      isAdmin={context.role === "admin"}
+      wide
+    >
       <div className="flex flex-col gap-4">
-        <div className="flex items-center justify-between gap-4">
-          <h1 className="ds-title">Yönetim</h1>
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          <h1 className="ds-title">{ADMIN_NAVIGATION_MESSAGES.businesses}</h1>
           <Link
             href="/yonetim/isletmeler/yeni"
             className="ds-btn ds-btn-primary flex items-center"
@@ -77,26 +78,11 @@ export default async function YonetimPage({
             + İşletme aç
           </Link>
         </div>
-
-        <Link
-          href="/yonetim/islem-gecmisi"
-          className="ds-link ds-link-block self-start"
-        >
-          İşlem geçmişi
-        </Link>
-        {context.role === "admin" && (
-          <Link
-            href="/yonetim/ekip"
-            className="ds-btn ds-btn-text flex items-center self-start"
-          >
-            {TEAM_USER_MESSAGES.listTitle}
-          </Link>
-        )}
         <AdminSearch
           initialQuery={(rawQuery ?? "").trim().slice(0, 100)}
           initialActive={parseActiveFilter(rawActive)}
         />
       </div>
-    </main>
+    </TeamPageShell>
   );
 }

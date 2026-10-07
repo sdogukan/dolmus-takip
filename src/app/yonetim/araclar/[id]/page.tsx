@@ -3,8 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { readPageSession } from "../../../../server/auth/page-session";
 import { computeScopeKey } from "../../../../server/auth/scope";
 import { SupportTargetHeader } from "../../../_components/support-target-header";
-import { TeamPageHeader } from "../../../_components/team-page-header";
-import { UnsavedChangesProvider } from "../../../_components/unsaved-changes";
+import { TeamPageShell } from "../../../_components/team-page-shell";
 import { readPlatformUsernameForDisplay } from "../../../../server/auth/platform-username";
 import { PLATFORM_ROLE_LABELS } from "../../../../lib/messages";
 import { formatPlateForDisplay } from "../../../../lib/plate";
@@ -77,29 +76,27 @@ export default async function VehicleDetailPage({
   const scopeKey = computeScopeKey(context);
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-[var(--form-max-width)] flex-col gap-8 px-4 sm:px-6 py-6">
-      <TeamPageHeader
+    <TeamPageShell
+      username={username ?? "—"}
+      roleLabel={roleLabel}
+      csrfToken={context.csrfToken}
+      isAdmin={context.role === "admin"}
+    >
+      <SupportTargetHeader
+        vehicleId={vehicleId}
+        scopeKey={scopeKey}
+        businessName={detail.business.name}
+        plateDisplay={formatPlateForDisplay(detail.vehicle.plateNormalized)}
+        ownerName={detail.owner.fullName}
         username={username ?? "—"}
         roleLabel={roleLabel}
-        csrfToken={context.csrfToken}
       />
-      <UnsavedChangesProvider>
-        <SupportTargetHeader
-          vehicleId={vehicleId}
-          scopeKey={scopeKey}
-          businessName={detail.business.name}
-          plateDisplay={formatPlateForDisplay(detail.vehicle.plateNormalized)}
-          ownerName={detail.owner.fullName}
-          username={username ?? "—"}
-          roleLabel={roleLabel}
-        />
-        <VehicleDetailForm
-          vehicleId={vehicleId}
-          initialDetail={detail}
-          csrfToken={context.csrfToken}
-          scopeKey={scopeKey}
-        />
-      </UnsavedChangesProvider>
-    </main>
+      <VehicleDetailForm
+        vehicleId={vehicleId}
+        initialDetail={detail}
+        csrfToken={context.csrfToken}
+        scopeKey={scopeKey}
+      />
+    </TeamPageShell>
   );
 }

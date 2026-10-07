@@ -14,8 +14,7 @@ import { computeScopeKey } from "../../../../../../server/auth/scope";
 import { getAppDb } from "../../../../../../server/data/app-db";
 import { getVehicleDetail, VehicleNotFoundError } from "../../../../../../server/usecases/admin-vehicles";
 import { SupportTargetHeader } from "../../../../../_components/support-target-header";
-import { TeamPageHeader } from "../../../../../_components/team-page-header";
-import { UnsavedChangesProvider } from "../../../../../_components/unsaved-changes";
+import { TeamPageShell } from "../../../../../_components/team-page-shell";
 import { WorkEntryForm } from "../../../../../_components/work-entry-form";
 
 /**
@@ -68,46 +67,44 @@ export default async function VehicleWorkEntryPage({
   const inactive = !detail.vehicle.active || !detail.business.active;
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-[var(--form-max-width)] flex-col gap-6 px-4 sm:px-6 py-6">
-      <TeamPageHeader
+    <TeamPageShell
+      username={username ?? "—"}
+      roleLabel={roleLabel}
+      csrfToken={context.csrfToken}
+      isAdmin={context.role === "admin"}
+    >
+      <SupportTargetHeader
+        vehicleId={vehicleId}
+        scopeKey={computeScopeKey(context)}
+        businessName={detail.business.name}
+        plateDisplay={formatPlateForDisplay(detail.vehicle.plateNormalized)}
+        ownerName={detail.owner.fullName}
         username={username ?? "—"}
         roleLabel={roleLabel}
+      />
+      <Link
+        href={`/yonetim/araclar/${vehicleId}/destek`}
+        className="ds-link ds-link-block"
+      >
+        ← {SUPPORT_MESSAGES.pageTitle}
+      </Link>
+      <h1 className="ds-title">{WORK_ENTRY_MESSAGES.pageTitle}</h1>
+      {inactive && (
+        <p role="status" className="ds-notice ds-notice-warning">
+          {SUPPORT_MESSAGES.inactiveTarget}
+        </p>
+      )}
+      <WorkEntryForm
+        today={istanbulToday()}
+        plate={formatPlateForDisplay(detail.vehicle.plateNormalized)}
+        mode="staff"
+        ownerName={detail.owner.fullName}
+        targetVehicleId={vehicleId}
+        disabled={inactive}
+        vehicleId={vehicleId}
+        scopeKey={computeScopeKey(context)}
         csrfToken={context.csrfToken}
       />
-      <UnsavedChangesProvider>
-        <SupportTargetHeader
-          vehicleId={vehicleId}
-          scopeKey={computeScopeKey(context)}
-          businessName={detail.business.name}
-          plateDisplay={formatPlateForDisplay(detail.vehicle.plateNormalized)}
-          ownerName={detail.owner.fullName}
-          username={username ?? "—"}
-          roleLabel={roleLabel}
-        />
-        <Link
-          href={`/yonetim/araclar/${vehicleId}/destek`}
-          className="ds-link ds-link-block"
-        >
-          ← {SUPPORT_MESSAGES.pageTitle}
-        </Link>
-        <h1 className="ds-title">{WORK_ENTRY_MESSAGES.pageTitle}</h1>
-        {inactive && (
-          <p role="status" className="ds-notice ds-notice-warning">
-            {SUPPORT_MESSAGES.inactiveTarget}
-          </p>
-        )}
-        <WorkEntryForm
-          today={istanbulToday()}
-          plate={formatPlateForDisplay(detail.vehicle.plateNormalized)}
-          mode="staff"
-          ownerName={detail.owner.fullName}
-          targetVehicleId={vehicleId}
-          disabled={inactive}
-          vehicleId={vehicleId}
-          scopeKey={computeScopeKey(context)}
-          csrfToken={context.csrfToken}
-        />
-      </UnsavedChangesProvider>
-    </main>
+    </TeamPageShell>
   );
 }

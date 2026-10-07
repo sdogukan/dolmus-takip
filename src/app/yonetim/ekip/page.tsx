@@ -3,7 +3,7 @@ import Link from "next/link";
 import { TEAM_USER_MESSAGES as TEXT } from "../../../lib/messages";
 import { teamRoleLabel } from "../../../lib/team-users-ui";
 import { listPlatformUsers } from "../../../server/usecases/admin-users";
-import { TeamPageHeader } from "../../_components/team-page-header";
+import { TeamPageShell } from "../../_components/team-page-shell";
 import { readTeamPageContext } from "./team-page-context";
 
 /**
@@ -20,31 +20,28 @@ const linkButtonClass =
 
 export default async function TeamListPage() {
   const page = await readTeamPageContext();
-  const header = <TeamPageHeader username={page.username} roleLabel={page.roleLabel} csrfToken={page.csrfToken} />;
+  const shellProps = {
+    username: page.username,
+    roleLabel: page.roleLabel,
+    csrfToken: page.csrfToken,
+    isAdmin: page.isAdmin,
+  };
 
   if (!page.isAdmin) {
     return (
-      <main className="mx-auto flex min-h-dvh w-full max-w-[var(--form-max-width)] flex-col gap-6 px-4 sm:px-6 py-6">
-        {header}
-        <Link href="/yonetim" className="ds-link ds-link-block">
-          {TEXT.backToAdmin}
-        </Link>
+      <TeamPageShell {...shellProps} wide>
         <h1 className="ds-title">{TEXT.listTitle}</h1>
         <p role="alert" className="ds-notice ds-notice-error">
           {TEXT.unauthorized}
         </p>
-      </main>
+      </TeamPageShell>
     );
   }
 
   const users = listPlatformUsers(page.db);
 
   return (
-    <main className="mx-auto flex min-h-dvh w-full max-w-[var(--form-max-width)] flex-col gap-6 px-4 sm:px-6 py-6">
-      {header}
-      <Link href="/yonetim" className="ds-link ds-link-block">
-        {TEXT.backToAdmin}
-      </Link>
+    <TeamPageShell {...shellProps} wide>
       <div className="flex flex-wrap items-center justify-between gap-4">
         <h1 className="ds-title">{TEXT.listTitle}</h1>
         <Link
@@ -83,6 +80,6 @@ export default async function TeamListPage() {
           ))}
         </ul>
       )}
-    </main>
+    </TeamPageShell>
   );
 }

@@ -236,6 +236,19 @@ export const PANEL_TITLES = {
   management: "Yönetim Paneli",
 } as const;
 
+export const ADMIN_NAVIGATION_MESSAGES = {
+  label: "Yönetim bölümleri",
+  skip: "İçeriğe geç",
+  businesses: "İşletmeler",
+  history: "İşlem geçmişi",
+  historyShort: "Geçmiş",
+  team: "Ekip hesapları",
+  teamShort: "Ekip",
+  leaveTitle: "Değişiklikleri bırakıp çık?",
+  leaveDescription: "Kaydedilmemiş değişiklikleri bırakıp seçtiğin bölüme geçmek istiyor musun?",
+  leaveConfirm: "Bırakıp çık",
+} as const;
+
 /**
  * S1.6 AC7 (birebir): "Kayıt ol/uygulama indir zorunluluğu veya yeni
  * kurtarma hizmeti yoktur. 'Giriş yapamıyorsan hesabını açan ekipten

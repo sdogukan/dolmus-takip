@@ -711,7 +711,7 @@ test.describe("Araç detayı (/yonetim/araclar/:id)", () => {
     // Araç geçmişi silinmedi — işletme sayfasından hâlâ açılabilir.
     await loginAsAdmin(page);
     await page.goto(`/yonetim/isletmeler/${businessId}`);
-    await page.getByRole("link", { name: new RegExp(plate.replace(/\s+/g, "")) }).click();
+    await page.getByRole("link", { name: `${plate} araç bilgisi`, exact: true }).click();
     await page.waitForURL(`**/yonetim/araclar/${vehicleId}`);
     await expect(page.getByRole("button", { name: "Aracı yeniden aktifleştir" })).toBeVisible();
   });

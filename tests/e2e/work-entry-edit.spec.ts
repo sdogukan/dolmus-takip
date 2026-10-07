@@ -994,9 +994,9 @@ test.describe("Şoför kayıt listesi ve düzenleme (/sofor/kayitlar)", () => {
     await expect(page.getByText("Kaydedildi", { exact: true })).toBeVisible();
 
     await page.goto("/sofor");
-    await page.getByRole("link", { name: "Kayıtlarım" }).click();
+    await page.getByRole("navigation", { name: "Şoför bağlantıları" }).getByRole("link", { name: "Araçtaki kayıtlar" }).click();
     await page.waitForURL("**/sofor/kayitlar");
-    await expect(page.getByRole("heading", { name: "Kayıtlarım" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Araçtaki kayıtlar" })).toBeVisible();
     // Kişi seçilmeden liste yok.
     await expect(page.getByRole("link", { name: /Henüz doğrulanmadı/ })).toHaveCount(0);
     const options = await page.getByLabel("Kimin kayıtları?").locator("option").allTextContents();

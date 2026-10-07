@@ -187,9 +187,8 @@ test.describe("İşletme detayı (/yonetim/isletmeler/:id)", () => {
   }) => {
     await loginAsAdmin(page);
     await page.goto(`/yonetim/isletmeler/${SEED_IDS.businessB}`);
-    // Aynı plaka onay penceresinin (henüz kapalı, DOM'da hazır) İÇİNDE de
-    // geçer — İLK'i (araç listesi, DOM'da önce gelir) hedeflenir.
-    await expect(page.getByText("06CCC003").first()).toBeVisible();
+    // Araç kartındaki okunaklı plaka; kapalı onay penceresindeki metinden ayrıdır.
+    await expect(page.getByRole("heading", { name: "06 CCC 003", exact: true })).toBeVisible();
 
     try {
       await page.getByRole("button", { name: "İşletmeyi pasifleştir" }).click();

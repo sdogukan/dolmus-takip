@@ -162,7 +162,8 @@ test.describe("Ekip hesapları (/yonetim/ekip)", () => {
     await page.goto("/yonetim/ekip");
     const row = page.getByRole("listitem").filter({ hasText: username });
     await expect(row).toHaveCount(1);
-    await expect(row).toContainText("Oluşturma Testi · Destek · Aktif");
+    await expect(row.getByText("Oluşturma Testi · Destek", { exact: true })).toBeVisible();
+    await expect(row.getByText("Aktif", { exact: true })).toHaveClass(/ds-badge-active/);
 
     // Aynı ad, farklı harf düzeniyle: alan hatası aria-describedby ile bağlı.
     await page.goto("/yonetim/ekip/yeni");

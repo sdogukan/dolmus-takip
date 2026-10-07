@@ -197,14 +197,14 @@ test.describe("KVKK ad anonimleştirme", () => {
     expect(failedBodies).toHaveLength(1);
     expect(retried.postData()).toBe(failedBodies[0]);
 
-    await expect(page.getByText(/^Mal sahibi: Anonim kişi [0-9A-F]{6}$/)).toBeVisible();
+    await expect(page.getByText(/^Mal sahibi: Anonim kişi [0-9A-F]{6} · \d+ araç$/)).toBeVisible();
     await expect(page.getByText(ANONYMIZED_NOTE)).toBeVisible();
     await expect(page.locator("#owner-name-edit")).toHaveCount(0);
     await expect(page.getByRole("button", { name: ACTION })).toHaveCount(0);
 
     // Sunucudan taze okuma da aynı durumu verir.
     await page.reload();
-    await expect(page.getByText(/^Mal sahibi: Anonim kişi [0-9A-F]{6}$/)).toBeVisible();
+    await expect(page.getByText(/^Mal sahibi: Anonim kişi [0-9A-F]{6} · \d+ araç$/)).toBeVisible();
     await expect(page.getByText("Leyla Sahipsilinir")).toHaveCount(0);
     await expect(page.locator("#owner-name-edit")).toHaveCount(0);
   });

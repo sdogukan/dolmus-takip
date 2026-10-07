@@ -714,6 +714,9 @@ export function WorkEntryForm({
     <form noValidate onSubmit={(event) => void handleSubmit(event)}>
       <fieldset disabled={disabled} className="m-0 flex min-w-0 flex-col gap-6 border-0 p-0">
       <fieldset disabled={draft.pending} className="m-0 flex min-w-0 flex-col gap-6 border-0 p-0">
+      <p className="ds-hint">Çalışma bilgilerini ve tutarları gir. Hesap özeti aşağıda otomatik oluşur.</p>
+      <fieldset className="ds-panel m-0 flex min-w-0 flex-col gap-5">
+      <legend className="ds-section-title px-1">Çalışma bilgileri</legend>
       {mode !== "driver" && (
         <div role="group" aria-labelledby="work-type-label">
           <p id="work-type-label" className={labelClass}>
@@ -767,7 +770,7 @@ export function WorkEntryForm({
           className={controlClass}
         />
         <p id="work-date-display" className="mt-1 text-base text-[var(--color-text-secondary)]">
-          {formatWorkDate(date)}
+          {date === today ? "Bugün · " : ""}{formatWorkDate(date)}
         </p>
         {dateError && (
           <p id="work-date-error" role="alert" className={errorTextClass}>
@@ -909,6 +912,10 @@ export function WorkEntryForm({
         )}
       </div>
 
+      </fieldset>
+
+      <fieldset className="ds-panel m-0 flex min-w-0 flex-col gap-5">
+      <legend className="ds-section-title px-1">Hasılat ve giderler</legend>
       <div>
         <label htmlFor="work-gross" className={labelClass}>
           {TEXT.grossLabel}
@@ -1013,6 +1020,8 @@ export function WorkEntryForm({
         </button>
       )}
 
+      </fieldset>
+
       {workKind !== null && (
       <div
         id="work-summary"
@@ -1021,6 +1030,7 @@ export function WorkEntryForm({
         aria-label={TEXT.summaryTitle}
         className="ds-card flex flex-col gap-2 p-4 text-lg tabular-nums"
       >
+        <p className="ds-card-title">{TEXT.summaryTitle}</p>
         <p className="flex justify-between gap-4">
           <span>{shareLabel}</span>
           <span className="font-semibold">

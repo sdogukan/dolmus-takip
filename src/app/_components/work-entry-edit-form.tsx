@@ -220,7 +220,9 @@ function EntryDetail({ entry, mode }: { entry: WorkEntryDetail; mode: WorkEntryM
           </p>
         </>
       )}
-      <p className="text-base text-[var(--color-text-secondary)]">{TEXT.versionLabel(entry.version)}</p>
+      {mode !== "driver" && (
+        <p className="text-base text-[var(--color-text-secondary)]">{TEXT.versionLabel(entry.version)}</p>
+      )}
     </section>
   );
 }
@@ -711,6 +713,7 @@ export function WorkEntryEditForm({
       {editable && editVisible && (
         <form noValidate onSubmit={(event) => void handleSubmit(event)} className="flex flex-col gap-6">
           <h2 className="ds-section-title">{TEXT.editTitle}</h2>
+          <p className="ds-hint">Değiştirmek istediğin alanları düzelt, sonra değişiklikleri kaydet.</p>
 
           {stale && (
             <div
@@ -743,6 +746,8 @@ export function WorkEntryEditForm({
           )}
 
           <fieldset disabled={draft.pending || stale || confirmLocked} className="m-0 flex min-w-0 flex-col gap-6 border-0 p-0">
+            <fieldset className="ds-panel m-0 flex min-w-0 flex-col gap-5">
+            <legend className="ds-section-title px-1">Çalışma bilgileri</legend>
             <div>
               <label htmlFor="edit-date" className={labelClass}>
                 {TEXT.dateLabel}
@@ -877,6 +882,10 @@ export function WorkEntryEditForm({
               )}
             </div>
 
+            </fieldset>
+
+            <fieldset className="ds-panel m-0 flex min-w-0 flex-col gap-5">
+            <legend className="ds-section-title px-1">Hasılat ve giderler</legend>
             <div>
               <label htmlFor="edit-gross" className={labelClass}>
                 {TEXT.grossLabel}
@@ -981,6 +990,8 @@ export function WorkEntryEditForm({
               </button>
             )}
 
+            </fieldset>
+
             <div
               id="work-summary"
               role="status"
@@ -988,6 +999,7 @@ export function WorkEntryEditForm({
               aria-label={TEXT.summaryTitle}
               className="ds-card flex flex-col gap-2 p-4 text-lg tabular-nums"
             >
+              <p className="ds-card-title">{TEXT.summaryTitle}</p>
               <p className="flex justify-between gap-4">
                 <span>{shareLabel}</span>
                 <span className="font-semibold">

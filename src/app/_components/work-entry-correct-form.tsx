@@ -421,6 +421,7 @@ export function WorkEntryCorrectForm({
   return (
     <form noValidate onSubmit={(event) => void handleSubmit(event)} className="flex flex-col gap-6">
       <h2 className="ds-section-title">{TEXT.correctTitle}</h2>
+      <p className="ds-hint">Bilgileri düzelt ve alınan tutarı kontrol et. Düzeltme ve onay birlikte kaydedilir.</p>
 
       {stale && (
         <div
@@ -453,6 +454,8 @@ export function WorkEntryCorrectForm({
       )}
 
       <fieldset disabled={locked} className="m-0 flex min-w-0 flex-col gap-6 border-0 p-0">
+        <fieldset className="ds-panel m-0 flex min-w-0 flex-col gap-5">
+        <legend className="ds-section-title px-1">Çalışma bilgileri</legend>
         <Field id="correct-date" label={TEXT.dateLabel} error={dateError}>
           <input
             id="correct-date"
@@ -555,6 +558,10 @@ export function WorkEntryCorrectForm({
           )}
         </div>
 
+        </fieldset>
+
+        <fieldset className="ds-panel m-0 flex min-w-0 flex-col gap-5">
+        <legend className="ds-section-title px-1">Hasılat ve giderler</legend>
         <Field id="correct-gross" label={TEXT.grossLabel} error={grossError}>
           <input
             id="correct-gross"
@@ -632,6 +639,8 @@ export function WorkEntryCorrectForm({
           </button>
         )}
 
+        </fieldset>
+
         <div
           id="correct-summary"
           role="status"
@@ -639,6 +648,7 @@ export function WorkEntryCorrectForm({
           aria-label={TEXT.summaryTitle}
           className="ds-card flex flex-col gap-2 p-4 text-lg tabular-nums"
         >
+          <p className="ds-card-title">{TEXT.summaryTitle}</p>
           <p className="flex justify-between gap-4">
             <span>{TEXT.onBehalfShareLabel}</span>
             <span className="font-semibold">{summary.status === "ready" ? formatTlAmount(summary.shareCents) : "—"}</span>

@@ -199,7 +199,15 @@ export function WorkEntryConfirmPanel({
   }
 
   return (
-    <section className="flex flex-col gap-4">
+    <section aria-labelledby="delivery-confirm-title" className="ds-panel flex flex-col gap-4">
+      <div className="flex flex-col gap-2">
+        <h2 id="delivery-confirm-title" className="ds-section-title">Teslimi doğrula</h2>
+        <p className="ds-hint">
+          {onBehalf
+            ? "Araç sahibinin aldığı tutarı kontrol et, sonra sahip adına teslimi onayla."
+            : "Parayı aldıysan tutarı kontrol et, sonra aşağıdaki düğmeyle doğrula."}
+        </p>
+      </div>
       <div>
         <label htmlFor="received-amount" className={labelClass}>
           {onBehalf ? TEXT.receivedLabelOnBehalf : TEXT.receivedLabel}

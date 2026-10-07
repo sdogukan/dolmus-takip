@@ -32,6 +32,7 @@ import type { ClientStateScope } from "../../../../lib/client-state";
 import { useStoredDraft } from "../../../../lib/use-stored-draft";
 import { getErrorMessage, PERSON_ANONYMIZE_MESSAGES } from "../../../../lib/messages";
 import { ConfirmDialog } from "../../../_components/confirm-dialog";
+import { useUnsavedChanges } from "../../../_components/unsaved-changes";
 
 interface BusinessDetail {
   business: { id: string; name: string; active: boolean; version: number; createdAt: string };
@@ -261,6 +262,12 @@ export function BusinessDetailForm({
   const [draft, persistDraft] = useStoredDraft<DetailDraft>(scope, draftName, () =>
     emptyDraft(initialDetail),
   );
+  const ownerDirty = detail.owner
+    ? !detail.owner.anonymized && (draft.ownerRename.value !== detail.owner.fullName || draft.ownerRename.pending)
+    : draft.ownerAssign.newFullName !== "" ||
+      (draft.ownerAssign.mode === "existing" && draft.ownerAssign.existingPersonRef !== "") || draft.ownerAssign.pending;
+  useUnsavedChanges("isletme-bilgi", draft.name.value !== detail.business.name || draft.name.pending ||
+    ownerDirty || draft.active !== null || draft.ownerAnonymize != null);
 
   return (
     <div className="flex flex-col gap-10">

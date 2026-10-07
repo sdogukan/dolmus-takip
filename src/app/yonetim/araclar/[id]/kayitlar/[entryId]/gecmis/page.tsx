@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import {
+  ADMIN_NAVIGATION_MESSAGES as NAV,
   PLATFORM_ROLE_LABELS,
   SUPPORT_MESSAGES,
   WORK_ENTRY_MESSAGES,
@@ -85,6 +85,7 @@ export default async function VehicleWorkEntryHistoryPage({
       roleLabel={roleLabel}
       csrfToken={context.csrfToken}
       isAdmin={context.role === "admin"}
+      backLink={{ href: `/yonetim/araclar/${vehicleId}/kayitlar/${entryId}`, label: NAV.backToEntry }}
     >
       <SupportTargetHeader
         vehicleId={vehicleId}
@@ -95,12 +96,6 @@ export default async function VehicleWorkEntryHistoryPage({
         username={username ?? "—"}
         roleLabel={roleLabel}
       />
-      <Link
-        href={`/yonetim/araclar/${vehicleId}/kayitlar/${entryId}`}
-        className="ds-link ds-link-block"
-      >
-        {WORK_ENTRY_MESSAGES.historyBack}
-      </Link>
       <h1 className="ds-title">{WORK_ENTRY_MESSAGES.historyTitle}</h1>
       {inactive && (
         <p role="status" className="ds-notice ds-notice-warning">

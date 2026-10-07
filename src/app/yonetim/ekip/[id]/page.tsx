@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound } from "next/navigation";
-import { TEAM_USER_MESSAGES as TEXT } from "../../../../lib/messages";
+import { ADMIN_NAVIGATION_MESSAGES as NAV, TEAM_USER_MESSAGES as TEXT } from "../../../../lib/messages";
 import { AdminUserNotFoundError, getPlatformUserDetail } from "../../../../server/usecases/admin-users";
 import { TeamPageShell } from "../../../_components/team-page-shell";
 import { readTeamPageContext } from "../team-page-context";
@@ -24,14 +23,14 @@ export default async function TeamUserDetailPage({ params }: { params: Promise<{
     roleLabel: page.roleLabel,
     csrfToken: page.csrfToken,
     isAdmin: page.isAdmin,
+    backLink: page.isAdmin
+      ? { href: "/yonetim/ekip", label: NAV.backToTeam }
+      : { href: "/yonetim", label: NAV.backToBusinesses },
   };
 
   if (!page.isAdmin) {
     return (
       <TeamPageShell {...shellProps}>
-        <Link href="/yonetim" className="ds-link ds-link-block">
-          {TEXT.backToAdmin}
-        </Link>
         <p role="alert" className="ds-notice ds-notice-error">
           {TEXT.unauthorized}
         </p>
@@ -51,10 +50,6 @@ export default async function TeamUserDetailPage({ params }: { params: Promise<{
 
   return (
     <TeamPageShell {...shellProps}>
-      <Link href="/yonetim/ekip" className="ds-link ds-link-block">
-        {TEXT.backToList}
-      </Link>
-
       <TeamUserDetailForm
         initialUser={user}
         isSelf={page.platformUserId === user.id}

@@ -36,8 +36,17 @@ and vehicle subpages keep İşletmeler selected, team subpages keep Ekip selecte
 The shell includes an İçeriğe geç link, at least 48 px touch targets, bottom
 safe-area spacing and content padding so the bar does not cover the last item.
 Existing server session/role checks still decide access. Registered unsaved
-forms share the shell's registry, so leaving through the menu asks before
-discarding changes. Login and vehicle-owner/driver pages use their own layouts.
+forms share the shell's registry, so leaving through the menu or a back link
+asks before discarding changes. Create-account/business/vehicle forms and
+business editing also register their unsaved fields. Login and vehicle-owner/
+driver pages use their own layouts.
+
+Detail and creation pages have one shared back link at the start of the content
+area, with a left arrow, a 48 px minimum height and an explicit destination
+(e.g. **İşletmelere dön**, **İşletmeye dön**, **Araca dön**). The destination is
+the parent page, including when opened directly; browser history is not required.
+Filtered activity history links back to its vehicle or business. Main sections
+use the persistent navigation instead of a second, differently styled back link.
 
 The staff home page is titled **İşletmeler**, with **+ İşletme aç** beside the
 title. The three main staff lists use the wider desktop content area; search and

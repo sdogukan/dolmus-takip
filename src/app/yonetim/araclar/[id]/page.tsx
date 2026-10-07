@@ -5,7 +5,7 @@ import { computeScopeKey } from "../../../../server/auth/scope";
 import { SupportTargetHeader } from "../../../_components/support-target-header";
 import { TeamPageShell } from "../../../_components/team-page-shell";
 import { readPlatformUsernameForDisplay } from "../../../../server/auth/platform-username";
-import { PLATFORM_ROLE_LABELS } from "../../../../lib/messages";
+import { ADMIN_NAVIGATION_MESSAGES as NAV, PLATFORM_ROLE_LABELS } from "../../../../lib/messages";
 import { formatPlateForDisplay } from "../../../../lib/plate";
 import { getAppDb } from "../../../../server/data/app-db";
 import {
@@ -81,6 +81,7 @@ export default async function VehicleDetailPage({
       roleLabel={roleLabel}
       csrfToken={context.csrfToken}
       isAdmin={context.role === "admin"}
+      backLink={{ href: `/yonetim/isletmeler/${detail.business.id}`, label: NAV.backToBusiness }}
     >
       <SupportTargetHeader
         vehicleId={vehicleId}

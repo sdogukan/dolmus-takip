@@ -4,7 +4,7 @@ import { readPageSession } from "../../../../server/auth/page-session";
 import { computeScopeKey } from "../../../../server/auth/scope";
 import { TeamPageShell } from "../../../_components/team-page-shell";
 import { readPlatformUsernameForDisplay } from "../../../../server/auth/platform-username";
-import { PLATFORM_ROLE_LABELS } from "../../../../lib/messages";
+import { ADMIN_NAVIGATION_MESSAGES as NAV, PLATFORM_ROLE_LABELS } from "../../../../lib/messages";
 import { getAppDb } from "../../../../server/data/app-db";
 import { NewBusinessForm } from "./new-business-form";
 
@@ -59,6 +59,7 @@ export default async function NewBusinessPage() {
       roleLabel={roleLabel}
       csrfToken={context.csrfToken}
       isAdmin={context.role === "admin"}
+      backLink={{ href: "/yonetim", label: NAV.backToBusinesses }}
     >
       <NewBusinessForm csrfToken={context.csrfToken} scopeKey={computeScopeKey(context)} />
     </TeamPageShell>

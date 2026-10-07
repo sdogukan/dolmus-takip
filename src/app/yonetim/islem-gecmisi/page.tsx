@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { AUDIT_MESSAGES, PLATFORM_ROLE_LABELS } from "../../../lib/messages";
+import { ADMIN_NAVIGATION_MESSAGES as NAV, AUDIT_MESSAGES, PLATFORM_ROLE_LABELS } from "../../../lib/messages";
 import { formatPlateForDisplay } from "../../../lib/plate";
 import { readPageSession } from "../../../server/auth/page-session";
 import { readPlatformUsernameForDisplay } from "../../../server/auth/platform-username";
@@ -78,6 +78,11 @@ export default async function AuditHistoryPage({
       csrfToken={context.csrfToken}
       isAdmin={context.role === "admin"}
       wide
+      backLink={vehicleId
+        ? { href: `/yonetim/araclar/${vehicleId}/destek`, label: NAV.backToSupport }
+        : businessId
+          ? { href: `/yonetim/isletmeler/${businessId}`, label: NAV.backToBusiness }
+          : undefined}
     >
       <h1 className="ds-title">{AUDIT_MESSAGES.title}</h1>
       {filterLabel && (

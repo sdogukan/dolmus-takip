@@ -33,6 +33,7 @@ import { useRef, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import type { ClientStateScope } from "../../../../lib/client-state";
 import { useStoredDraft } from "../../../../lib/use-stored-draft";
+import { useUnsavedChanges } from "../../../_components/unsaved-changes";
 import { getErrorMessage } from "../../../../lib/messages";
 
 const DRAFT_NAME = "isletme-yeni";
@@ -82,6 +83,7 @@ export function NewBusinessForm({
   // `useSyncExternalStore` ile hydration-güvenli localStorage okuma/yazma
   // (bir `useEffect` içinde `setState` ÇAĞRILMAZ).
   const [draft, persist] = useStoredDraft<Draft>(scope, DRAFT_NAME, emptyDraft);
+  useUnsavedChanges("isletme-yeni", draft.name !== "" || draft.ownerFullName !== "" || draft.pending);
   // "submitting" YALNIZ bu bileşenin O AN sürdürdüğü isteği yansıtır (asla
   // kalıcı taslağa YAZILMAZ); "ambiguous" ise `draft.pending`den TÜRETİLİR
   // — ayrı bir "phase" durumu tutup mount'ta senkronlamak GEREKMEZ, sayfa

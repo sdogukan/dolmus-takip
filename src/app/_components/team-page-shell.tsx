@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { ADMIN_NAVIGATION_MESSAGES } from "../../lib/messages";
-import { AdminNavigation } from "./admin-navigation";
+import { AdminBackLink, AdminNavigation } from "./admin-navigation";
 import { TeamPageHeader } from "./team-page-header";
 import { UnsavedChangesProvider } from "./unsaved-changes";
 
@@ -11,6 +11,7 @@ export function TeamPageShell({
   csrfToken,
   isAdmin,
   wide = false,
+  backLink,
   children,
 }: {
   username: string;
@@ -18,6 +19,7 @@ export function TeamPageShell({
   csrfToken: string;
   isAdmin: boolean;
   wide?: boolean;
+  backLink?: { href: string; label: string };
   children: ReactNode;
 }) {
   return (
@@ -27,6 +29,7 @@ export function TeamPageShell({
         <TeamPageHeader username={username} roleLabel={roleLabel} csrfToken={csrfToken} />
         <AdminNavigation isAdmin={isAdmin} />
         <main id="admin-content" tabIndex={-1} className={`ds-admin-content${wide ? " ds-admin-content-wide" : ""}`}>
+          {backLink && <AdminBackLink {...backLink} />}
           {children}
         </main>
       </div>

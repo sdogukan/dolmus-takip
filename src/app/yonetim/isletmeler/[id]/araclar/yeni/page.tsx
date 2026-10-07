@@ -1,11 +1,10 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
 import { readPageSession } from "../../../../../../server/auth/page-session";
 import { computeScopeKey } from "../../../../../../server/auth/scope";
 import { TeamPageShell } from "../../../../../_components/team-page-shell";
 import { readPlatformUsernameForDisplay } from "../../../../../../server/auth/platform-username";
-import { PLATFORM_ROLE_LABELS } from "../../../../../../lib/messages";
+import { ADMIN_NAVIGATION_MESSAGES as NAV, PLATFORM_ROLE_LABELS } from "../../../../../../lib/messages";
 import { getAppDb } from "../../../../../../server/data/app-db";
 import {
   getBusinessDetail,
@@ -86,6 +85,7 @@ export default async function NewVehiclePage({
       roleLabel={roleLabel}
       csrfToken={context.csrfToken}
       isAdmin={context.role === "admin"}
+      backLink={{ href: `/yonetim/isletmeler/${businessId}`, label: NAV.backToBusiness }}
     >
       {canCreateVehicle ? (
         <NewVehicleForm
@@ -103,12 +103,6 @@ export default async function NewVehiclePage({
               ? "Bu işletmenin sahibi yok; önce sahip ata."
               : "İşletme pasif; araç eklemeden önce yeniden aktifleştir."}
           </p>
-          <Link
-            href={`/yonetim/isletmeler/${businessId}`}
-            className="ds-btn ds-btn-secondary inline-flex w-fit items-center"
-          >
-            İşletmeye dön
-          </Link>
         </div>
       )}
     </TeamPageShell>

@@ -32,6 +32,7 @@ import {
   type TeamUser,
 } from "../../../../lib/team-users-ui";
 import { useStoredDraft } from "../../../../lib/use-stored-draft";
+import { useUnsavedChanges } from "../../../_components/unsaved-changes";
 import { sendTeamRequest } from "../team-request";
 
 interface Draft {
@@ -60,6 +61,8 @@ export function NewTeamUserForm({ csrfToken, scopeKey }: { csrfToken: string; sc
   // Bu oturumda gönderilmiş şifre (yalnız bellekte): kilit ve "Tekrar kontrol
   // et" bu değerin VARLIĞINA bakar.
   const [submittedPassword, setSubmittedPassword] = useState<string | null>(null);
+  useUnsavedChanges("ekip-yeni", draft.username !== "" || draft.fullName !== "" ||
+    draft.platformRole !== "support" || password !== "" || draft.pending);
 
   const [isFetching, setIsFetching] = useState(false);
   const phase: "idle" | "submitting" | "ambiguous" = isFetching ? "submitting" : draft.pending ? "ambiguous" : "idle";

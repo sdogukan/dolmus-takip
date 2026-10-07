@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { PLATFORM_ROLE_LABELS } from "../../../../../lib/messages";
+import { ADMIN_NAVIGATION_MESSAGES as NAV, PLATFORM_ROLE_LABELS } from "../../../../../lib/messages";
 import { formatPlateForDisplay } from "../../../../../lib/plate";
 import { readPageSession } from "../../../../../server/auth/page-session";
 import { readPlatformUsernameForDisplay } from "../../../../../server/auth/platform-username";
@@ -83,6 +82,7 @@ export default async function VehicleDriversPage({
       roleLabel={roleLabel}
       csrfToken={context.csrfToken}
       isAdmin={context.role === "admin"}
+      backLink={{ href: `/yonetim/araclar/${vehicleId}`, label: NAV.backToVehicle }}
     >
       <SupportTargetHeader
         vehicleId={vehicleId}
@@ -93,12 +93,6 @@ export default async function VehicleDriversPage({
         username={username ?? "—"}
         roleLabel={roleLabel}
       />
-      <Link
-        href={`/yonetim/araclar/${vehicleId}`}
-        className="ds-link ds-link-block"
-      >
-        ← Araç
-      </Link>
       <div className="flex flex-col gap-2">
         <h1 className="ds-title">Şoförler</h1>
         <p className="text-base text-[var(--color-text-secondary)]">

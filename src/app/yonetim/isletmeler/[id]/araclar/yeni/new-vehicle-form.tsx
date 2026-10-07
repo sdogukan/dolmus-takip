@@ -29,6 +29,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import type { ClientStateScope } from "../../../../../../lib/client-state";
 import { useStoredDraft } from "../../../../../../lib/use-stored-draft";
+import { useUnsavedChanges } from "../../../../../_components/unsaved-changes";
 import { getErrorMessage } from "../../../../../../lib/messages";
 
 interface Draft {
@@ -104,6 +105,8 @@ export function NewVehicleForm({
   // Gizli alanlar — dosya üstü notu: taslakta ASLA saklanmaz.
   const [ownerPassword, setOwnerPassword] = useState("");
   const [driverPassword, setDriverPassword] = useState("");
+  useUnsavedChanges("arac-yeni", draft.plate !== "" || draft.brandModel !== "" || draft.year !== "" ||
+    draft.routeStop !== "" || draft.note !== "" || ownerPassword !== "" || driverPassword !== "" || draft.pending);
   const [showOwnerPassword, setShowOwnerPassword] = useState(false);
   const [showDriverPassword, setShowDriverPassword] = useState(false);
   // C4 düzeltmesi — bu oturumda GÖNDERİLMİŞ şifre çifti (yalnız bellekte,

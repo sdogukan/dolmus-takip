@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { TEAM_USER_MESSAGES as TEXT } from "../../../../lib/messages";
+import { ADMIN_NAVIGATION_MESSAGES as NAV, TEAM_USER_MESSAGES as TEXT } from "../../../../lib/messages";
 import { TeamPageShell } from "../../../_components/team-page-shell";
 import { readTeamPageContext } from "../team-page-context";
 import { NewTeamUserForm } from "./new-team-user-form";
@@ -17,10 +16,10 @@ export default async function NewTeamUserPage() {
     <TeamPageShell
       username={page.username} roleLabel={page.roleLabel} csrfToken={page.csrfToken}
       isAdmin={page.isAdmin}
+      backLink={page.isAdmin
+        ? { href: "/yonetim/ekip", label: NAV.backToTeam }
+        : { href: "/yonetim", label: NAV.backToBusinesses }}
     >
-      <Link href="/yonetim/ekip" className="ds-link ds-link-block">
-        {TEXT.backToList}
-      </Link>
       {page.isAdmin ? (
         <NewTeamUserForm csrfToken={page.csrfToken} scopeKey={page.scopeKey} />
       ) : (

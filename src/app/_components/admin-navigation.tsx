@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { Building2, History, UsersRound } from "lucide-react";
+import { ArrowLeft, Building2, History, UsersRound } from "lucide-react";
 import { useState } from "react";
 import { ADMIN_NAVIGATION_MESSAGES as TEXT } from "../../lib/messages";
 import { ConfirmDialog } from "./confirm-dialog";
@@ -14,12 +14,52 @@ const destinations = [
   { href: "/yonetim/ekip", label: TEXT.team, shortLabel: TEXT.teamShort, icon: UsersRound, adminOnly: true },
 ] as const;
 
-/** One navigation landmark: a sidebar on desktop and a bottom bar on phones. */
-export function AdminNavigation({ isAdmin }: { isAdmin: boolean }) {
-  const pathname = usePathname();
+function useNavigationGuard() {
   const router = useRouter();
   const registry = useUnsavedChangesRegistry();
   const [pendingHref, setPendingHref] = useState<string | null>(null);
+
+  return {
+    guardNavigation(event: { preventDefault: () => void }, href: string) {
+      if (registry?.hasDirty()) {
+        event.preventDefault();
+        setPendingHref(href);
+      }
+    },
+    confirmation: (
+      <ConfirmDialog
+        open={pendingHref !== null}
+        title={TEXT.leaveTitle}
+        description={TEXT.leaveDescription}
+        confirmLabel={TEXT.leaveConfirm}
+        onConfirm={() => {
+          if (pendingHref) router.push(pendingHref);
+          setPendingHref(null);
+        }}
+        onCancel={() => setPendingHref(null)}
+      />
+    ),
+  };
+}
+
+export function AdminBackLink({ href, label }: { href: string; label: string }) {
+  const { guardNavigation, confirmation } = useNavigationGuard();
+
+  return (
+    <>
+      <Link href={href} className="ds-admin-back" onNavigate={(event) => guardNavigation(event, href)}>
+        <ArrowLeft aria-hidden="true" size={20} strokeWidth={1.75} />
+        <span>{label}</span>
+      </Link>
+      {confirmation}
+    </>
+  );
+}
+
+/** One navigation landmark: a sidebar on desktop and a bottom bar on phones. */
+export function AdminNavigation({ isAdmin }: { isAdmin: boolean }) {
+  const pathname = usePathname();
+  const { guardNavigation, confirmation } = useNavigationGuard();
   const section = pathname.startsWith("/yonetim/ekip")
     ? "/yonetim/ekip"
     : pathname.startsWith("/yonetim/islem-gecmisi")
@@ -37,12 +77,7 @@ export function AdminNavigation({ isAdmin }: { isAdmin: boolean }) {
                 aria-label={item.label}
                 aria-current={section === item.href ? "page" : undefined}
                 className="ds-admin-nav-link"
-                onNavigate={(event) => {
-                  if (registry?.hasDirty()) {
-                    event.preventDefault();
-                    setPendingHref(item.href);
-                  }
-                }}
+                onNavigate={(event) => guardNavigation(event, item.href)}
               >
                 <item.icon aria-hidden="true" className="ds-admin-nav-icon" strokeWidth={1.75} />
                 <span className="ds-admin-nav-short" aria-hidden="true">{item.shortLabel}</span>
@@ -52,17 +87,7 @@ export function AdminNavigation({ isAdmin }: { isAdmin: boolean }) {
           ))}
         </ul>
       </nav>
-      <ConfirmDialog
-        open={pendingHref !== null}
-        title={TEXT.leaveTitle}
-        description={TEXT.leaveDescription}
-        confirmLabel={TEXT.leaveConfirm}
-        onConfirm={() => {
-          if (pendingHref) router.push(pendingHref);
-          setPendingHref(null);
-        }}
-        onCancel={() => setPendingHref(null)}
-      />
+      {confirmation}
     </>
   );
 }

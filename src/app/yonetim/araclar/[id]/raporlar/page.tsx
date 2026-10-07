@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { PLATFORM_ROLE_LABELS, REPORT_MESSAGES, SUPPORT_MESSAGES } from "../../../../../lib/messages";
+import { ADMIN_NAVIGATION_MESSAGES as NAV, PLATFORM_ROLE_LABELS, REPORT_MESSAGES, SUPPORT_MESSAGES } from "../../../../../lib/messages";
 import { formatPlateForDisplay } from "../../../../../lib/plate";
 import { readPageSession } from "../../../../../server/auth/page-session";
 import { readPlatformUsernameForDisplay } from "../../../../../server/auth/platform-username";
@@ -70,6 +69,7 @@ export default async function VehicleSupportReportsPage({
       roleLabel={roleLabel}
       csrfToken={context.csrfToken}
       isAdmin={context.role === "admin"}
+      backLink={{ href: `/yonetim/araclar/${vehicleId}/destek`, label: NAV.backToSupport }}
     >
       <SupportTargetHeader
         vehicleId={vehicleId}
@@ -81,12 +81,6 @@ export default async function VehicleSupportReportsPage({
         roleLabel={roleLabel}
       />
 
-      <Link
-        href={`/yonetim/araclar/${vehicleId}/destek`}
-        className="ds-btn ds-btn-text inline-flex items-center self-start"
-      >
-        ← {SUPPORT_MESSAGES.pageTitle}
-      </Link>
       <h1 className="ds-title">{REPORT_MESSAGES.title}</h1>
       {inactive && (
         <p role="status" className="ds-notice ds-notice-warning">

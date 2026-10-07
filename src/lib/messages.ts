@@ -244,8 +244,14 @@ export const ADMIN_NAVIGATION_MESSAGES = {
   historyShort: "Geçmiş",
   team: "Ekip hesapları",
   teamShort: "Ekip",
+  backToBusinesses: "İşletmelere dön",
+  backToBusiness: "İşletmeye dön",
+  backToVehicle: "Araca dön",
+  backToSupport: "Araç işlemlerine dön",
+  backToTeam: "Ekip hesaplarına dön",
+  backToEntry: "Kayda dön",
   leaveTitle: "Değişiklikleri bırakıp çık?",
-  leaveDescription: "Kaydedilmemiş değişiklikleri bırakıp seçtiğin bölüme geçmek istiyor musun?",
+  leaveDescription: "Kaydedilmemiş değişiklikleri bırakıp bu sayfadan çıkmak istiyor musun?",
   leaveConfirm: "Bırakıp çık",
 } as const;
 

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { PLATFORM_ROLE_LABELS, SUPPORT_MESSAGES } from "../../../../../lib/messages";
+import { ADMIN_NAVIGATION_MESSAGES as NAV, PLATFORM_ROLE_LABELS, SUPPORT_MESSAGES } from "../../../../../lib/messages";
 import { formatPlateForDisplay } from "../../../../../lib/plate";
 import { readPageSession } from "../../../../../server/auth/page-session";
 import { readPlatformUsernameForDisplay } from "../../../../../server/auth/platform-username";
@@ -73,6 +73,7 @@ export default async function VehicleSupportPage({
       roleLabel={roleLabel}
       csrfToken={context.csrfToken}
       isAdmin={context.role === "admin"}
+      backLink={{ href: `/yonetim/araclar/${vehicleId}`, label: NAV.backToVehicle }}
     >
       <SupportTargetHeader
         vehicleId={vehicleId}

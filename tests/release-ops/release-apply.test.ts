@@ -1,5 +1,6 @@
 import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import crypto from "node:crypto";
+import { once } from "node:events";
 import fs from "node:fs";
 import http from "node:http";
 import type { AddressInfo } from "node:net";
@@ -257,6 +258,14 @@ function insertSession(sqlite: InstanceType<typeof Database>, id: string): void 
 // ---------------------------------------------------------------------------
 
 beforeAll(async () => {
+  const dependency = spawnSync("flock", ["--version"], { encoding: "utf8", timeout: 5000 });
+  if (dependency.error || dependency.status !== 0) {
+    const detail = dependency.error?.message || dependency.stderr.trim() || `exit=${dependency.status}`;
+    throw new Error(
+      `release-apply testleri gerçek flock aracı gerektirir; PATH içinde çalıştırılamadı: ${detail}`,
+      { cause: dependency.error },
+    );
+  }
   template = fs.mkdtempSync(path.join(os.tmpdir(), "dolmus-takip-release-apply-template-"));
   for (const id of [OLD, SAME, MIG, BAD, FIX]) buildRelease(path.join(template, id));
   for (const id of [MIG, FIX]) {
@@ -299,8 +308,8 @@ beforeAll(async () => {
 }, SLOW);
 
 afterAll(async () => {
-  await new Promise((resolve) => server.close(resolve));
-  fs.rmSync(template, { recursive: true, force: true });
+  if (server?.listening) await new Promise((resolve) => server.close(resolve));
+  if (template) fs.rmSync(template, { recursive: true, force: true });
 });
 
 beforeEach(async () => {
@@ -691,12 +700,18 @@ describe("scripts/release-apply.ts deploy", () => {
     it("ortak kilit tutuluyken 75 ile çıkar", async () => {
       const holder: ChildProcess = spawn("flock", [lockPath, "sleep", "30"], { stdio: "ignore" });
       try {
+        try {
+          await once(holder, "spawn");
+        } catch (cause) {
+          throw new Error("Gerçek flock kilit tutucusu başlatılamadı.", { cause });
+        }
         while (spawnSync("flock", ["-n", lockPath, "true"]).status === 0) {
           await new Promise((resolve) => setTimeout(resolve, 20));
         }
         expectRefused(await deploy(MIG), "ops_lock_busy", 75);
       } finally {
-        holder.kill();
+        // Başarısız spawn'ın PID'siz handle'ı süreç grubunu hedefleyebilir.
+        if (holder.pid !== undefined && holder.pid > 0) holder.kill();
       }
       expectUntouched();
     }, SLOW);

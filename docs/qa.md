@@ -6,6 +6,7 @@
 - Added `tests/e2e/role-navigation.spec.ts`: 21 cases across 320×844, 390×844 and 1280×800. Covers persistent role navigation, selected destinations, touch targets, overflow, today's default date, empty hours/amounts and unsaved form exit protection.
 - Local production build and Chromium E2E: **218/218 passed**. TypeScript passed; lint has zero errors and six existing effect dependency warnings. Unit tests: **862/862 passed**.
 - Local full integration runs did not complete. The Mac lacks the real `flock` command required by the restore/operations tests (`ops_lock_unavailable`, `spawnSync flock ENOENT`). A failed spawn followed by an unguarded cleanup kill caused exit 137; reproduced safely in a detached process group. The full Linux CI gate remains required before release.
+- Restore and release-apply lock tests now check the real dependency, await successful spawn and guard cleanup with a positive PID. Missing `flock` remains an explicit test failure; no lock tests are disabled or mocked.
 - Screenshots and automated checks establish layout and behavior, not a representative driver/owner usability study or full Safari/accessibility certification.
 
 _A field marked **Repos:** applies only to those repositories; a field without the line is project-wide._

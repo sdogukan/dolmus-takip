@@ -1,5 +1,6 @@
 import { spawn, spawnSync, type ChildProcess } from "node:child_process";
 import crypto from "node:crypto";
+import { once } from "node:events";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
@@ -473,6 +474,17 @@ function preservedSets(): string[] {
 }
 
 describe("scripts/db-restore.ts install", () => {
+  beforeAll(() => {
+    const dependency = spawnSync("flock", ["--version"], { encoding: "utf8", timeout: 5000 });
+    if (dependency.error || dependency.status !== 0) {
+      const detail = dependency.error?.message || dependency.stderr.trim() || `exit=${dependency.status}`;
+      throw new Error(
+        `db-restore install testleri gerçek flock aracı gerektirir; PATH içinde çalıştırılamadı: ${detail}`,
+        { cause: dependency.error },
+      );
+    }
+  });
+
   it("eski app.sqlite/-wal/-shm'i silmeden preserved altına taşır, kopyayı yerleştirir ve bütün oturumları iptal eder", () => {
     writeAfterBackupAndCrash();
     const before = liveFiles();
@@ -561,6 +573,11 @@ describe("scripts/db-restore.ts install", () => {
   it("ortak kilit tutuluyken sınırlı bekler ve 75 ile çıkar; hiçbir şeye dokunmaz", async () => {
     const holder: ChildProcess = spawn("flock", [lockPath, "sleep", "30"], { stdio: "ignore" });
     try {
+      try {
+        await once(holder, "spawn");
+      } catch (cause) {
+        throw new Error("Gerçek flock kilit tutucusu başlatılamadı.", { cause });
+      }
       const deadline = Date.now() + 5000;
       while (spawnSync("flock", ["-n", lockPath, "true"]).status === 0) {
         if (Date.now() > deadline) throw new Error("kilit tutucusu başlamadı");
@@ -571,7 +588,8 @@ describe("scripts/db-restore.ts install", () => {
       expect(liveFiles()).toEqual(before);
       expect(preservedSets()).toEqual([]);
     } finally {
-      holder.kill("SIGKILL");
+      // Başarısız spawn'ın PID'siz handle'ı süreç grubunu hedefleyebilir.
+      if (holder.pid !== undefined && holder.pid > 0) holder.kill("SIGKILL");
     }
   });
 

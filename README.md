@@ -11,6 +11,8 @@ paketlerinde (T6.1+) tamamlanır.
 - **npm** — bağımlılıklar `package-lock.json` ile kilitlenmiştir; başka bir
   paket yöneticisi (yarn/pnpm) kullanılmaz.
 
+Geliştirme komutlarını çalıştırmadan önce repo kökünde `nvm use` çalıştırın.
+
 Kesin sürümler ve gerekçeleri için `docs/tech-stack.md`'ye bakın
 (`better-sqlite3`, `argon2`, `drizzle-orm` gibi native/kritik bağımlılıklar
 dahil).

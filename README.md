@@ -15,6 +15,8 @@ Kesin sürümler ve gerekçeleri için `docs/tech-stack.md`'ye bakın
 (`better-sqlite3`, `argon2`, `drizzle-orm` gibi native/kritik bağımlılıklar
 dahil).
 
+Testleri çalıştırmak için repo kökünde `npm run quality-gate` kullanın.
+
 ## Geliştirme kurulumu
 
 ```bash

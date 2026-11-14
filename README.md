@@ -251,3 +251,23 @@ dosyasını açıp temizler.
   dahil) silmez, `preserved/<zaman>/` altına taşır. `install` ve `report` için
   `DOLMUS_DB_PATH` komutu çalıştıran ortamda tanımlı olmalıdır; script `.env`
   dosyasını yüklemez.
+- **Ortam değişkenleri:** `cp .env.example .env` ile gelen yerel değerler:
+  `DOLMUS_DB_PATH=./data/dev.sqlite` (uygulamanın açtığı SQLite dosyası),
+  `NODE_ENV=development` (yerel çalışma modu; `db:seed-dev` `production`
+  iken çalışmaz), `APP_ORIGIN=http://localhost:3000` (güvenilir origin) ve
+  kasıtlı olarak tanımsız bırakılan `TRUSTED_PROXY`. `APP_ORIGIN`, tarayıcının
+  uygulamayı açtığı adresle (şema + host + port) birebir aynı olmalıdır:
+  yazma isteklerinin (POST/PATCH/…) "aynı kaynak" denetimi bu değerle yapılır;
+  oturum çerezinin Secure bayrağı da `NODE_ENV`'e değil bu değerin şemasına
+  bağlıdır (`https:` ise Secure). Yerel değer, `next dev`'in varsayılan
+  adresidir. İki değer de sunucu açılırken denetlenir ve sessiz bir
+  varsayılana düşülmez: `DOLMUS_DB_PATH` boş/tanımsızsa, gösterdiği dosya
+  yoksa (uygulama dosyayı kendisi oluşturmaz; ilk kurulum `npm run db:init`
+  ile yapılır) ya da dosyada migration uygulanmamışsa/bekliyorsa;
+  `APP_ORIGIN` boş/tanımsızsa, mutlak bir URL değilse ya da şeması
+  http/https değilse sunucu anlaşılır bir hatayla durur.
+  `TRUSTED_PROXY` yerelde tanımlanmaz, çünkü dev makinesinde Caddy yoktur:
+  tanımsızken `X-Forwarded-For` header'ına güvenilmez ve giriş hız sınırı tüm
+  istekler için ortak tek bir anahtar kullanır. `.env` dosyasını
+  `npm run dev` (Next.js kendisi yükler), `npm run db:init` ve
+  `npm run db:seed-dev` okur; yedekleme ve geri yükleme scriptleri okumaz.

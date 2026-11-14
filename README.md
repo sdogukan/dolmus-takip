@@ -221,3 +221,8 @@ dosyası ve gerçek migration ile yapılır; mock veya `:memory:` üzerinde
 kabul edilmez. Bu yüzden `test:integration` testleri paralel çalışmaz
 (`vitest.config.mts` — `fileParallelism: false`) ve her test kendi geçici
 dosyasını açıp temizler.
+
+## Yerel notlar
+
+- **Node sürümü:** proje yerelde **Node.js 24** ile çalıştırılmalıdır; repo
+  kökündeki `.nvmrc` bu sürümü sabitler (`nvm use`).

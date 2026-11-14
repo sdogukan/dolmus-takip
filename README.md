@@ -271,3 +271,8 @@ dosyasını açıp temizler.
   istekler için ortak tek bir anahtar kullanır. `.env` dosyasını
   `npm run dev` (Next.js kendisi yükler), `npm run db:init` ve
   `npm run db:seed-dev` okur; yedekleme ve geri yükleme scriptleri okumaz.
+- **Tarayıcı desteği:** sahada hedeflenen tarayıcılar Android Chrome ve
+  iPhone Safari'dir; ikisi de temsili kullanıcılarla elle denetlenir.
+  Otomatik E2E (Playwright) yalnız Chromium'da koşar (`playwright.config.ts`
+  içindeki tek tarayıcı projesi `chromium`); Safari/WebKit için otomatik test
+  yoktur. Uygulama 320 px genişliğe kadar kullanılabilir olmalıdır.

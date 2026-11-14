@@ -226,3 +226,7 @@ dosyasını açıp temizler.
 
 - **Node sürümü:** proje yerelde **Node.js 24** ile çalıştırılmalıdır; repo
   kökündeki `.nvmrc` bu sürümü sabitler (`nvm use`).
+- **Lint:** `npm run lint` ile çalıştırılır; ESLint flat config
+  (`eslint.config.mjs`) kullanır ve kalite kapısının (`npm run quality-gate`:
+  typecheck → lint → test:unit → test:integration → test:release-ops) ikinci
+  adımıdır. Tek başına koşusu kapı kaydı yazmaz.

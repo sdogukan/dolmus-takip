@@ -276,3 +276,13 @@ dosyasını açıp temizler.
   Otomatik E2E (Playwright) yalnız Chromium'da koşar (`playwright.config.ts`
   içindeki tek tarayıcı projesi `chromium`); Safari/WebKit için otomatik test
   yoktur. Uygulama 320 px genişliğe kadar kullanılabilir olmalıdır.
+- **Erişilebilirlik:** hedef WCAG AA'dır: metin kontrastı ≥ 4,5:1, kontrol
+  kenarlığı ve odak halkası ≥ 3:1. Bu eşikler `src/lib/contrast.ts` birim
+  testleriyle (`npm run test:unit`) doğrulanır; testler, denetlenen renklerin
+  `src/app/globals.css` token'larıyla aynı olduğunu da kontrol eder. Yazılar
+  16 px'ten, form alanları 18 px'ten küçük değildir; dokunma alanları en az
+  48 × 48 px'tir (tek başına duran metin bağlantıları dahil). Odak göstergesi
+  her yerde görünür ve sonuçlar ekran okuyuculara duyurulur. Hedef, 320 px
+  genişlikte ve %200 yakınlaştırmada kullanılabilirliktir. VoiceOver / TalkBack
+  kontrolleri (etiketler, alan hataları, durum duyuruları) elle yapılır;
+  otomatik kontroller tam erişilebilirlik sertifikası yerine geçmez.

@@ -235,3 +235,19 @@ dosyasını açıp temizler.
   `DOLMUS_DB_PATH` tanımsızken de hata verir. Yayın anı 02:55–04:00
   (Europe/Istanbul) penceresine düşen kopya reddedilir; yeni kopya yayımlandıktan
   sonra en yeni iki doğrulanmış kopya tutulur, eskileri silinir.
+- **Geri yükleme:** `node scripts/db-restore.ts verify --manifest <yol>` kopyayı
+  salt okunur doğrular; `node scripts/db-restore.ts install --manifest <yol>`
+  doğrulanan kopyayı canlı DB olarak kurar;
+  `node scripts/db-restore.ts report --started-at <ISO> [--incident-at <ISO>]`
+  canlı DB'den restore kaydını (kurtarılabilir nokta, toparlanma süresi, kayıp
+  aralığı) yazar. Komutlar root olarak çalıştırılmaz (uid 0 reddedilir;
+  sunucuda `sudo -u dolmus-takip` ile) ve repo kökünden değil, adı manifestteki
+  `release_id` olan release dizininden
+  (`/opt/dolmus-takip/releases/<release_id>`) çalıştırılır; başka dizinde
+  `verify` ve `install` `release_mismatch` ile reddeder. `install` sunucuya
+  özgüdür (`systemctl` gerekir): bakım işareti yoksa veya `dolmus-takip.service`
+  durmuş (`inactive`/`failed`) değilse reddeder; kurulan kopyadaki BÜTÜN
+  oturumları iptal eder ve canlı DB dosyalarını (`-wal`/`-shm`/`-journal`
+  dahil) silmez, `preserved/<zaman>/` altına taşır. `install` ve `report` için
+  `DOLMUS_DB_PATH` komutu çalıştıran ortamda tanımlı olmalıdır; script `.env`
+  dosyasını yüklemez.

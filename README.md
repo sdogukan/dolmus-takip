@@ -226,3 +226,12 @@ dosyasını açıp temizler.
 
 - **Node sürümü:** proje yerelde **Node.js 24** ile çalıştırılmalıdır; repo
   kökündeki `.nvmrc` bu sürümü sabitler (`nvm use`).
+- **Yedekleme:** tutarlı SQLite kopyası `node scripts/db-backup.ts run` ile
+  alınır (alt komut verilmezse `run` çalışır); `node scripts/db-backup.ts status`
+  tutulan kopyaları ve hash uyumunu salt okunur listeler. Script `.env`
+  dosyasını yüklemez: `DOLMUS_DB_PATH` (canlı DB) ve `DOLMUS_BACKUP_DIR` (var
+  olan kopya dizini, otomatik oluşturulmaz) komutu çalıştıran ortamda tanımlı
+  olmalıdır. `DOLMUS_BACKUP_DIR` tanımsızsa iki komut da hata verir; `run`
+  `DOLMUS_DB_PATH` tanımsızken de hata verir. Yayın anı 02:55–04:00
+  (Europe/Istanbul) penceresine düşen kopya reddedilir; yeni kopya yayımlandıktan
+  sonra en yeni iki doğrulanmış kopya tutulur, eskileri silinir.

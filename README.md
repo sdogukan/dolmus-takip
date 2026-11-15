@@ -286,3 +286,7 @@ dosyasını açıp temizler.
   genişlikte ve %200 yakınlaştırmada kullanılabilirliktir. VoiceOver / TalkBack
   kontrolleri (etiketler, alan hataları, durum duyuruları) elle yapılır;
   otomatik kontroller tam erişilebilirlik sertifikası yerine geçmez.
+- **Editör ayarları:** `.vscode/` ve `.idea/` klasörleri `.gitignore` ile
+  repo dışında tutulur. Repoda ortak editör/biçimlendirici ayar dosyası
+  (`.editorconfig`, Prettier yapılandırması) yoktur. Kod denetimi
+  `eslint.config.mjs` ile `npm run lint` üzerinden yapılır.

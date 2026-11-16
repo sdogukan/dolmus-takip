@@ -290,3 +290,10 @@ dosyasını açıp temizler.
   repo dışında tutulur. Repoda ortak editör/biçimlendirici ayar dosyası
   (`.editorconfig`, Prettier yapılandırması) yoktur. Kod denetimi
   `eslint.config.mjs` ile `npm run lint` üzerinden yapılır.
+- **Log kayıtları:** ayrı bir log dosyası yoktur; uygulama kayıtlarını
+  standart çıktıya (stdout/stderr) yazar. Yerelde `npm run dev`
+  (`next dev`) kayıtları terminale düşer. Sunucuda servis, sağlık görevi ve
+  Caddy kayıtları journald'da tutulur: `deploy/journald/dolmus-takip.conf`
+  depolamayı kalıcı yapar (`Storage=persistent`) ve toplamı ~200 MB ile
+  sınırlar (`SystemMaxUse=200M`). Bu yapılandırma hazırlandı, gerçek
+  sunucuda henüz denenmedi.

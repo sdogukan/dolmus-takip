@@ -309,3 +309,5 @@ dosyasını açıp temizler.
   görünür bir odak halkası çizilir. Onay pencerelerinde (`ConfirmDialog`)
   `Escape` "Vazgeç" ile aynı işi yapar, sonuçlu işlem tetiklenmez; pencere
   kapanınca odak onu açan düğmeye döner.
+- **Destek:** kodla ilgili sorular için
+  https://github.com/sdogukan/dolmus-takip/issues adresinde bir issue açılır.

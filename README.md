@@ -297,3 +297,6 @@ dosyasını açıp temizler.
   depolamayı kalıcı yapar (`Storage=persistent`) ve toplamı ~200 MB ile
   sınırlar (`SystemMaxUse=200M`). Bu yapılandırma hazırlandı, gerçek
   sunucuda henüz denenmedi.
+- **Sürüm numarası:** uygulamanın sürüm numarası `package.json` içindeki
+  `version` alanında yazar (şu an `0.1.0`), ancak `release:build` arşivleri bu
+  numarayı taşımaz, kısa commit sha'sıyla (`<kısa-sha>`) adlandırılır.

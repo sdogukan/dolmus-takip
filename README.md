@@ -300,3 +300,12 @@ dosyasını açıp temizler.
 - **Sürüm numarası:** uygulamanın sürüm numarası `package.json` içindeki
   `version` alanında yazar (şu an `0.1.0`), ancak `release:build` arşivleri bu
   numarayı taşımaz, kısa commit sha'sıyla (`<kısa-sha>`) adlandırılır.
+- **Klavye kısayolları:** uygulama kendine özgü bir klavye kısayolu
+  tanımlamaz; tarayıcının standart davranışı geçerlidir. `Tab` / `Shift+Tab`
+  odağı sayfadaki sırayla ileri/geri taşır (yönetim ve araç sayfalarında ilk
+  durak "İçeriğe geç" bağlantısıdır). Formun metin alanında `Enter` formu
+  gönderir (çok satırlı `textarea` içinde yeni satır açar). Klavyeyle
+  odaklanan öğede `src/app/globals.css` içindeki `:focus-visible` kuralıyla
+  görünür bir odak halkası çizilir. Onay pencerelerinde (`ConfirmDialog`)
+  `Escape` "Vazgeç" ile aynı işi yapar, sonuçlu işlem tetiklenmez; pencere
+  kapanınca odak onu açan düğmeye döner.

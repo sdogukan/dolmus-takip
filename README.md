@@ -311,3 +311,7 @@ dosyasını açıp temizler.
   kapanınca odak onu açan düğmeye döner.
 - **Destek:** kodla ilgili sorular için
   https://github.com/sdogukan/dolmus-takip/issues adresinde bir issue açılır.
+
+## Notlar
+
+Bu satır DIJJI dev testi için eklendi (kapatılan PR testi).

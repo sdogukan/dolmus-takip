@@ -315,3 +315,5 @@ dosyasını açıp temizler.
 ## Notlar
 
 Bu satır DIJJI dev testi için eklendi (kapatılan PR testi).
+
+Bu satır DIJJI dev testi için eklendi (yayın başarısız sonra başarılı testi).

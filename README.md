@@ -315,3 +315,7 @@ dosyasını açıp temizler.
 ## Notlar
 
 Bu satır DIJJI dev testi için eklendi (kapatılan PR testi).
+
+## Yerel notlar: kapatilan PR denemesi
+
+Bu satir dev canli denemesi icin eklendi (test 7).
